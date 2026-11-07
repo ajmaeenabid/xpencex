@@ -27,7 +27,7 @@ export async function downloadBackup(uid: string, password?: string) {
 export interface RestoreResult { added: number; skipped: number; failed: number }
 
 // Accounts first, so expenses, history and loans that point to them line up
-const ORDER: BackupCollection[] = ['accounts', 'balanceHistory', 'expenses', 'deposits', 'recurring', 'categories', 'debts', 'chats'];
+const ORDER: BackupCollection[] = ['accounts', 'balanceHistory', 'expenses', 'deposits', 'recurring', 'categories', 'debts', 'funds', 'chats'];
 const BATCH = 100;
 
 /** Adds everything in the backup that isn't in the app yet. Nothing already there is changed. */

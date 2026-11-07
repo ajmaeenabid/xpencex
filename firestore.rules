@@ -173,6 +173,18 @@ service cloud.firestore {
              (!('feeling' in data) || data.feeling in ['worth', 'regret']);
     }
 
+    // Festival funds: a savings goal for an occasion (src/features/funds/funds.ts)
+    function isValidFund(data) {
+      return data.keys().hasAll(['uid', 'name', 'target', 'dueDate', 'saved', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'name', 'target', 'dueDate', 'saved', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             isPositive(data.target) &&
+             isValidDateString(data.dueDate) &&
+             data.saved is number && data.saved >= 0 &&
+             isValidDateString(data.createdAt);
+    }
+
     // Lend and borrow with people (src/features/debts/debts.ts)
     function isValidDebt(data) {
       return data.keys().hasAll(['uid', 'person', 'kind', 'amount', 'date', 'createdAt']) &&
@@ -337,6 +349,13 @@ service cloud.firestore {
     match /deposits/{depositId} {
       allow read: if isDocOwner();
       allow create: if isAuthenticated() && isValidDeposit(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /funds/{fundId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidFund(request.resource.data);
+      allow update: if isDocOwner() && isValidFund(request.resource.data) && uidNotModified();
       allow delete: if isDocOwner();
     }
 

@@ -66,7 +66,7 @@ export interface AuthUser {
 const PAGE = 500;
 
 // Collections that hold a user's data, each document tagged with their uid
-const USER_COLLECTIONS = ['expenses', 'recurring', 'categories', 'accounts', 'deposits', 'chats', 'notices', 'loans', 'devices', 'deviceRequests', 'usernames', 'balanceHistory', 'debts'];
+const USER_COLLECTIONS = ['expenses', 'recurring', 'categories', 'accounts', 'deposits', 'chats', 'notices', 'loans', 'devices', 'deviceRequests', 'usernames', 'balanceHistory', 'debts', 'funds'];
 
 export type Fields = Record<string, string>;
 type FirestoreDoc = { name?: string; fields?: Record<string, { stringValue?: string }> };

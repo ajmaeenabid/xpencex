@@ -1,7 +1,7 @@
 // Backup file: plain rules, no database calls. A backup is one JSON file with all of a user's data,
 // optionally locked with a password (AES-GCM, with a key made from the password by PBKDF2).
 
-export const BACKUP_COLLECTIONS = ['accounts', 'balanceHistory', 'expenses', 'deposits', 'recurring', 'categories', 'loans', 'debts', 'chats'] as const;
+export const BACKUP_COLLECTIONS = ['accounts', 'balanceHistory', 'expenses', 'deposits', 'recurring', 'categories', 'loans', 'debts', 'funds', 'chats'] as const;
 export type BackupCollection = (typeof BACKUP_COLLECTIONS)[number];
 
 type Item = Record<string, unknown> & { id: string };
