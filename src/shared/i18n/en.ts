@@ -697,6 +697,7 @@ export const en = {
   'chat.incomeSaved': '✅ Added **{amount}** to **{account}**.',
   'chat.balanceMatched': 'Its balance now matches the SMS: **{balance}**.',
   'chat.saveFailed': "I couldn't save that. Please try again.",
+  'chat.smsAlreadySaved': "You've already saved this SMS, so I didn't add it again.",
   'chat.syncBefore': "Also set this account's balance to",
   'chat.syncAfter': ', as the SMS says',
 };

@@ -12,7 +12,7 @@ import { ReplyLanguage } from './language';
 type AddMessage = (role: 'user' | 'assistant', content: string, type?: ChatMessage['type']) => string;
 
 /** Saving what a confirm card shows: an expense, or money in to an account */
-export function useConfirmActions({ user, messages, accounts, currencySymbol, tIn, t, addMessage, markResolved, setPendingExpense }: {
+export function useConfirmActions({ user, messages, accounts, currencySymbol, tIn, t, addMessage, markResolved }: {
   user: User | null;
   messages: ChatMessage[];
   accounts: Account[];
@@ -21,7 +21,6 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
   t: TFunction;
   addMessage: AddMessage;
   markResolved: (id: string, saved?: boolean) => void;
-  setPendingExpense: (expense: Partial<Expense> | null) => void;
 }) {
   const [isConfirming, setIsConfirming] = useState(false);
   // "Paid from" choice for each confirmation card, by message id
@@ -53,7 +52,7 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
     try {
       if (sms && await alreadySaved(sms.ref)) {
         markResolved(messageId);
-        addMessage('assistant', "You've already saved this SMS, so I didn't add it again.");
+        addMessage('assistant', tIn(msg.replyLang)('chat.smsAlreadySaved'));
         return;
       }
       const say = tIn(msg.replyLang);
@@ -91,7 +90,7 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
 
     if (sms && await alreadySaved(sms.ref)) {
       markResolved(messageId);
-      addMessage('assistant', "You've already saved this SMS, so I didn't add it again.");
+      addMessage('assistant', say('chat.smsAlreadySaved'));
       return;
     }
 
@@ -122,7 +121,6 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
       addMessage('assistant', payment.accountName
         ? say('chat.expenseSavedFrom', { title: expense.title || '', amount: `${currencySymbol}${amount}`, account: payment.accountId === CASH_ID ? say('accounts.cash') : payment.accountName })
         : say('chat.expenseSaved', { title: expense.title || '', amount: `${currencySymbol}${amount}` }));
-      setPendingExpense(null);
     } catch (error) {
       addMessage('assistant', say('chat.expenseSaveFailed'), 'error');
     } finally {

@@ -108,7 +108,7 @@ export function ExpenseCard({ msg, cards }: { msg: WithExpense; cards: CardActio
           {isConfirming ? (
             <>
               <Loader2 size={16} className="animate-spin" />
-              Saving…
+              {t('common.saving')}
             </>
           ) : (
             t('chat.confirm')

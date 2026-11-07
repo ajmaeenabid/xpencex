@@ -702,6 +702,7 @@ export const bn: Messages = {
   'chat.incomeSaved': '✅ **{account}**-এ **{amount}** যোগ হয়েছে।',
   'chat.balanceMatched': 'এর ব্যালেন্স এখন এসএমএসের সাথে মিলে গেছে: **{balance}**।',
   'chat.saveFailed': 'সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',
+  'chat.smsAlreadySaved': 'আপনি এই SMS টি আগেই সংরক্ষণ করেছেন, তাই আবার যোগ করিনি।',
   'chat.syncBefore': 'এসএমএস অনুযায়ী এই অ্যাকাউন্টের ব্যালেন্সও',
   'chat.syncAfter': ' করে দিন',
 };

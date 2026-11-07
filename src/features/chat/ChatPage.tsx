@@ -45,7 +45,6 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   const { t, lang } = useI18n();
   const [status, setStatus] = useState<TKey>('chat.status.thinking');
   const [openSteps, setOpenSteps] = useState<Set<string>>(new Set());
-  const [pendingExpense, setPendingExpense] = useState<Partial<Expense> | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -111,7 +110,6 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
         addMessage('assistant', say('chat.noCategory'), 'error', undefined, { backupModel: result.backup, replyLang });
       } else {
         addMessage('assistant', say(askKey), 'expense_confirmation', result.expense, { backupModel: result.backup, replyLang });
-        setPendingExpense(result.expense);
       }
     } else {
       addMessage('assistant', result.content, 'text', undefined, { steps: result.steps, backupModel: result.backup, replyLang });
@@ -133,7 +131,7 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   });
 
   const { isConfirming, accountChoices, setAccountChoices, syncChoices, setSyncChoices, confirmIncome, confirmExpense } = useConfirmActions({
-    user, messages, accounts, currencySymbol, tIn, t, addMessage, markResolved, setPendingExpense,
+    user, messages, accounts, currencySymbol, tIn, t, addMessage, markResolved,
   });
 
   // Per-chat messages and anything only meant for the chat being left
