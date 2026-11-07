@@ -1,5 +1,6 @@
 import { google, AuthUser, encodeFields } from './google';
 import { isFreshGoogleSignIn } from './deviceRules';
+import { healthView } from './health';
 
 export interface AdminEnv {
   FIREBASE_PROJECT_ID: string;
@@ -32,7 +33,22 @@ async function removeUser(g: G, uid: string, onDeleted: (uid: string) => Promise
   const removed = await g.deleteUserData(uid);
   await onDeleted(uid);
   await g.deleteLogin(uid);
+  await forgetInLog(g, uid);
   return removed;
+}
+
+/** The admin log keeps what happened and when, but nothing that says who, once a person is deleted */
+async function forgetInLog(g: G, uid: string) {
+  const entries = await g.query({
+    from: [{ collectionId: 'adminLog' }],
+    where: { fieldFilter: { field: { fieldPath: 'targetUid' }, op: 'EQUAL', value: { stringValue: uid } } },
+    limit: 500,
+  });
+  if (entries.length === 0) return;
+  await g.commit(entries.map((e) => ({
+    update: { name: e.name, fields: encodeFields({ targetUid: '', username: '' }) },
+    updateMask: { fieldPaths: ['targetUid', 'username'] },
+  })));
 }
 
 /**
@@ -64,12 +80,20 @@ export async function handleAdmin(path: string, callerUid: string, claims: Recor
   const record = async (action: Action, target: AuthUser, username: string) => {
     const at = new Date().toISOString();
     try {
-      await g.addDoc('adminLog', { action, adminUid: callerUid, targetUid: target.localId, username, at });
+      // A delete is logged without the person's id or name (the app shows "Deleted user")
+      const forgotten = action === 'delete';
+      await g.addDoc('adminLog', { action, adminUid: callerUid, targetUid: forgotten ? '' : target.localId, username: forgotten ? '' : username, at });
       if (action !== 'delete') await g.addDoc('notices', { uid: target.localId, type: action, at });
     } catch (err) {
       console.error('Could not write the admin log', action, target.localId, err);
     }
   };
+
+  // When the hourly jobs last ran, and whether they failed
+  if (path === '/admin/health') {
+    const health = await g.getTyped('meta', 'health');
+    return json({ health: healthView(health?.data ?? null) });
+  }
 
   if (path === '/admin/log') {
     const entries = await g.latest('adminLog', 50);

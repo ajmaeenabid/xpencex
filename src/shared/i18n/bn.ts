@@ -173,6 +173,14 @@ export const bn: Messages = {
   'admin.logDeviceApproved': '{user}-এর একটি ডিভাইস অনুমোদন করা হয়েছে',
   'admin.logDeviceRefused': '{user}-এর একটি ডিভাইস বাতিল করা হয়েছে',
   'admin.logDeviceRemoved': '{user}-এর একটি ডিভাইস সরানো হয়েছে',
+  'admin.deletedUser': 'মুছে ফেলা ব্যবহারকারী',
+  'admin.healthTitle': 'প্রতি ঘণ্টার কাজ',
+  'admin.healthLoans': 'ঋণের কিস্তি',
+  'admin.healthRates': 'বিনিময় হার',
+  'admin.healthOk': 'সর্বশেষ চলেছে {time}',
+  'admin.healthLate': '২ ঘণ্টার বেশি চলেনি। এআই সার্ভার পরীক্ষা করুন।',
+  'admin.healthNever': 'এখনও চলেনি। এআই সার্ভার ডিপ্লয় হলে এটি প্রতি ঘণ্টায় চলবে।',
+  'admin.healthFailed': 'শেষবার চলতে ব্যর্থ হয়েছে: {error}',
 
   // Notices the admin's actions leave in the user's Profile
   'notices.title': 'অ্যাকাউন্টের কার্যক্রম',

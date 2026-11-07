@@ -13,22 +13,43 @@ export const LOAN_CATEGORY = 'Loan payment';
  * same moment can't take the same installment twice.
  */
 export async function processDueLoans(g: Google, uid?: string, now = Date.now()): Promise<number> {
-  const where = uid
-    ? { fieldFilter: { field: { fieldPath: 'uid' }, op: 'EQUAL', value: { stringValue: uid } } }
-    : { fieldFilter: { field: { fieldPath: 'nextDueDate' }, op: 'LESS_THAN_OR_EQUAL', value: { stringValue: new Date(now).toISOString() } } };
-  const loans = (await g.query({ from: [{ collectionId: 'loans' }], where, limit: 500 }))
-    .filter((l) => l.data.status === 'active' && typeof l.data.nextDueDate === 'string' && Date.parse(l.data.nextDueDate) <= now);
-
   let taken = 0;
-  for (const loan of loans) {
-    try {
-      taken += await payLoan(g, loan, now);
-    } catch (err) {
-      // Most often another run got there first; the next run tries again if anything is still due
-      console.error('Loan installment not taken', loan.id, err);
+  for await (const page of duePages(g, uid, now)) {
+    const loans = page.filter((l) => l.data.status === 'active' && typeof l.data.nextDueDate === 'string' && Date.parse(l.data.nextDueDate) <= now);
+    for (const loan of loans) {
+      try {
+        taken += await payLoan(g, loan, now);
+      } catch (err) {
+        // Most often another run got there first; the next run tries again if anything is still due
+        console.error('Loan installment not taken', loan.id, err);
+      }
     }
   }
   return taken;
+}
+
+export const LOAN_PAGE = 500;
+
+/** The loans to look at, 500 at a time: one person's loans, or everyone's that have come due */
+export async function* duePages(g: Google, uid: string | undefined, now: number) {
+  const where = uid
+    ? { fieldFilter: { field: { fieldPath: 'uid' }, op: 'EQUAL', value: { stringValue: uid } } }
+    : { fieldFilter: { field: { fieldPath: 'nextDueDate' }, op: 'LESS_THAN_OR_EQUAL', value: { stringValue: new Date(now).toISOString() } } };
+  // Ordered, so each page starts after the last loan of the one before
+  const orderBy = uid
+    ? [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }]
+    : [{ field: { fieldPath: 'nextDueDate' }, direction: 'ASCENDING' }, { field: { fieldPath: '__name__' }, direction: 'ASCENDING' }];
+  let last: TypedDoc | undefined;
+  for (;;) {
+    const startAt = last && {
+      values: uid ? [{ referenceValue: last.name }] : [encode(last.data.nextDueDate as string), { referenceValue: last.name }],
+      before: false,
+    };
+    const page = await g.query({ from: [{ collectionId: 'loans' }], where, orderBy, ...(startAt && { startAt }), limit: LOAN_PAGE });
+    yield page;
+    if (page.length < LOAN_PAGE) return;
+    last = page[page.length - 1];
+  }
 }
 
 async function payLoan(g: Google, loan: TypedDoc, now: number): Promise<number> {

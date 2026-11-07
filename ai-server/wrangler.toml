@@ -15,7 +15,7 @@ LIVE_SECONDS = "60"
 LIVE_MODEL = "gemini-3.8-live"
 # Web addresses allowed to call this server. The first one is the fallback.
 # Add your deployed app's address here when you put it online.
-ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:5173"
+ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:5173,https://xpensex-abid.web.app,https://xpensex-abid.firebaseapp.com"
 # User IDs (Firebase Console > Authentication > Users > User UID) that may use the admin panel.
 # Separate several with commas. The admin key itself is the FIREBASE_SERVICE_ACCOUNT secret.
 ADMIN_UIDS = "vNQuoT4KGBTItv1tLZkAO255xuv1"

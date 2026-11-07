@@ -7,8 +7,9 @@ import { cn } from '../../shared/lib/utils';
 import { WorkerError } from '../../shared/lib/workerApi';
 import { useI18n, TKey } from '../../shared/i18n';
 import { WrongGoogleAccountError, signInWasCancelled } from '../auth/googleSignIn';
-import { AdminAction, AdminLogEntry, AdminUser, UserFilter, UserStatus, deleteConfirmed, displayName, userStatus, visibleUsers } from './admin';
-import { approveDevice, checkIsAdmin, confirmWithGoogle, deleteUser, listLog, listUsers, refuseDevice, removeDevice, setSuspended } from './adminService';
+import { AdminAction, AdminHealth, AdminLogEntry, AdminUser, UserFilter, UserStatus, deleteConfirmed, displayName, userStatus, visibleUsers } from './admin';
+import { approveDevice, checkIsAdmin, confirmWithGoogle, deleteUser, getHealth, listLog, listUsers, refuseDevice, removeDevice, setSuspended } from './adminService';
+import HealthBox from './HealthBox';
 import { confirmDialog } from '../../shared/components/Dialog';
 
 const LOG_TEXT: Record<AdminAction, TKey> = {
@@ -55,6 +56,7 @@ export default function AdminPanel() {
   const [unlocking, setUnlocking] = useState(false);
   const [view, setView] = useState<'users' | 'log'>('users');
   const [log, setLog] = useState<AdminLogEntry[]>([]);
+  const [health, setHealth] = useState<AdminHealth | null>(null);
 
   useEffect(() => { checkIsAdmin().then(setIsAdmin); }, []);
 
@@ -63,6 +65,8 @@ export default function AdminPanel() {
   const load = async () => {
     setLoading(true);
     setLoadError(false);
+    // On its own, so a problem here never stops the user list from loading
+    getHealth().then(setHealth).catch(err => console.error('Could not load job health:', err));
     try {
       const [nextUsers, nextLog] = await Promise.all([listUsers(), listLog()]);
       setUsers(nextUsers);
@@ -376,6 +380,7 @@ export default function AdminPanel() {
                   <p className="flex items-start gap-2 text-[11px] text-muted font-medium">
                     <ShieldAlert size={14} className="shrink-0 mt-px text-indigo-600 dark:text-indigo-400" /> {t('admin.privacyNote')}
                   </p>
+                  {health && <HealthBox health={health} />}
                   <div role="tablist" className="p-1 grid grid-cols-2 gap-1 bg-background/60 rounded-2xl">
                     {([
                       { id: 'users', label: t('admin.tabUsers'), Icon: Users },
@@ -451,7 +456,7 @@ export default function AdminPanel() {
                       <p className="text-center py-10 text-sm text-muted font-medium">{t('admin.logEmpty')}</p>
                     ) : log.filter(entry => LOG_TEXT[entry.action]).map((entry, i) => (
                       <div key={`${entry.at}-${i}`} className="flex items-center justify-between gap-3 p-3 bg-background/50 rounded-xl border border-card-border">
-                        <p className="text-sm font-bold text-foreground truncate">{t(LOG_TEXT[entry.action], { user: entry.username })}</p>
+                        <p className="text-sm font-bold text-foreground truncate">{t(LOG_TEXT[entry.action], { user: entry.username || t('admin.deletedUser') })}</p>
                         <p className="text-[11px] text-muted font-medium shrink-0">{entry.at && format(new Date(entry.at), 'd MMM, h:mm a', { locale: dateLocale })}</p>
                       </div>
                     ))

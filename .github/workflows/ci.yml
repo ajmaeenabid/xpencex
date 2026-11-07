@@ -14,7 +14,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ai-server/package-lock.json
       - run: npm ci
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      # The AI server has its own packages and type check
+      - run: npm ci
+        working-directory: ai-server
+      - run: npx tsc --noEmit
+        working-directory: ai-server

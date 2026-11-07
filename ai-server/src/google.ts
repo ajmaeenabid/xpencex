@@ -62,6 +62,9 @@ export interface AuthUser {
   lastLoginAt?: string;
 }
 
+// How many documents one query reads at a time
+const PAGE = 500;
+
 // Collections that hold a user's data, each document tagged with their uid
 const USER_COLLECTIONS = ['expenses', 'recurring', 'categories', 'accounts', 'deposits', 'chats', 'notices', 'loans', 'devices', 'deviceRequests', 'usernames'];
 
@@ -228,10 +231,24 @@ export function google(serviceAccountJson: string, projectId: string) {
       return call(`${dbApi}:commit`, { writes });
     },
 
-    /** Every document in a small collection */
+    /** Every document in a collection, read 500 at a time */
     async listAll(collectionId: string): Promise<Fields[]> {
-      const rows = await call<{ document?: FirestoreDoc }[]>(`${dbApi}:runQuery`, { structuredQuery: { from: [{ collectionId }], limit: 500 } });
-      return rows.flatMap((r) => (r.document ? [fromFirestore(r.document)] : []));
+      const all: Fields[] = [];
+      let after: string | undefined;
+      for (;;) {
+        const rows = await call<{ document?: FirestoreDoc }[]>(`${dbApi}:runQuery`, {
+          structuredQuery: {
+            from: [{ collectionId }],
+            orderBy: [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }],
+            ...(after && { startAt: { values: [{ referenceValue: after }], before: false } }),
+            limit: PAGE,
+          },
+        });
+        const docs = rows.flatMap((r) => (r.document ? [r.document] : []));
+        all.push(...docs.map(fromFirestore));
+        if (docs.length < PAGE || !docs[docs.length - 1].name) return all;
+        after = docs[docs.length - 1].name;
+      }
     },
 
     /** This user's documents in a collection whose fields are all text */

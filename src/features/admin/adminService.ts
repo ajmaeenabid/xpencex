@@ -2,7 +2,7 @@ import { signInWithCustomToken } from 'firebase/auth';
 import { auth } from '../../shared/firebase';
 import { callWorker } from '../../shared/lib/workerApi';
 import { freshGoogleToken } from '../auth/googleSignIn';
-import { AdminLogEntry, AdminUser } from './admin';
+import { AdminHealth, AdminLogEntry, AdminUser } from './admin';
 
 /** The admin confirms with Google; the server only accepts admin changes for 10 minutes after this */
 export async function confirmWithGoogle() {
@@ -11,6 +11,8 @@ export async function confirmWithGoogle() {
 }
 
 export const listLog = () => callWorker<{ entries: AdminLogEntry[] }>('/admin/log').then(r => r.entries);
+
+export const getHealth = () => callWorker<{ health: AdminHealth }>('/admin/health').then(r => r.health);
 
 // The server decides who is an admin (ADMIN_UIDS); the app only asks, so it can't be faked here
 export const checkIsAdmin = () => callWorker<{ admin: boolean }>('/admin/me').then(r => r.admin).catch(() => false);

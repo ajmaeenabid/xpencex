@@ -23,6 +23,11 @@ vi.mock('../../../ai-server/src/google', async (original) => {
       listAll: async (c: string) => [...col(c).values()],
       latest: async (c: string) => [...col(c).values()],
       getTyped: async (c: string, id: string) => (col(c).has(id) ? { data: col(c).get(id) } : null),
+      query: async (q: { from: { collectionId: string }[]; where: { fieldFilter: { field: { fieldPath: string }; value: { stringValue: string } } } }) => {
+        const c = q.from[0].collectionId;
+        const { field, value } = q.where.fieldFilter;
+        return [...col(c).entries()].filter(([, d]) => d[field.fieldPath] === value.stringValue).map(([id, d]) => ({ name: `${c}/${id}`, id, updateTime: '', data: d }));
+      },
       customToken: async (uid: string, claims: Doc) => JSON.stringify({ uid, claims }),
       docName: (c: string, id: string) => `${c}/${id}`,
       getUser: async (uid: string) => logins.get(uid) ?? null,
@@ -327,5 +332,40 @@ describe('admin actions', () => {
     const res = await read(await handleAdmin('/admin/delete', 'boss', { deviceId: 'bossPhone', adminUntil: Date.now() / 1000 + 60 }, { uid: 'mim', confirm: 'mim_r' }, env, json, async (uid) => void cleared.push(uid), noGoogle));
     expect(res.status).toBe(200);
     expect(cleared).toEqual(['mim']);
+  });
+});
+
+describe('the admin log after a delete', () => {
+  beforeEach(() => {
+    db.clear();
+    logins.clear();
+    for (const uid of ['boss', 'mim']) logins.set(uid, { localId: uid, email: `${uid}@gmail.com` });
+  });
+
+  it('keeps what happened and when, but no longer says who', async () => {
+    await pick('mim', 'mim_r');
+    await admin('/admin/suspend', { uid: 'mim', suspended: true });
+    await admin('/admin/suspend', { uid: 'mim', suspended: false });
+    expect((await admin('/admin/delete', { uid: 'mim', confirm: 'mim_r' })).status).toBe(200);
+    const log = [...col('adminLog').values()];
+    expect(log.map((e) => e.action).sort()).toEqual(['delete', 'restored', 'suspended']);
+    expect(log.every((e) => e.username === '' && e.targetUid === '')).toBe(true);
+    expect(log.every((e) => typeof e.at === 'string' && e.at)).toBe(true);
+  });
+
+  it("leaves other people's log entries alone", async () => {
+    logins.set('zara', { localId: 'zara', email: 'zara@gmail.com' });
+    await pick('mim', 'mim_r');
+    await pick('zara', 'zara_k');
+    await admin('/admin/suspend', { uid: 'zara', suspended: true });
+    await admin('/admin/delete', { uid: 'mim', confirm: 'mim_r' });
+    expect([...col('adminLog').values()].find((e) => e.action === 'suspended')).toMatchObject({ username: 'zara_k', targetUid: 'zara' });
+  });
+
+  it('gives the admin panel the health of the hourly jobs', async () => {
+    col('meta').set('health', { loansAt: new Date().toISOString(), loansError: '' });
+    const res = await admin('/admin/health', {});
+    expect(res.health.loans.late).toBe(false);
+    expect(res.health.rates.late).toBe(true);
   });
 });

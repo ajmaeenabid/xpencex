@@ -168,6 +168,14 @@ export const en = {
   'admin.logDeviceApproved': 'Approved a device for {user}',
   'admin.logDeviceRefused': 'Refused a device for {user}',
   'admin.logDeviceRemoved': 'Removed a device from {user}',
+  'admin.deletedUser': 'Deleted user',
+  'admin.healthTitle': 'Hourly jobs',
+  'admin.healthLoans': 'Loan installments',
+  'admin.healthRates': 'Exchange rates',
+  'admin.healthOk': 'Last ran {time}',
+  'admin.healthLate': "Hasn't run for over 2 hours. Check the AI server.",
+  'admin.healthNever': 'Has not run yet. It runs every hour once the AI server is deployed.',
+  'admin.healthFailed': 'The last run failed: {error}',
 
   // Notices the admin's actions leave in the user's Profile
   'notices.title': 'Account activity',

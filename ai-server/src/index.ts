@@ -6,6 +6,7 @@ import { refreshRates } from './rates';
 import { google } from './google';
 import { handleLive } from './live';
 import { verifyFirebaseToken } from './auth';
+import { recordRun } from './health';
 import { bdDay } from './loanDates';
 import { LIMIT_KINDS, LimitKind, MAX_BODY_BYTES, classifyParts, dailyLimits, firstBlocked, limitsView } from './usage';
 
@@ -264,15 +265,18 @@ export default {
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     if (!env.FIREBASE_SERVICE_ACCOUNT) return;
     const g = google(env.FIREBASE_SERVICE_ACCOUNT, env.FIREBASE_PROJECT_ID);
+    // Each run is noted in meta/health, so the admin panel can warn when a job fails or stops running
+    const noted = (job: 'loans' | 'rates', error?: unknown) =>
+      recordRun(g, job, error).catch((err) => console.error('Could not record the job run', job, err));
     ctx.waitUntil(
       processDueLoans(g)
-        .then((taken) => { if (taken) console.log(`Took ${taken} loan installments`); })
-        .catch((err) => console.error('Scheduled loan processing failed', err)),
+        .then((taken) => { if (taken) console.log(`Took ${taken} loan installments`); return noted('loans'); })
+        .catch((err) => { console.error('Scheduled loan processing failed', err); return noted('loans', err); }),
     );
     ctx.waitUntil(
       refreshRates(g)
-        .then((updated) => { if (updated) console.log('Exchange rates updated'); })
-        .catch((err) => console.error('Scheduled rate refresh failed', err)),
+        .then((updated) => { if (updated) console.log('Exchange rates updated'); return noted('rates'); })
+        .catch((err) => { console.error('Scheduled rate refresh failed', err); return noted('rates', err); }),
     );
   },
 };

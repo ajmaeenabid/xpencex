@@ -24,9 +24,19 @@ export type AdminAction = 'suspended' | 'restored' | 'delete' | 'deviceApproved'
 
 export interface AdminLogEntry {
   action: AdminAction;
-  username: string;
+  username: string; // empty once that person was deleted
   at: string;
 }
+
+/** When one of the server's hourly jobs last ran (see ai-server/src/health.ts) */
+export interface JobHealth {
+  lastRun: string | null;
+  error: string;
+  late: boolean;
+}
+
+export const HEALTH_JOBS = ['loans', 'rates'] as const;
+export type AdminHealth = Record<(typeof HEALTH_JOBS)[number], JobHealth>;
 
 // A notice the server leaves in a user's Profile when the admin changes their account
 export interface AccountNotice {
