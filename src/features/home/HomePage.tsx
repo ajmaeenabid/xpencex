@@ -5,9 +5,9 @@ import { useAuth } from '../../app/App';
 import { Expense } from '../../shared/types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Wallet, Clock, Tag, Sparkles, AlertTriangle, CheckCircle2, Info, Landmark, Smartphone, ChevronRight, Sun, Moon, Eye, EyeOff, HandCoins, Calculator } from 'lucide-react';
-import CalculatorSheet from '../calculator/CalculatorSheet';
+import { CalculatorSheet, SpendingCharts } from '../../app/lazyParts';
+import LazyPart, { LoadingSpot } from '../../shared/components/LazyPart';
 import { format, startOfMonth, startOfWeek, subMonths } from 'date-fns';
-import SpendingCharts from '../reports/SpendingCharts';
 import { useAccounts } from '../accounts/accountService';
 import { useLoans } from '../accounts/loanService';
 import { activeLoans, nextAmount } from '../accounts/loans';
@@ -30,6 +30,9 @@ const INSIGHT_STYLES: Record<Insight['tone'], { icon: typeof Info; className: st
 
 export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }: { onViewAll?: () => void; onManageAccounts?: () => void; onSaveExpense?: (amount: number, people?: number) => void }) {
   const [calcOpen, setCalcOpen] = useState(false);
+  // The calculator downloads on its first use, then stays, so it keeps what was typed
+  const [calcUsed, setCalcUsed] = useState(false);
+  useEffect(() => { if (calcOpen) setCalcUsed(true); }, [calcOpen]);
   const layout = useRearrange('home', HOME_SECTIONS);
   const { user, profile, isDarkMode, toggleDarkMode } = useAuth();
   const { t, dateLocale } = useI18n();
@@ -320,7 +323,11 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
         </div>
       ) },
 
-      { id: 'charts', node: <SpendingCharts expenses={expenses} symbol={currencySymbol} budget={budget} /> },
+      { id: 'charts', node: (
+        <LazyPart fallback={<LoadingSpot className="min-h-[22rem] bg-card rounded-[2.5rem] shadow-soft border border-card-border" />}>
+          <SpendingCharts expenses={expenses} symbol={currencySymbol} budget={budget} />
+        </LazyPart>
+      ) },
 
       { id: 'recent', node: (
       <div className="space-y-5">
@@ -379,6 +386,8 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
       ) },
       ]} />
 
+      {calcUsed && (
+      <LazyPart fallback={calcOpen ? <LoadingSpot className="fixed inset-0 z-50 bg-black/40" /> : null}>
       <CalculatorSheet
         open={calcOpen}
         onClose={() => setCalcOpen(false)}
@@ -388,6 +397,8 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
         accounts={accounts}
         onManageAccounts={() => { setCalcOpen(false); onManageAccounts?.(); }}
       />
+      </LazyPart>
+      )}
     </div>
   );
 }

@@ -9,7 +9,8 @@ import { LogOut, Pencil, Plus, Trash2, Wallet, Tag, Globe, PieChart, Repeat, Lan
 import { MAJOR_CURRENCIES, DEFAULT_CATEGORIES } from '../../shared/constants';
 import { useAccounts } from '../accounts/accountService';
 import AccountsManager from '../accounts/AccountsManager';
-import AdminPanel from '../admin/AdminPanel';
+import { AdminPanel } from '../../app/lazyParts';
+import LazyPart from '../../shared/components/LazyPart';
 import AccountNotices from './AccountNotices';
 import DeleteAccount from './DeleteAccount';
 import PrivacyLink from '../../shared/components/PrivacyLink';
@@ -213,7 +214,7 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
       { id: 'accounts', node: user && <AccountsManager uid={user.uid} accounts={accounts} symbol={currencySymbol} openSignal={openAccountsSignal} /> },
 
       // Appears only when the server confirms this user is the admin
-      { id: 'admin', node: user && <AdminPanel /> },
+      { id: 'admin', node: user && <LazyPart fallback={null} quietOnError><AdminPanel /></LazyPart> },
 
       { id: 'notices', node: user && <AccountNotices uid={user.uid} /> },
 

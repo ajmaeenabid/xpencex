@@ -20,8 +20,8 @@ import BottomNav from '../shared/components/BottomNav';
 import HomePage from '../features/home/HomePage';
 import ExpensesPage from '../features/expenses/ExpensesPage';
 import AddExpensePage from '../features/expenses/AddExpensePage';
-import ReportsPage from '../features/reports/ReportsPage';
-import ChatPage from '../features/chat/ChatPage';
+import { ChatPage, ReportsPage, warmUp } from './lazyParts';
+import LazyPart from '../shared/components/LazyPart';
 import ChatButton from '../features/chat/ChatButton';
 import ProfilePage from '../features/profile/ProfilePage';
 import { motion, AnimatePresence } from 'motion/react';
@@ -211,6 +211,13 @@ export default function App() {
     };
   }, [access, user, sessionKey]);
 
+  // Once in, download the parts that load on their own, so every tab opens instantly and works offline
+  useEffect(() => {
+    if (access !== 'approved') return;
+    const timer = window.setTimeout(warmUp, 3000);
+    return () => window.clearTimeout(timer);
+  }, [access]);
+
   const refreshProfile = async () => {
     if (user) await fetchProfile(user.uid);
   };
@@ -257,7 +264,7 @@ export default function App() {
           onComplete={() => { setEditingExpense(null); setPrefillAmount(null); setPrefillPeople(null); setActiveTab('expenses'); }}
         />
       );
-      case 'reports': return <ReportsPage />;
+      case 'reports': return <LazyPart><ReportsPage /></LazyPart>;
       case 'chat': return null; // rendered below, outside the page transition
       case 'profile': return <ProfilePage openAccountsSignal={openAccountsSignal} />;
       default: return <HomePage onViewAll={() => setActiveTab('expenses')} />;
@@ -298,12 +305,14 @@ export default function App() {
               transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
               className={chatVisible ? 'max-w-md mx-auto px-4 pt-6' : 'hidden'}
             >
-              <ChatPage
-                key={user.uid}
-                active={activeTab === 'chat' && chatVisible}
-                incomingText={sharedText}
-                onIncomingHandled={() => setSharedText(null)}
-              />
+              <LazyPart>
+                <ChatPage
+                  key={user.uid}
+                  active={activeTab === 'chat' && chatVisible}
+                  incomingText={sharedText}
+                  onIncomingHandled={() => setSharedText(null)}
+                />
+              </LazyPart>
             </motion.div>
           )}
         </div>
