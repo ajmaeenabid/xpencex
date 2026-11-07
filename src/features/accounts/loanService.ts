@@ -5,6 +5,7 @@ import { callWorker } from '../../shared/lib/workerApi';
 import { Account, Loan } from '../../shared/types';
 import { firstInstallmentDate } from '../../../ai-server/src/loanDates';
 import { accountDisplayName } from './accounts';
+import { saved } from '../../shared/lib/offlineSave';
 
 /** The signed-in user's loans, kept live */
 export function useLoans(uid?: string) {
@@ -64,19 +65,19 @@ export async function createLoan(uid: string, loan: NewLoan) {
     });
     batch.update(doc(db, 'accounts', loan.receiveInto.id), { balance: increment(received) });
   }
-  await batch.commit();
+  await saved(batch.commit());
 }
 
 /** Edits name, lender, installment and day; the total only while nothing has been paid yet */
 export function updateLoan(loan: Loan, changes: { name: string; lender: string; installment: number; day: number; total?: number }) {
-  return updateDoc(doc(db, 'loans', loan.id), {
+  return saved(updateDoc(doc(db, 'loans', loan.id), {
     name: changes.name,
     lender: changes.lender,
     installment: changes.installment,
     day: changes.day,
     ...(changes.day !== loan.day && { nextDueDate: firstInstallmentDate(changes.day) }),
     ...(changes.total !== undefined && loan.paidCount === 0 && { total: changes.total, remaining: changes.total }),
-  });
+  }));
 }
 
 /** Deletes an account together with its loans, so the server never tries to charge a missing account */
@@ -84,7 +85,7 @@ export async function deleteAccountWithLoans(accountId: string, loans: Loan[]) {
   const batch = writeBatch(db);
   for (const loan of loans.filter(l => l.accountId === accountId)) batch.delete(doc(db, 'loans', loan.id));
   batch.delete(doc(db, 'accounts', accountId));
-  await batch.commit();
+  await saved(batch.commit());
 }
 
 /** Asks the server to take this user's installments that have come due (it also does so every hour) */

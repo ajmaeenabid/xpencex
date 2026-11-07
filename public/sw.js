@@ -1,10 +1,16 @@
 // App-shell service worker. Data offline support comes from Firestore's own persistent cache,
 // so this only caches the static files needed to open the app without a connection.
-const CACHE = 'xpencex-v1';
+
+// Both filled in by the build (swPrecache in vite.config.ts): a name that changes with every new
+// version, and every file of the app, so it opens offline after the very first visit. A new
+// version's name also makes "activate" below delete the old version's files.
+const VERSION = 'dev';
+const BUILD_FILES = [];
+const CACHE = `xpencex-${VERSION}`;
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll([...SHELL, ...BUILD_FILES])));
   self.skipWaiting();
 });
 

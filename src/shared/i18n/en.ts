@@ -698,6 +698,9 @@ export const en = {
   'chat.balanceMatched': 'Its balance now matches the SMS: **{balance}**.',
   'chat.saveFailed': "I couldn't save that. Please try again.",
   'chat.smsAlreadySaved': "You've already saved this SMS, so I didn't add it again.",
+  'chat.offline': "You're offline. The assistant needs the internet.",
+  'chat.offlineMedia': "You're offline. Voice, live chat and files need the internet.",
+  'save.onPhone': "Saved on this phone. It will sync when you're back online.",
   'chat.syncBefore': "Also set this account's balance to",
   'chat.syncAfter': ', as the SMS says',
 };

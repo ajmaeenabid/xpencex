@@ -5,6 +5,7 @@ import ErrorBoundary from '../shared/components/ErrorBoundary';
 import { LanguageProvider } from '../shared/i18n';
 import './index.css';
 import { DialogHost } from '../shared/components/Dialog';
+import { ToastHost } from '../shared/components/Toast';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,6 +14,7 @@ createRoot(document.getElementById('root')!).render(
         <App />
       </ErrorBoundary>
       <DialogHost />
+      <ToastHost />
     </LanguageProvider>
   </StrictMode>,
 );

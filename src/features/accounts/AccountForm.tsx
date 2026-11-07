@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { addDoc, collection, deleteField, doc, updateDoc } from 'firebase/firestore';
+import { collection, deleteField, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { AlertTriangle, CalendarClock } from 'lucide-react';
 import { db } from '../../shared/firebase';
@@ -10,6 +10,7 @@ import { useI18n, TKey } from '../../shared/i18n';
 import { BANGLADESH_BANKS, MOBILE_PROVIDERS, findDuplicate, firstDepositDate, isMobile } from './accounts';
 import { btnPrimary, btnSecondary, card, hintClass, inputClass, labelClass, selectClass } from './ui';
 import Combobox from '../../shared/components/Combobox';
+import { saved } from '../../shared/lib/offlineSave';
 
 export const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
 
@@ -71,16 +72,17 @@ export default function AccountForm({ uid, accounts, symbol, account, onSaved, o
       if (account) {
         // Only reschedule when the deposit day changed or the deposit was just turned on
         const reschedule = deposit && (!account.deposit || account.deposit.day !== deposit.day);
-        await updateDoc(doc(db, 'accounts', account.id), {
+        await saved(updateDoc(doc(db, 'accounts', account.id), {
           balance,
           ...(!mobile && { holderName: form.holderName.trim() }),
           ...(deposit
             ? { deposit, ...(reschedule && { nextDepositDate: firstDepositDate(deposit.day) }) }
             : { deposit: deleteField(), nextDepositDate: deleteField() }),
-        });
+        }));
         onSaved(account.id);
       } else {
-        const ref = await addDoc(collection(db, 'accounts'), {
+        const ref = doc(collection(db, 'accounts'));
+        await saved(setDoc(ref, {
           uid,
           type: form.type,
           name,
@@ -89,7 +91,7 @@ export default function AccountForm({ uid, accounts, symbol, account, onSaved, o
           ...(!mobile && { holderName: form.holderName.trim() }),
           ...(deposit && { deposit, nextDepositDate: firstDepositDate(deposit.day) }),
           createdAt: new Date().toISOString(),
-        });
+        }));
         onSaved(ref.id);
       }
     } catch (err) {

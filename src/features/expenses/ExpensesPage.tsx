@@ -11,6 +11,7 @@ import { toCSV, downloadFile } from '../reports/reportExport';
 import { useAccounts, adjustBalance } from '../accounts/accountService';
 import { useI18n, categoryLabel } from '../../shared/i18n';
 import { alertDialog } from '../../shared/components/Dialog';
+import { saved } from '../../shared/lib/offlineSave';
 
 export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) => void }) {
   const { user, profile } = useAuth();
@@ -48,7 +49,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
       const batch = writeBatch(db);
       batch.delete(doc(db, 'expenses', id));
       if (expense) adjustBalance(batch, accounts, expense.accountId, expense.amount);
-      await batch.commit();
+      await saved(batch.commit());
       setDeletingId(null);
     } catch (error) {
       console.error("Error deleting expense:", error);

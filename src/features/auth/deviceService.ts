@@ -3,6 +3,7 @@ import { clearIndexedDbPersistence, terminate } from 'firebase/firestore';
 import { auth, db } from '../../shared/firebase';
 import { WorkerError, callWorker } from '../../shared/lib/workerApi';
 import { DeviceProof, proofMessage } from '../../../ai-server/src/deviceRules';
+import { savedLoginClaims } from './savedLogin';
 
 // How this device gets permission to use the account. The rules are on the server (ai-server/src/devices.ts).
 
@@ -73,8 +74,11 @@ export async function openDevice(): Promise<DeviceStatus> {
   } catch (err) {
     console.error('Device check failed:', err);
     // The server can't be reached. A device that already has a pass carries on: firestore.rules
-    // still decide what it can read, and saved data stays usable offline.
-    const claims = await auth.currentUser?.getIdTokenResult().then(r => r.claims).catch(() => null);
+    // still decide what it can read, and saved data stays usable offline. Renewing the login needs
+    // the internet, so when that fails too, the pass is read from the login saved on this phone.
+    const user = auth.currentUser;
+    const claims = await user?.getIdTokenResult().then(r => r.claims as Record<string, unknown>)
+      .catch(() => savedLoginClaims(user.toJSON(), user.uid));
     return claims?.deviceId ? 'approved' : 'offline';
   }
 }

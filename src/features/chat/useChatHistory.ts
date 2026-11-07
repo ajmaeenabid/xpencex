@@ -9,6 +9,7 @@ import { confirmDialog } from '../../shared/components/Dialog';
 import { packMessages, unpackMessages } from './versions';
 import { canPinMore, planNewChat } from './chatHistory';
 import { LiveState } from './liveSession';
+import { saved } from '../../shared/lib/offlineSave';
 
 const newChatId = () => doc(collection(db, 'chats')).id;
 
@@ -162,14 +163,14 @@ export function useChatHistory({
     const title = renameValue.trim();
     setRenamingId(null);
     if (!id || !title || title === chats.find(c => c.id === id)?.title) return;
-    try { await updateDoc(doc(db, 'chats', id), { title: title.slice(0, 80) }); }
+    try { await saved(updateDoc(doc(db, 'chats', id), { title: title.slice(0, 80) })); }
     catch (err) { console.error('Could not rename chat', err); }
   };
 
   const deleteChat = async (chat: Chat) => {
     if (!(await confirmDialog(t('chat.confirmDelete', { title: chat.title }), { danger: true }))) return;
     try {
-      await deleteDoc(doc(db, 'chats', chat.id));
+      await saved(deleteDoc(doc(db, 'chats', chat.id)));
       savedIdsRef.current.delete(chat.id);
       if (chat.id === activeId) {
         skipSaveRef.current = messages.length > 0;

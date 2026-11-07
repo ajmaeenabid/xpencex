@@ -4,6 +4,7 @@ import { TKey } from '../../shared/i18n';
 import { parseTransactionSms } from '../../shared/lib/smsParser';
 import { fetchLimits, onLimitsChange } from './aiService';
 import { Limits, MediaKind, aiMessagesLeft, blockedBy, warningFor } from './limits';
+import { isOnline } from '../../shared/lib/offlineSave';
 
 const LIMIT_NOTE_MS = 3000;
 
@@ -44,6 +45,11 @@ export function useLimitNotes(user: User | null, active: boolean, usage: Record<
 
   // Tapping something at its limit says why, instead of doing nothing. With 1 left, it says so once and carries on.
   const explainIfBlocked = (kind: MediaKind) => {
+    // Voice, live chat and files all go to the server
+    if (!isOnline()) {
+      setLimitNote('chat.offlineMedia');
+      return true;
+    }
     const reason = blockedBy(kind, limits, usage);
     if (reason) {
       setLimitNote(reason);

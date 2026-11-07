@@ -8,6 +8,7 @@ import { confirmDialog } from '../../shared/components/Dialog';
 import { CASH_ID, accountDisplayName } from '../accounts/accounts';
 import { adjustBalance, paymentFields, shortAccount } from '../accounts/accountService';
 import { ReplyLanguage } from './language';
+import { saved } from '../../shared/lib/offlineSave';
 
 type AddMessage = (role: 'user' | 'assistant', content: string, type?: ChatMessage['type']) => string;
 
@@ -68,7 +69,7 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
         ...(sms && { smsRef: sms.ref }),
       });
       batch.update(doc(db, 'accounts', account.id), syncTo !== undefined ? { balance: syncTo } : { balance: increment(income.amount) });
-      await batch.commit();
+      await saved(batch.commit());
       markResolved(messageId, true);
       addMessage('assistant', say('chat.incomeSaved', { amount: `${currencySymbol}${income.amount.toLocaleString()}`, account: accountDisplayName(account) }) +
         (syncTo !== undefined ? ' ' + say('chat.balanceMatched', { balance: `${currencySymbol}${syncTo.toLocaleString()}` }) : ''));
@@ -116,7 +117,7 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
       });
       if (syncTo !== undefined) batch.update(doc(db, 'accounts', accountId), { balance: syncTo });
       else adjustBalance(batch, accounts, accountId, -amount);
-      await batch.commit();
+      await saved(batch.commit());
       markResolved(messageId, true);
       addMessage('assistant', payment.accountName
         ? say('chat.expenseSavedFrom', { title: expense.title || '', amount: `${currencySymbol}${amount}`, account: payment.accountId === CASH_ID ? say('accounts.cash') : payment.accountName })

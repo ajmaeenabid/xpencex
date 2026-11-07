@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../shared/firebase';
-import { collection, addDoc, doc, query, where, onSnapshot, writeBatch } from 'firebase/firestore';
+import { collection, doc, query, where, onSnapshot, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../../app/App';
 import { Expense, RecurringFrequency } from '../../shared/types';
 import { motion } from 'motion/react';
@@ -16,6 +16,7 @@ import AccountPicker from '../accounts/AccountPicker';
 import DateField from '../../shared/components/DateField';
 import { confirmDialog } from '../../shared/components/Dialog';
 import { shareOf } from './expense';
+import { saved } from '../../shared/lib/offlineSave';
 
 interface AddExpensePageProps {
   onComplete: () => void;
@@ -111,11 +112,14 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
         // Give the old amount back to the old account, then take the new amount from the chosen one
         adjustBalance(batch, accounts, expense!.accountId, expense!.amount);
         adjustBalance(batch, accounts, accountId, -parsedAmount);
-        await batch.commit();
+        await saved(batch.commit());
       } else {
+        // The expense and its repeat rule are saved together, so one can't exist without the other
+        const batch = writeBatch(db);
         let recurringId: string | undefined;
         if (repeat !== 'none') {
-          const rule = await addDoc(collection(db, 'recurring'), {
+          const rule = doc(collection(db, 'recurring'));
+          batch.set(rule, {
             uid: user.uid,
             title: title.trim(),
             amount: share,
@@ -128,7 +132,6 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
           });
           recurringId = rule.id;
         }
-        const batch = writeBatch(db);
         batch.set(doc(collection(db, 'expenses')), {
           uid: user.uid,
           title: title.trim(),
@@ -142,7 +145,7 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
           createdAt: new Date().toISOString(),
         });
         adjustBalance(batch, accounts, accountId, -share);
-        await batch.commit();
+        await saved(batch.commit());
       }
       onComplete();
     } catch (err) {

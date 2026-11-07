@@ -1,11 +1,45 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import fs from 'fs';
+import { createHash } from 'crypto';
+import {defineConfig, type Plugin} from 'vite';
+
+/**
+ * Fills in public/sw.js after a build: the list of every built file, so the service worker saves
+ * them all when it installs, and a version name that changes whenever any file changes.
+ */
+function swPrecache(): Plugin {
+  let outDir = 'dist';
+  let files: string[] = [];
+  return {
+    name: 'xpencex-sw-precache',
+    apply: 'build',
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
+    generateBundle(_options, bundle) {
+      files = Object.keys(bundle).filter((f) => f.startsWith('assets/') && !f.endsWith('.map')).sort().map((f) => `/${f}`);
+    },
+    closeBundle() {
+      const swPath = path.join(outDir, 'sw.js');
+      if (!fs.existsSync(swPath)) return;
+      const version = createHash('sha256').update(files.join(',')).digest('hex').slice(0, 12);
+      let sw = fs.readFileSync(swPath, 'utf8');
+      const fill = (placeholder: string, value: string) => {
+        if (!sw.includes(placeholder)) throw new Error(`sw.js no longer contains: ${placeholder}`);
+        sw = sw.replace(placeholder, value);
+      };
+      fill("const VERSION = 'dev';", `const VERSION = '${version}';`);
+      fill('const BUILD_FILES = [];', `const BUILD_FILES = ${JSON.stringify(files)};`);
+      fs.writeFileSync(swPath, sw);
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), swPrecache()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

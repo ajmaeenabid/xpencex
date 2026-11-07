@@ -67,7 +67,7 @@ export function warningFor(kind: MediaKind, limits: Limits | null, usage: Record
 }
 
 /** True for the gentle "only 1 left" notes, as opposed to "used up" and error messages */
-export const isGentleNote = (key: TKey) => /warn$/i.test(key) || key.startsWith('chat.removed');
+export const isGentleNote = (key: TKey) => /warn$/i.test(key) || key.startsWith('chat.removed') || key.startsWith('chat.offline');
 
 /** How many daily AI messages are left, or null before the server has said */
 export const aiMessagesLeft = (limits: Limits | null) => (limits ? Math.max(0, limits.ai.limit - limits.ai.used) : null);

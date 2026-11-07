@@ -27,6 +27,7 @@ import ChatNotices from './ChatNotices';
 import AttachMenu from './AttachMenu';
 import ChatComposer from './ChatComposer';
 import { CardActions } from './ConfirmCards';
+import { isOnline } from '../../shared/lib/offlineSave';
 
 // Money questions get a status that says the assistant is looking at the user's data
 const MONEY_QUESTION = /spen|expens|budget|report|total|sav|cost|money|taka|tk|৳|balance|month|week|afford|plan/i;
@@ -181,6 +182,11 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
     // Account, card and phone numbers are hidden first, so they never reach the screen,
     // the saved chat history, or the AI
     const userText = maskSensitive(text.trim());
+    // Offline, only a wallet or bank SMS can be answered (it's read on the phone). The text stays in the box.
+    if (!isOnline() && !parseTransactionSms(userText, categories)) {
+      setLimitNote('chat.offline');
+      return;
+    }
     if (explainIfNoAiLeft(userText)) return;
     setInput('');
     addMessage('user', userText);
@@ -225,6 +231,10 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
     const index = messages.findIndex(m => m.id === id);
     if (index < 0 || busy) return;
     const text = newText ?? messages[index].content;
+    if (!isOnline() && !parseTransactionSms(text, categories)) {
+      setLimitNote('chat.offline');
+      return;
+    }
     if (explainIfNoAiLeft(text)) return;
     if (chatIsFull(messages)) {
       setLimitNote('limit.chat.full');

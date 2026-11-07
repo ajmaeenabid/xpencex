@@ -25,6 +25,7 @@ import Select from '../../shared/components/Select';
 import LanguageToggle from '../../shared/components/LanguageToggle';
 import { useI18n, categoryLabel } from '../../shared/i18n';
 import { alertDialog, confirmDialog } from '../../shared/components/Dialog';
+import { saved } from '../../shared/lib/offlineSave';
 
 export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal?: number }) {
   const { user, profile, refreshProfile } = useAuth();
@@ -62,7 +63,7 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
     const value = parseFloat(catBudgetAmount);
     if (!user || !Number.isFinite(value) || value <= 0) return;
     try {
-      await updateDoc(doc(db, 'users', user.uid), new FieldPath('categoryBudgets', catBudgetName), value);
+      await saved(updateDoc(doc(db, 'users', user.uid), new FieldPath('categoryBudgets', catBudgetName), value));
       await refreshProfile();
       setCatBudgetAmount('');
     } catch (err) {
@@ -73,7 +74,7 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
   const handleRemoveCategoryBudget = async (name: string) => {
     if (!user) return;
     try {
-      await updateDoc(doc(db, 'users', user.uid), new FieldPath('categoryBudgets', name), deleteField());
+      await saved(updateDoc(doc(db, 'users', user.uid), new FieldPath('categoryBudgets', name), deleteField()));
       await refreshProfile();
     } catch (err) {
       console.error("Error removing category budget:", err);
@@ -82,7 +83,7 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
 
   const handleDeleteRecurring = async (id: string) => {
     if (await confirmDialog(t('profile.confirmStopRecurring'), { danger: true })) {
-      await deleteDoc(doc(db, 'recurring', id));
+      await saved(deleteDoc(doc(db, 'recurring', id)));
     }
   };
 
@@ -113,12 +114,12 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
       return;
     }
     try {
-      await addDoc(collection(db, 'categories'), {
+      await saved(addDoc(collection(db, 'categories'), {
         uid: user.uid,
         name,
         icon: 'Tag',
         createdAt: new Date().toISOString(),
-      });
+      }));
       setNewCategoryName('');
     } catch (err) {
       console.error("Error adding category:", err);
@@ -127,7 +128,7 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
 
   const handleDeleteCategory = async (id: string) => {
     if (await confirmDialog(t('profile.confirmDeleteCategory'), { danger: true })) {
-      await deleteDoc(doc(db, 'categories', id));
+      await saved(deleteDoc(doc(db, 'categories', id)));
     }
   };
 
@@ -138,9 +139,9 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
       return;
     }
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
+      await saved(updateDoc(doc(db, 'users', user.uid), {
         monthlyBudget: value,
-      });
+      }));
       await refreshProfile();
       setIsEditingBudget(false);
     } catch (err) {
@@ -151,9 +152,9 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
   const handleUpdateCurrency = async (code: string) => {
     if (!user) return;
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
+      await saved(updateDoc(doc(db, 'users', user.uid), {
         currency: code,
-      });
+      }));
       await refreshProfile();
       setIsEditingCurrency(false);
     } catch (err) {
