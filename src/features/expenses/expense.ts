@@ -4,6 +4,7 @@ export interface ExtractedExpense {
   category: string;
   date: string;
   notes?: string;
+  fee?: number; // from an SMS only; already included in amount
 }
 
 // Gemini may return "2026-10-23", a string amount, or junk; Firestore rules need a full ISO date and a positive number

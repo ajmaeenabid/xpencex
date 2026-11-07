@@ -112,6 +112,8 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
         category: expense.category,
         date: expense.date || new Date().toISOString(),
         notes: expense.notes || '',
+        // The SMS fee, kept on its own so Reports can add fees up (it's already in the amount)
+        ...(typeof expense.fee === 'number' && expense.fee > 0 && { fee: expense.fee }),
         ...payment,
         ...(sms && { smsRef: sms.ref }),
         createdAt: new Date().toISOString(),

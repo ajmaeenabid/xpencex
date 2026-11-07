@@ -167,7 +167,8 @@ service cloud.firestore {
              (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
              (!('accountId' in data) || (data.accountId is string && data.accountId.size() <= 100)) &&
              (!('accountName' in data) || (data.accountName is string && data.accountName.size() <= 120)) &&
-             (!('smsRef' in data) || (data.smsRef is string && data.smsRef.size() <= 100));
+             (!('smsRef' in data) || (data.smsRef is string && data.smsRef.size() <= 100)) &&
+             (!('fee' in data) || (data.fee is number && data.fee >= 0 && data.fee <= 1000000));
     }
 
     function isValidAccount(data) {

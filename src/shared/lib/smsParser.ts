@@ -133,6 +133,7 @@ export function parseWalletSms(text: string, categories: string[]): TransactionS
       category: matchCategory(type.category, categories),
       date: date.toISOString(),
       notes,
+      ...(fee > 0 && { fee: round2(fee) }),
     },
   };
 }

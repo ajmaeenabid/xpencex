@@ -10,6 +10,7 @@ import { MAJOR_CURRENCIES } from '../../shared/constants';
 import { FileDown, FileText } from 'lucide-react';
 import SpendingCharts from './SpendingCharts';
 import AccountsReport from '../accounts/AccountsReport';
+import FeesCard from './FeesCard';
 import { useI18n, categoryLabel } from '../../shared/i18n';
 import { useAccounts } from '../accounts/accountService';
 import { toCSV, downloadFile, buildReportHtml, printReport } from './reportExport';
@@ -17,7 +18,7 @@ import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/compo
 import { alertDialog } from '../../shared/components/Dialog';
 
 // Movable cards, in their default order
-const REPORT_SECTIONS = ['export', 'analysis', 'accounts', 'monthly', 'breakdown'];
+const REPORT_SECTIONS = ['export', 'analysis', 'accounts', 'fees', 'monthly', 'breakdown'];
 
 export default function ReportsPage() {
   const { user, profile, isDarkMode } = useAuth();
@@ -111,6 +112,8 @@ export default function ReportsPage() {
       { id: 'analysis', node: <SpendingCharts expenses={expenses} symbol={currencySymbol} budget={profile?.monthlyBudget} /> },
 
       { id: 'accounts', node: <AccountsReport expenses={expenses} accounts={accounts} symbol={currencySymbol} /> },
+
+      { id: 'fees', node: <FeesCard expenses={expenses} symbol={currencySymbol} /> },
 
       { id: 'monthly', node: (
       <div className="bg-card p-6 rounded-3xl shadow-sm border border-card-border transition-colors">

@@ -23,6 +23,7 @@ export interface Expense {
   accountId?: string; // 'cash' or an Account id; missing on expenses saved before accounts existed
   accountName?: string; // kept so the expense still reads right after its account is deleted
   smsRef?: string; // set when the expense came from an SMS, so the same SMS can't be saved twice
+  fee?: number; // the bKash, Nagad, Rocket or bank fee the SMS reported, already included in `amount`
 }
 
 export type AccountType = 'bank' | 'bkash' | 'nagad' | 'rocket';
