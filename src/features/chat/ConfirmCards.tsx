@@ -1,7 +1,10 @@
 import { motion } from 'motion/react';
 import { Check, Info, Loader2, Plus } from 'lucide-react';
 import { Account, ChatMessage, Expense } from '../../shared/types';
+import { useState } from 'react';
 import { TFunction, categoryLabel, useI18n } from '../../shared/i18n';
+import { WrongSendProvider, wrongSendProvider } from './wrongSend';
+import WrongSendSheet from './WrongSendSheet';
 import { CASH_ID } from '../accounts/accounts';
 import AccountPicker from '../accounts/AccountPicker';
 import { savedInAnotherVersion } from './versions';
@@ -101,6 +104,8 @@ function duplicateWarningFor(t: TFunction) {
 
 export function ExpenseCard({ msg, cards }: { msg: WithExpense; cards: CardActions }) {
   const { t } = useI18n();
+  const [helpFor, setHelpFor] = useState<WrongSendProvider | null>(null);
+  const sendProvider = msg.sms ? wrongSendProvider(msg.pendingExpense.title || '') : null;
   const { messages, currencySymbol, accounts, accountChoices, setAccountChoices, isConfirming, confirmExpense, markResolved, addMessage, tIn } = cards;
   const balanceSync = balanceSyncFor(cards, t);
   const duplicateWarning = duplicateWarningFor(t);
@@ -148,6 +153,14 @@ export function ExpenseCard({ msg, cards }: { msg: WithExpense; cards: CardActio
         )}
         {msg.sms && /send\s*money/i.test(msg.pendingExpense.title || '') && (
           <DebtTick msg={msg} cards={cards} label={t('debts.chatLent')} startPerson={personFromSms(msg.pendingExpense.title || '')} withSpending />
+        )}
+        {sendProvider && (
+          <>
+            <button type="button" onClick={() => setHelpFor(sendProvider)} className="text-xs font-bold text-rose-600 dark:text-rose-400 underline underline-offset-2">
+              {t('wrongSend.link')}
+            </button>
+            <WrongSendSheet provider={helpFor} onClose={() => setHelpFor(null)} />
+          </>
         )}
         {savedInAnotherVersion(messages, msg.id) && duplicateWarning}
       </div>
