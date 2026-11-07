@@ -1,0 +1,25 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Office lock files
+~$*
+
+# AI server: local secrets and Wrangler's working files
+.dev.vars
+# Firebase service account keys (admin access): never commit these
+*firebase-adminsdk*.json
+*service-account*.json
+ai-server/node_modules/
+ai-server/.wrangler/
+
+# Old code kept for reference, from before Google sign-in
+backup-before-google-signin/
+
+# Firebase VS Code extension working files
+.firebase/

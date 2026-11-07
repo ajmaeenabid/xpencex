@@ -1,0 +1,37 @@
+name = "xpensex-ai"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[vars]
+FIREBASE_PROJECT_ID = "xpensex-abid"
+# What each user may do per day. All of these reset at midnight Bangladesh time.
+# Voice messages and files also use one of the AI requests; live chats do not.
+DAILY_LIMIT = "30"
+DAILY_VOICE_LIMIT = "5"
+DAILY_FILE_LIMIT = "3"
+DAILY_LIVE_LIMIT = "3"
+# Longest live chat in seconds. If you change this, also change MAX_LIVE_SECONDS in src/features/chat/limits.ts.
+LIVE_SECONDS = "60"
+LIVE_MODEL = "gemini-3.8-live"
+# Web addresses allowed to call this server. The first one is the fallback.
+# Add your deployed app's address here when you put it online.
+ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:5173"
+# User IDs (Firebase Console > Authentication > Users > User UID) that may use the admin panel.
+# Separate several with commas. The admin key itself is the FIREBASE_SERVICE_ACCOUNT secret.
+ADMIN_UIDS = "vNQuoT4KGBTItv1tLZkAO255xuv1"
+# "true": a brand new account's first device also waits for the admin (used during testing).
+# Change to "false" to let a person's first device in straight away. Extra devices always need approval.
+REQUIRE_FIRST_DEVICE_APPROVAL = "true"
+
+# Every hour: take loan installments that have come due, and refresh exchange rates once they
+# are 10 days old (free on Cloudflare)
+[triggers]
+crons = ["0 * * * *"]
+
+[[durable_objects.bindings]]
+name = "LIMITER"
+class_name = "UsageLimiter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["UsageLimiter"]

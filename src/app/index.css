@@ -1,0 +1,416 @@
+@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+/* `dark:` styles follow the app's own sun/moon switch (App.tsx puts "dark" on <html>), not the
+   phone's or computer's setting, so the two can never mix */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * English text uses EB Garamond SemiBold, a free Garamond (SIL Open Font License, see
+ * fonts/EBGARAMOND-OFL.txt). Only the semibold file is loaded and it covers every weight,
+ * so all English text is semibold whatever font-weight a component asks for.
+ */
+@font-face {
+  font-family: "XpenceX Garamond";
+  src: url('./fonts/ebgaramond-semibold-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "XpenceX Garamond";
+  src: url('./fonts/ebgaramond-semibold-italic.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/*
+ * Peach theme.
+ * The app's components were written with `indigo-*` (primary) and `purple-*` (secondary) classes.
+ * Re-pointing those palettes here re-themes the whole UI in one place: indigo -> peach, purple -> coral rose.
+ * `slate-*` neutrals are warmed up so greys don't look cold next to the peach.
+ */
+@theme {
+  /* Garamond semibold for all English text, headings included; Hind Siliguri covers Bangla letters
+     (Garamond has none, so the browser switches per letter) */
+  --font-sans: "XpenceX Garamond", "Hind Siliguri", Garamond, serif;
+  --font-display: var(--font-sans);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-border: var(--card-border);
+  --color-muted: var(--muted);
+
+  /* Primary: peach */
+  --color-indigo-50: #FFF4EC;
+  --color-indigo-100: #FFE6D5;
+  --color-indigo-200: #FFCDAA;
+  --color-indigo-300: #FFB083;
+  --color-indigo-400: #FF9462;
+  --color-indigo-500: #F97C45;
+  --color-indigo-600: #E8602B;
+  --color-indigo-700: #C94A1B;
+  --color-indigo-800: #9F3A16;
+  --color-indigo-900: #5E2412;
+  --color-indigo-950: #3A1609;
+
+  /* Secondary: coral rose, so peach gradients glide into a warm sunset tone */
+  --color-purple-50: #FFF1F3;
+  --color-purple-100: #FFDCE3;
+  --color-purple-200: #FFBFCC;
+  --color-purple-300: #FF9DB0;
+  --color-purple-400: #F7728F;
+  --color-purple-500: #EE5578;
+  --color-purple-600: #DB3F66;
+  --color-purple-700: #B52E54;
+  --color-purple-800: #8C2644;
+  --color-purple-900: #5A1A2E;
+
+  /* Warm neutrals */
+  --color-slate-50: #FCF8F5;
+  --color-slate-100: #F6EEE8;
+  --color-slate-200: #EADFD6;
+  --color-slate-300: #D6C7BB;
+  --color-slate-400: #AC998C;
+  --color-slate-500: #86756A;
+  --color-slate-600: #675850;
+  --color-slate-700: #4B3F38;
+  --color-slate-800: #322825;
+  --color-slate-900: #221A17;
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.5s cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-glow: glow 3s ease-in-out infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(12deg); }
+    50% { transform: translateY(-8px) rotate(8deg); }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(249, 124, 69, 0.35); }
+    50% { box-shadow: 0 0 0 10px rgba(249, 124, 69, 0); }
+  }
+}
+
+/* Light mode mirrors dark mode's layering: the page is a shade deeper than the cards, inner rows
+   (bg-background/50) sit a shade deeper again, and borders are strong enough to outline each step */
+:root {
+  --background: #F5E8DE;
+  --foreground: #2B1A12;
+  --muted: #6B5446;
+  --card: rgba(255, 253, 250, 0.9);
+  --card-solid: #FFFDFA;
+  --card-border: rgba(190, 105, 58, 0.3);
+
+  --glass-highlight: rgba(255, 255, 255, 0.85);
+  --shadow-color: 232, 96, 43;
+}
+
+.dark {
+  --background: #1F1410;
+  --foreground: #FFF3EA;
+  --muted: #BBA597;
+  --card: rgba(58, 40, 33, 0.62);
+  --card-solid: #2A1E19;
+  --card-border: rgba(255, 190, 150, 0.2);
+
+  --glass-highlight: rgba(255, 210, 180, 0.14);
+  --shadow-color: 0, 0, 0;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    /* Garamond's default old-style numbers bob up and down; keep amounts level and lined up */
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  /* Tell the browser which theme we're in, so its own pop-ups (dropdown lists, date picker,
+     bank name suggestions, scrollbars) are drawn dark in dark mode instead of white */
+  :root { color-scheme: light; }
+  .dark { color-scheme: dark; }
+
+  /* Dropdown options in the app's colours */
+  select option,
+  select optgroup {
+    background-color: var(--card-solid);
+    color: var(--foreground);
+  }
+  select option:checked {
+    background-color: var(--color-indigo-600);
+    color: #fff;
+  }
+
+  body {
+    @apply antialiased transition-colors duration-300 bg-background text-foreground;
+    background-image:
+      radial-gradient(900px 600px at 0% 0%, rgba(255, 176, 131, 0.35), transparent 60%),
+      radial-gradient(800px 600px at 100% 20%, rgba(247, 114, 143, 0.16), transparent 60%),
+      radial-gradient(900px 700px at 40% 100%, rgba(255, 205, 170, 0.35), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(900px 650px at 0% 0%, rgba(255, 140, 90, 0.42), transparent 62%),
+      radial-gradient(800px 600px at 100% 20%, rgba(238, 85, 120, 0.26), transparent 62%),
+      radial-gradient(900px 700px at 40% 100%, rgba(255, 160, 110, 0.32), transparent 62%);
+  }
+
+  ::selection {
+    background: rgba(249, 124, 69, 0.3);
+  }
+
+  input, select {
+    color-scheme: light;
+  }
+  .dark input, .dark select {
+    color-scheme: dark;
+  }
+}
+
+@layer utilities {
+  .bg-glass {
+    @apply bg-card/70 backdrop-blur-lg border border-card-border;
+  }
+
+  /* Layered, warm-tinted shadows: a tight contact shadow plus a soft ambient one */
+  .shadow-soft {
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 1px 2px rgba(var(--shadow-color), 0.06),
+      0 12px 28px -10px rgba(var(--shadow-color), 0.18);
+  }
+
+  .shadow-vibrant {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.55),
+      0 2px 4px rgba(232, 96, 43, 0.2),
+      0 16px 32px -10px rgba(232, 96, 43, 0.5);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* ---------------------------------------------------------------
+ * Glass surfaces
+ * Cards use a translucent --card, so give them a blur to read as frosted glass.
+ * ------------------------------------------------------------- */
+.bg-card {
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+}
+
+/* ---------------------------------------------------------------
+ * Buttons
+ * Filled peach buttons get a glossy glass finish: top highlight, bottom depth,
+ * hairline border, warm glow, and a light sweep on hover.
+ * Matching by class keeps the component code unchanged.
+ * ------------------------------------------------------------- */
+button {
+  transition:
+    transform 0.2s cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 0.25s ease,
+    background-color 0.25s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #F97C45;
+  outline-offset: 2px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+button[class*="bg-indigo-600"],
+button[class*="from-indigo-600"],
+button[class~="bg-rose-500"] {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -3px 8px rgba(160, 52, 12, 0.28),
+    0 2px 4px rgba(232, 96, 43, 0.22),
+    0 14px 28px -10px rgba(232, 96, 43, 0.55);
+  text-shadow: 0 1px 1px rgba(120, 40, 10, 0.25);
+}
+
+/* Plain-colour peach buttons (no gradient utility) still need a base fill under the gloss */
+button[class*="bg-indigo-600"]:not([class*="from-indigo-600"]) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 52%);
+  background-color: #E8602B;
+}
+button[class*="from-indigo-600"] {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 52%),
+    linear-gradient(to right, #F97C45, #EE5578);
+}
+button[class~="bg-rose-500"] {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 52%);
+  background-color: #EE5578;
+}
+
+button[class*="bg-indigo-600"]::after,
+button[class*="from-indigo-600"]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+  pointer-events: none;
+  z-index: -1;
+}
+button[class*="bg-indigo-600"]:hover:not(:disabled)::after,
+button[class*="from-indigo-600"]:hover:not(:disabled)::after {
+  left: 130%;
+}
+
+/* The little on/off switch in Profile shouldn't get the full gloss treatment */
+button[class*="rounded-full"][class*="bg-indigo-600"][class*="w-12"] {
+  border: none;
+  box-shadow: inset 0 1px 3px rgba(120, 40, 10, 0.35);
+}
+
+/* Frosted secondary buttons and chips */
+button[class*="border-card-border"],
+button[class*="bg-background/50"],
+button[class*="bg-slate-100"] {
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 6px 14px -8px rgba(var(--shadow-color), 0.25);
+}
+button[class*="border-card-border"]:hover:not(:disabled),
+button[class*="bg-slate-100"]:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ---------------------------------------------------------------
+ * Inputs
+ * ------------------------------------------------------------- */
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="date"],
+select {
+  box-shadow: inset 0 2px 5px rgba(var(--shadow-color), 0.1), inset 0 0 0 1px var(--card-border);
+}
+input:focus,
+select:focus {
+  box-shadow:
+    inset 0 2px 4px rgba(var(--shadow-color), 0.04),
+    0 0 0 4px rgba(249, 124, 69, 0.15);
+}
+
+/* ---------------------------------------------------------------
+ * Motion
+ * ------------------------------------------------------------- */
+.animate-fade-up { animation: var(--animate-fade-up); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Scrollbars (chat, lists) */
+* {
+  scrollbar-color: rgba(249, 124, 69, 0.35) transparent;
+}
+
+/* AI chat replies (Markdown): a calm, Claude-like reading layout */
+.chat-md {
+  font-size: 15px;
+  line-height: 1.65;
+  font-weight: 500;
+}
+.chat-md > * + * { margin-top: 0.75em; }
+.chat-md p { margin: 0; }
+.chat-md strong { font-weight: 700; color: var(--foreground); }
+.chat-md ul, .chat-md ol { padding-left: 1.25em; margin: 0.5em 0 0; }
+.chat-md ul { list-style: disc; }
+.chat-md ol { list-style: decimal; }
+.chat-md li { margin-top: 0.4em; padding-left: 0.2em; }
+.chat-md li::marker { color: var(--muted); }
+.chat-md h1, .chat-md h2, .chat-md h3, .chat-md h4 { font-weight: 700; font-size: 1em; margin-top: 1.1em; }
+.chat-md a { color: rgb(79 70 229); text-decoration: underline; }
+.dark .chat-md a { color: rgb(129 140 248); }
+.chat-md code { font-size: 0.9em; padding: 0.1em 0.35em; border-radius: 0.35em; background: color-mix(in srgb, currentColor 10%, transparent); }
+.chat-md blockquote { border-left: 3px solid var(--card-border); padding-left: 0.8em; color: var(--muted); }
+.chat-md hr { border: none; border-top: 1px solid var(--card-border); }
+/* Text inside the user's own (coloured) bubble stays white */
+.bg-gradient-to-br .chat-md strong { color: inherit; }
+
+.chat-md-table {
+  overflow-x: auto;
+  border: 1px solid var(--card-border);
+  border-radius: 0.9rem;
+}
+.chat-md table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.chat-md th, .chat-md td { padding: 0.55em 0.8em; text-align: left; white-space: nowrap; }
+.chat-md th { font-weight: 700; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; background: color-mix(in srgb, var(--card-border) 35%, transparent); }
+.chat-md td { border-top: 1px solid var(--card-border); }
+.chat-md tr:last-child td { font-weight: 600; }
+
+/* "Thinking…" status: a soft light sweep over the text */
+.status-shimmer {
+  background: linear-gradient(90deg, var(--muted) 0%, var(--muted) 40%, var(--foreground) 50%, var(--muted) 60%, var(--muted) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: status-shimmer 2s linear infinite;
+}
+@keyframes status-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -150% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-shimmer { animation: none; color: var(--muted); }
+}
+
+/* No up and down arrows in number boxes: nobody wants to reach an amount one step at a time */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
