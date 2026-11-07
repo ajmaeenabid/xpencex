@@ -75,7 +75,7 @@ export default function AccountList({ accounts, loans, symbol, revealed, onToggl
         </dl>
       </section>
 
-      {ACCOUNT_TYPES.map(type => {
+      {[{ type: 'cash' as const, name: 'Cash', key: 'accounts.cash' as const }, ...ACCOUNT_TYPES].map(type => {
         const group = accounts.filter(a => a.type === type.type);
         if (group.length === 0) return null;
         return (
@@ -88,7 +88,7 @@ export default function AccountList({ accounts, loans, symbol, revealed, onToggl
                 const shown = revealed.has(a.id);
                 const loanCount = open.filter(l => l.accountId === a.id).length;
                 const sub = [
-                  a.type === 'bank' ? a.holderName : t('accounts.wallet', { name: a.name }),
+                  a.type === 'bank' ? a.holderName : a.type === 'cash' ? t('cash.sub') : t('accounts.wallet', { name: a.name }),
                   loanCount > 0 && t('accounts.loanCount', { count: loanCount }),
                 ].filter(Boolean).join(' · ');
                 return (

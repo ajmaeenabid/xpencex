@@ -11,6 +11,7 @@ import { ReplyLanguage } from './language';
 import { saved } from '../../shared/lib/offlineSave';
 import { writeDebt } from '../debts/debtService';
 import { cleanPerson } from '../debts/debts';
+import { findWallet, isCashOut } from '../accounts/cash';
 
 type AddMessage = (role: 'user' | 'assistant', content: string, type?: ChatMessage['type']) => string;
 
@@ -103,7 +104,8 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
 
   const confirmExpense = async (messageId: string, expense: Partial<Expense>) => {
     if (!user || isConfirming || messages.find(m => m.id === messageId)?.resolved) return;
-    const accountId = accountChoices[messageId] || expense.accountId || CASH_ID;
+    // "Cash" means the Cash wallet once it exists
+    const accountId = paymentFields(accountChoices[messageId] || expense.accountId || CASH_ID, accounts).accountId || CASH_ID;
     const amount = expense.amount || 0;
     const sms = messages.find(m => m.id === messageId)?.sms;
     const say = tIn(messages.find(m => m.id === messageId)?.replyLang);
@@ -124,6 +126,34 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
     setIsConfirming(true);
     try {
       const batch = writeBatch(db);
+      // A Cash Out with a Cash wallet: the money moves into the wallet; only the fee is spending
+      const wallet = findWallet(accounts);
+      const source = accounts.find(a => a.id === accountId);
+      if (wallet && source && source.id !== wallet.id && isCashOut(expense.title || '')) {
+        const fee = typeof expense.fee === 'number' && expense.fee > 0 ? expense.fee : 0;
+        const moved = Math.round((amount - fee) * 100) / 100;
+        const date = expense.date || new Date().toISOString();
+        if (syncTo !== undefined) setBalance(batch, source, syncTo, 'smsBalance');
+        else changeBalance(batch, source, -moved, 'cashOut', expense.title);
+        changeBalance(batch, wallet, moved, 'cashIn', expense.title);
+        if (fee > 0) {
+          batch.set(doc(collection(db, 'expenses')), {
+            uid: user.uid, title: `${expense.title} (fee)`.slice(0, 100), amount: fee, category: expense.category || 'Other',
+            date, notes: '', fee, ...payment, ...(sms && { smsRef: sms.ref }), createdAt: new Date().toISOString(),
+          });
+          if (syncTo === undefined) changeBalance(batch, source, -fee, 'expense', `${expense.title} (fee)`);
+        } else if (sms) {
+          // Nothing is saved as spending, so record the SMS on the wallet's side for duplicate protection
+          batch.set(doc(collection(db, 'deposits')), {
+            uid: user.uid, accountId: wallet.id, accountName: accountDisplayName(wallet), amount: moved, date,
+            title: expense.title?.slice(0, 100) || 'Cash Out', source: 'sms', smsRef: sms.ref,
+          });
+        }
+        await saved(batch.commit());
+        markResolved(messageId, true);
+        addMessage('assistant', say('cash.movedToWallet', { amount: `${currencySymbol}${moved.toLocaleString()}` }));
+        return;
+      }
       const lent = debtChoices[messageId];
       if (lent?.on) {
         const person = cleanPerson(lent.person);

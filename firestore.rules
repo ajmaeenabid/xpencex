@@ -192,7 +192,7 @@ service cloud.firestore {
     function isValidAccount(data) {
       return data.keys().hasAll(['uid', 'type', 'name', 'label', 'balance']) &&
              data.uid == request.auth.uid &&
-             data.type in ['bank', 'bkash', 'nagad', 'rocket'] &&
+             data.type in ['bank', 'bkash', 'nagad', 'rocket', 'cash'] &&
              data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
              data.label is string && data.label.size() >= 1 && data.label.size() <= 40 &&
              data.balance is number &&
@@ -203,7 +203,8 @@ service cloud.firestore {
                data.deposit.day is int && data.deposit.day >= 1 && data.deposit.day <= 31
              )) &&
              (!('nextDepositDate' in data) || isValidDateString(data.nextDepositDate)) &&
-             (!('historySum' in data) || data.historySum is number);
+             (!('historySum' in data) || data.historySum is number) &&
+             (!('countedAt' in data) || isValidDateString(data.countedAt));
     }
 
     // One line of an account's balance history (see ai-server/src/balanceLines.ts)
@@ -214,7 +215,7 @@ service cloud.firestore {
              data.accountId is string && data.accountId.size() >= 1 && data.accountId.size() <= 100 &&
              data.kind in ['set', 'change'] &&
              data.amount is number &&
-             data.reason in ['start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete', 'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment', 'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted'] &&
+             data.reason in ['start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete', 'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment', 'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted', 'cashOut', 'cashIn'] &&
              (!('previous' in data) || data.previous is number) &&
              (!('title' in data) || (data.title is string && data.title.size() <= 100)) &&
              isValidDateString(data.at);

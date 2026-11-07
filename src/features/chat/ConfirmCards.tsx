@@ -9,6 +9,7 @@ import { ReplyLanguage } from './language';
 import type { DebtChoice } from './useConfirmActions';
 import { personFromSms } from '../debts/debts';
 import { loadChoices } from '../debts/DebtForm';
+import { findWallet, isCashOut } from '../accounts/cash';
 
 export type WithExpense = ChatMessage & { pendingExpense: Partial<Expense> };
 export type WithIncome = ChatMessage & { pendingIncome: NonNullable<ChatMessage['pendingIncome']> };
@@ -140,6 +141,11 @@ export function ExpenseCard({ msg, cards }: { msg: WithExpense; cards: CardActio
           />
         </div>
         {balanceSync(msg, accountChoices[msg.id] || msg.pendingExpense.accountId)}
+        {findWallet(accounts) && accountChoices[msg.id] !== findWallet(accounts)!.id && isCashOut(msg.pendingExpense.title || '') && (
+          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 p-3 rounded-xl leading-relaxed">
+            {t('cash.cardNote', { amount: `${currencySymbol}${(Math.round(((msg.pendingExpense.amount || 0) - (msg.pendingExpense.fee || 0)) * 100) / 100).toLocaleString()}` })}
+          </p>
+        )}
         {msg.sms && /send\s*money/i.test(msg.pendingExpense.title || '') && (
           <DebtTick msg={msg} cards={cards} label={t('debts.chatLent')} startPerson={personFromSms(msg.pendingExpense.title || '')} withSpending />
         )}

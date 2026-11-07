@@ -21,7 +21,10 @@ export function useAccounts(uid?: string) {
 
 /** Fields stored on an expense for the chosen payment method */
 export function paymentFields(accountId: string | undefined, accounts: Account[]) {
-  if (accountId === CASH_ID) return { accountId: CASH_ID, accountName: CASH_NAME };
+  if (accountId === CASH_ID) {
+    const wallet = accounts.find(a => a.type === 'cash');
+    return wallet ? { accountId: wallet.id, accountName: CASH_NAME } : { accountId: CASH_ID, accountName: CASH_NAME };
+  }
   const account = accounts.find(a => a.id === accountId);
   return account ? { accountId: account.id, accountName: accountDisplayName(account) } : {};
 }

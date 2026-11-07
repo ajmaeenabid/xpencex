@@ -16,20 +16,22 @@ interface Props {
 /** "Paid from" choice: Cash, or one of the user's bank / mobile banking accounts */
 export default function AccountPicker({ accounts, value, onChange, symbol, compact, includeCash = true }: Props) {
   const { t } = useI18n();
+  // With a Cash wallet, Cash is that account (with its balance); without one, a plain "Cash" choice
+  const wallet = accounts.find(a => a.type === 'cash');
   const options = [
-    ...(includeCash ? [{ id: CASH_ID, title: t('accounts.cash'), balance: null as number | null, Icon: Banknote }] : []),
-    ...accounts.map(a => ({
+    ...(includeCash && !wallet ? [{ id: CASH_ID, title: t('accounts.cash'), balance: null as number | null, Icon: Banknote }] : []),
+    ...[...accounts].sort((a, b) => (a.type === 'cash' ? -1 : b.type === 'cash' ? 1 : 0)).map(a => ({
       id: a.id,
-      title: accountDisplayName(a),
+      title: a.type === 'cash' ? t('accounts.cash') : accountDisplayName(a),
       balance: a.balance,
-      Icon: isMobile(a.type) ? Smartphone : Landmark,
+      Icon: a.type === 'cash' ? Banknote : isMobile(a.type) ? Smartphone : Landmark,
     })),
   ];
 
   return (
     <div role="radiogroup" aria-label={t('add.paidFrom')} className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 pb-1">
       {options.map(({ id, title, balance, Icon }) => {
-        const selected = value === id;
+        const selected = value === id || (value === CASH_ID && id === wallet?.id);
         return (
           <button
             key={id}

@@ -29,7 +29,8 @@ export default function AccountDetail({ account, loans, symbol, shown, onToggleB
   const active = loans.filter(l => l.status === 'active').sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
   const finished = loans.filter(l => l.status !== 'active');
 
-  const details: { label: string; value: string }[] = mobile
+  const cash = account.type === 'cash';
+  const details: { label: string; value: string }[] = cash ? [] : mobile
     ? [{ label: t('accounts.numberEnding'), value: `···${account.label}` }]
     : [
         { label: t('accounts.holder'), value: account.holderName || '' },
@@ -51,7 +52,7 @@ export default function AccountDetail({ account, loans, symbol, shown, onToggleB
         <div className="flex items-center gap-4">
           <AccountIcon type={account.type} size="lg" />
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-muted font-semibold">{t(mobile ? 'accounts.typeMobile' : 'accounts.typeBank')}</p>
+            <p className="text-xs text-muted font-semibold">{t(cash ? 'cash.title' : mobile ? 'accounts.typeMobile' : 'accounts.typeBank')}</p>
             <h3 className="text-lg font-bold text-foreground truncate">{accountDisplayName(account)}</h3>
           </div>
         </div>
@@ -90,7 +91,7 @@ export default function AccountDetail({ account, loans, symbol, shown, onToggleB
 
       <BalanceHistory account={account} symbol={symbol} shown={shown} />
 
-      <section className="space-y-4">
+      {!cash && <section className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
@@ -127,7 +128,7 @@ export default function AccountDetail({ account, loans, symbol, shown, onToggleB
             )}
           </div>
         )}
-      </section>
+      </section>}
     </div>
   );
 }

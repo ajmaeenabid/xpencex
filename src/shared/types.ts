@@ -25,9 +25,10 @@ export interface Expense {
   smsRef?: string; // set when the expense came from an SMS, so the same SMS can't be saved twice
   fee?: number; // the bKash, Nagad, Rocket or bank fee the SMS reported, already included in `amount`
   debtId?: string; // made by a lend and borrow entry, which moves the account itself
+  createdAt?: string;
 }
 
-export type AccountType = 'bank' | 'bkash' | 'nagad' | 'rocket';
+export type AccountType = 'bank' | 'bkash' | 'nagad' | 'rocket' | 'cash';
 
 export interface Account {
   id: string;
@@ -41,6 +42,7 @@ export interface Account {
   nextDepositDate?: string;
   createdAt?: string;
   historySum?: number; // what the balance history adds up to (see ai-server/src/balanceLines.ts)
+  countedAt?: string; // Cash wallet only: when you last confirmed or counted your cash
 }
 
 export interface Deposit {

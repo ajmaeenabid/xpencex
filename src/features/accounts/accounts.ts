@@ -4,7 +4,7 @@ import { Account, AccountType } from '../../shared/types';
 export const CASH_ID = 'cash';
 export const CASH_NAME = 'Cash';
 
-export const MOBILE_PROVIDERS: { type: Exclude<AccountType, 'bank'>; name: string; color: string }[] = [
+export const MOBILE_PROVIDERS: { type: Exclude<AccountType, 'bank' | 'cash'>; name: string; color: string }[] = [
   { type: 'bkash', name: 'bKash', color: '#E2136E' },
   { type: 'nagad', name: 'Nagad', color: '#F7941D' },
   { type: 'rocket', name: 'Rocket', color: '#8C3494' },
@@ -20,10 +20,11 @@ export const BANGLADESH_BANKS = [
   'Standard Bank', 'Standard Chartered', 'Trust Bank', 'United Commercial Bank', 'Uttara Bank',
 ];
 
-export const isMobile = (type: AccountType) => type !== 'bank';
+export const isMobile = (type: AccountType) => type !== 'bank' && type !== 'cash';
 
-/** "BRAC Bank · Savings" or "bKash ···123" */
+/** "BRAC Bank · Savings", "bKash ···123", or "Cash" for the Cash wallet */
 export function accountDisplayName(a: Pick<Account, 'type' | 'name' | 'label'>) {
+  if (a.type === 'cash') return a.name;
   return a.type === 'bank' ? `${a.name} · ${a.label}` : `${a.name} ···${a.label}`;
 }
 

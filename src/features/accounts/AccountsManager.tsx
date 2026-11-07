@@ -13,6 +13,7 @@ import AccountForm from './AccountForm';
 import LoanForm from './LoanForm';
 import { btnSmall, iconButton } from './ui';
 import { alertDialog, confirmDialog } from '../../shared/components/Dialog';
+import CashForm from './CashForm';
 
 // The pages inside the window; Back goes to the previous one
 type View =
@@ -103,7 +104,7 @@ export default function AccountsManager({ uid, accounts, symbol, openSignal }: P
     const account = accountOf(view.accountId);
     if (account) {
       title = accountDisplayName(account);
-      subtitle = t(account.type === 'bank' ? 'accounts.typeBank' : 'accounts.typeMobile');
+      subtitle = t(account.type === 'cash' ? 'cash.sub' : account.type === 'bank' ? 'accounts.typeBank' : 'accounts.typeMobile');
       body = (
         <AccountDetail
           account={account} loans={loansOf(account.id)} symbol={symbol}
@@ -119,7 +120,9 @@ export default function AccountsManager({ uid, accounts, symbol, openSignal }: P
     const account = accountOf(view.accountId);
     title = t(account ? 'accounts.edit' : 'accounts.add');
     subtitle = account ? accountDisplayName(account) : t('accounts.addSubtitle');
-    body = (
+    body = account?.type === 'cash' ? (
+      <CashForm key={account.id} wallet={account} symbol={symbol} onSaved={back} onCancel={back} />
+    ) : (
       <AccountForm
         key={view.accountId || 'new'}
         uid={uid} accounts={accounts} symbol={symbol} account={account}

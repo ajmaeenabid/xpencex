@@ -30,6 +30,8 @@ const REASON_TEXT: Record<BalanceReason, TKey> = {
   borrowed: 'balance.reason.borrowed',
   paidBack: 'balance.reason.paidBack',
   debtDeleted: 'balance.reason.debtDeleted',
+  cashOut: 'balance.reason.cashOut',
+  cashIn: 'balance.reason.cashIn',
 };
 
 type Line = BalanceLine & { id: string };

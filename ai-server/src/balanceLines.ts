@@ -10,12 +10,13 @@ export type BalanceReason =
   | 'smsBalance' // matched to the balance an SMS reported
   | 'expense' | 'expenseEdit' | 'expenseDelete'
   | 'moneyIn' | 'monthlyDeposit' | 'recurring' | 'loanReceived' | 'loanPayment'
-  | 'lent' | 'gotBack' | 'borrowed' | 'paidBack' | 'debtDeleted'; // lend and borrow with people
+  | 'lent' | 'gotBack' | 'borrowed' | 'paidBack' | 'debtDeleted' // lend and borrow with people
+  | 'cashOut' | 'cashIn'; // a Cash Out: out of the mobile or bank account, into the Cash wallet
 
 export const BALANCE_REASONS: BalanceReason[] = [
   'start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete',
   'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment',
-  'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted',
+  'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted', 'cashOut', 'cashIn',
 ];
 
 export interface BalanceLine {

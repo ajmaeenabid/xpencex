@@ -89,13 +89,13 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
       : notes.trim();
 
     // Warn, but still allow, when the account doesn't have enough money (e.g. balance not updated yet)
-    const refund = isEditing && expense!.accountId === accountId ? expense!.amount : 0;
-    const short = shortAccount(accounts, accountId, share, refund);
+    // "Cash" means the Cash wallet once it exists
+    const payment = paymentFields(accountId, accounts);
+    const refund = isEditing && expense!.accountId === payment.accountId ? expense!.amount : 0;
+    const short = shortAccount(accounts, payment.accountId, share, refund);
     if (short && !(await confirmDialog(
       t('add.lowBalance', { account: accountDisplayName(short), balance: `${currencySymbol}${short.balance.toLocaleString()}` })
     ))) return;
-
-    const payment = paymentFields(accountId, accounts);
 
     setLoading(true);
     try {
@@ -114,11 +114,11 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
         // A lend and borrow expense doesn't move the account: its entry did that.
         if (expense!.debtId) {
           // nothing to move
-        } else if (expense!.accountId === accountId) {
-          adjustBalance(batch, accounts, accountId, expense!.amount - parsedAmount, 'expenseEdit', title.trim());
+        } else if (expense!.accountId === payment.accountId) {
+          adjustBalance(batch, accounts, payment.accountId, expense!.amount - parsedAmount, 'expenseEdit', title.trim());
         } else {
           adjustBalance(batch, accounts, expense!.accountId, expense!.amount, 'expenseEdit', title.trim());
-          adjustBalance(batch, accounts, accountId, -parsedAmount, 'expenseEdit', title.trim());
+          adjustBalance(batch, accounts, payment.accountId, -parsedAmount, 'expenseEdit', title.trim());
         }
         await saved(batch.commit());
       } else {
@@ -152,7 +152,7 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
           ...payment,
           createdAt: new Date().toISOString(),
         });
-        adjustBalance(batch, accounts, accountId, -share, 'expense', title.trim());
+        adjustBalance(batch, accounts, payment.accountId, -share, 'expense', title.trim());
         await saved(batch.commit());
       }
       onComplete();

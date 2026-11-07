@@ -1,4 +1,4 @@
-import { Landmark, Smartphone } from 'lucide-react';
+import { Banknote, Landmark, Smartphone } from 'lucide-react';
 import { Account } from '../../shared/types';
 import { cn } from '../../shared/lib/utils';
 import { MOBILE_PROVIDERS } from './accounts';
@@ -6,7 +6,7 @@ import { MOBILE_PROVIDERS } from './accounts';
 /** Square tile with the bank icon, or the mobile banking brand colour */
 export default function AccountIcon({ type, size = 'md' }: { type: Account['type']; size?: 'md' | 'lg' }) {
   const color = MOBILE_PROVIDERS.find(p => p.type === type)?.color;
-  const Icon = type === 'bank' ? Landmark : Smartphone;
+  const Icon = type === 'bank' ? Landmark : type === 'cash' ? Banknote : Smartphone;
   return (
     <span
       className={cn(

@@ -4,7 +4,7 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { useAuth } from '../../app/App';
 import { Expense } from '../../shared/types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Wallet, Clock, Tag, Sparkles, AlertTriangle, CheckCircle2, Info, Landmark, Smartphone, ChevronRight, Sun, Moon, Eye, EyeOff, HandCoins, Calculator } from 'lucide-react';
+import { Banknote, Wallet, Clock, Tag, Sparkles, AlertTriangle, CheckCircle2, Info, Landmark, Smartphone, ChevronRight, Sun, Moon, Eye, EyeOff, HandCoins, Calculator } from 'lucide-react';
 import { CalculatorSheet, SpendingCharts } from '../../app/lazyParts';
 import LazyPart, { LoadingSpot } from '../../shared/components/LazyPart';
 import { format, startOfMonth, startOfWeek, subMonths } from 'date-fns';
@@ -18,9 +18,10 @@ import SpendingCard from './SpendingCard';
 import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/components/Rearrange';
 import RunwayCard from './RunwayCard';
 import DebtsCard from '../debts/DebtsCard';
+import CashCard from './CashCard';
 
 // Movable cards, in their default order
-const HOME_SECTIONS = ['budget', 'spending', 'accounts', 'runway', 'debts', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
+const HOME_SECTIONS = ['budget', 'spending', 'accounts', 'cash', 'runway', 'debts', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
 import { useI18n, categoryLabel } from '../../shared/i18n';
 
 const INSIGHT_STYLES: Record<Insight['tone'], { icon: typeof Info; className: string }> = {
@@ -200,7 +201,7 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
           </div>
           <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-1 px-1">
             {accounts.map(a => {
-              const Icon = isMobile(a.type) ? Smartphone : Landmark;
+              const Icon = a.type === 'cash' ? Banknote : isMobile(a.type) ? Smartphone : Landmark;
               const color = MOBILE_PROVIDERS.find(p => p.type === a.type)?.color;
               const shown = revealed.has(a.id);
               return (
@@ -252,6 +253,8 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
         <ChevronRight size={18} className="text-muted shrink-0" />
       </button>
       ) },
+
+      { id: 'cash', node: user && <CashCard uid={user.uid} accounts={accounts} expenses={expenses} symbol={currencySymbol} shown={allShown} /> },
 
       { id: 'runway', node: accounts.length > 0 && (
         <RunwayCard

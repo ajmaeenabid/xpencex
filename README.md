@@ -112,7 +112,7 @@ Then add the app's address to `ALLOWED_ORIGINS` in `ai-server/wrangler.toml` and
 ## Known limitations
 
 - The Gemini free tier allows only a small number of requests per day, shared by all users.
-- Cash has no balance, so cash withdrawals and bKash Cash Out count as spending.
+- Cash expenses saved before the Cash wallet was started don't change the wallet.
 - A browser has no hardware ID, so clearing the app's data or using another browser counts as a new device.
 - Web apps can't read SMS automatically; users paste or share them.
 
