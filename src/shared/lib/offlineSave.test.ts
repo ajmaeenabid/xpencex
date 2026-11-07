@@ -18,8 +18,8 @@ describe('waitForServer', () => {
 
   it('moves on after the wait on a connection that hangs', async () => {
     vi.useFakeTimers();
-    const result = waitForServer(never(), { online: true, waitMs: 5000 });
-    await vi.advanceTimersByTimeAsync(4999);
+    const result = waitForServer(never(), { online: true, waitMs: 1500 });
+    await vi.advanceTimersByTimeAsync(1499);
     let done = false;
     result.then(() => { done = true; });
     await vi.advanceTimersByTimeAsync(0);

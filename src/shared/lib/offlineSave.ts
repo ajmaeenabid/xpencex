@@ -1,7 +1,7 @@
 import { showToast } from './toast';
 
 /** How long to wait for the server before moving on (the save is already on the phone by then) */
-export const SERVER_WAIT_MS = 5000;
+export const SERVER_WAIT_MS = 1500;
 
 export type SaveResult = 'saved' | 'onPhone';
 
