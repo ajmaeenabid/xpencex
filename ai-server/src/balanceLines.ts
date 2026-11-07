@@ -11,12 +11,14 @@ export type BalanceReason =
   | 'expense' | 'expenseEdit' | 'expenseDelete'
   | 'moneyIn' | 'monthlyDeposit' | 'recurring' | 'loanReceived' | 'loanPayment'
   | 'lent' | 'gotBack' | 'borrowed' | 'paidBack' | 'debtDeleted' // lend and borrow with people
-  | 'cashOut' | 'cashIn'; // a Cash Out: out of the mobile or bank account, into the Cash wallet
+  | 'cashOut' | 'cashIn' // a Cash Out: out of the mobile or bank account, into the Cash wallet
+  | 'samityPaid' | 'samityPayout' | 'samityUndo'; // samity rounds and your payout
 
 export const BALANCE_REASONS: BalanceReason[] = [
   'start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete',
   'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment',
   'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted', 'cashOut', 'cashIn',
+  'samityPaid', 'samityPayout', 'samityUndo',
 ];
 
 export interface BalanceLine {

@@ -185,6 +185,22 @@ service cloud.firestore {
              isValidDateString(data.createdAt);
     }
 
+    // A samity (rotating savings group) from one member's side (src/features/samity/samity.ts)
+    function isValidSamity(data) {
+      return data.keys().hasAll(['uid', 'name', 'amount', 'frequency', 'members', 'startDate', 'myTurn', 'payments', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'name', 'amount', 'frequency', 'members', 'startDate', 'myTurn', 'payments', 'payout', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             isPositive(data.amount) &&
+             data.frequency in ['weekly', 'monthly'] &&
+             data.members is int && data.members >= 2 && data.members <= 100 &&
+             data.myTurn is int && data.myTurn >= 1 && data.myTurn <= data.members &&
+             isValidDateString(data.startDate) &&
+             data.payments is map && data.payments.size() <= 100 &&
+             (!('payout' in data) || (data.payout is map && isValidDateString(data.payout.at) && data.payout.accountId is string)) &&
+             isValidDateString(data.createdAt);
+    }
+
     // Lend and borrow with people (src/features/debts/debts.ts)
     function isValidDebt(data) {
       return data.keys().hasAll(['uid', 'person', 'kind', 'amount', 'date', 'createdAt']) &&
@@ -228,7 +244,7 @@ service cloud.firestore {
              data.accountId is string && data.accountId.size() >= 1 && data.accountId.size() <= 100 &&
              data.kind in ['set', 'change'] &&
              data.amount is number &&
-             data.reason in ['start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete', 'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment', 'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted', 'cashOut', 'cashIn'] &&
+             data.reason in ['start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete', 'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment', 'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted', 'cashOut', 'cashIn', 'samityPaid', 'samityPayout', 'samityUndo'] &&
              (!('previous' in data) || data.previous is number) &&
              (!('title' in data) || (data.title is string && data.title.size() <= 100)) &&
              isValidDateString(data.at);
@@ -349,6 +365,13 @@ service cloud.firestore {
     match /deposits/{depositId} {
       allow read: if isDocOwner();
       allow create: if isAuthenticated() && isValidDeposit(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /samities/{samityId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidSamity(request.resource.data);
+      allow update: if isDocOwner() && isValidSamity(request.resource.data) && uidNotModified();
       allow delete: if isDocOwner();
     }
 

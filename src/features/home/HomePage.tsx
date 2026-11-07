@@ -20,9 +20,10 @@ import RunwayCard from './RunwayCard';
 import DebtsCard from '../debts/DebtsCard';
 import CashCard from './CashCard';
 import FundsCard from '../funds/FundsCard';
+import SamityCard from '../samity/SamityCard';
 
 // Movable cards, in their default order
-const HOME_SECTIONS = ['budget', 'spending', 'accounts', 'cash', 'runway', 'debts', 'funds', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
+const HOME_SECTIONS = ['budget', 'spending', 'accounts', 'cash', 'runway', 'debts', 'funds', 'samity', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
 import { useI18n, categoryLabel } from '../../shared/i18n';
 
 const INSIGHT_STYLES: Record<Insight['tone'], { icon: typeof Info; className: string }> = {
@@ -270,6 +271,8 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
       { id: 'debts', node: user && <DebtsCard uid={user.uid} accounts={accounts} symbol={currencySymbol} /> },
 
       { id: 'funds', node: user && <FundsCard uid={user.uid} symbol={currencySymbol} /> },
+
+      { id: 'samity', node: user && <SamityCard uid={user.uid} accounts={accounts} symbol={currencySymbol} /> },
 
       { id: 'loan', node: nextLoan && (
         <button
