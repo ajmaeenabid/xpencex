@@ -251,3 +251,81 @@ describe('usernames and deleting your own account', () => {
     expect(logins.has('boss')).toBe(true);
   });
 });
+
+describe('admin actions', () => {
+  beforeEach(() => {
+    db.clear();
+    logins.clear();
+    for (const uid of ['boss', 'mim', 'zara']) logins.set(uid, { localId: uid, email: `${uid}@gmail.com` });
+  });
+
+  it('tells the app who is an admin without needing a confirmation', async () => {
+    expect((await read(await handleAdmin('/admin/me', 'boss', {}, {}, env, json, async () => {}, noGoogle))).admin).toBe(true);
+    expect((await read(await handleAdmin('/admin/me', 'mim', {}, {}, env, json, async () => {}, noGoogle))).admin).toBe(false);
+  });
+
+  it('says so when the admin key is missing on the server', async () => {
+    const res = await read(await handleAdmin('/admin/users', 'boss', { adminUntil: Date.now() / 1000 + 60 }, {}, { ...env, FIREBASE_SERVICE_ACCOUNT: undefined } as any, json, async () => {}, noGoogle));
+    expect(res.status).toBe(500);
+  });
+
+  it('refuses unknown users, missing ids and unknown actions', async () => {
+    expect((await admin('/admin/suspend', { uid: 'ghost', suspended: true })).status).toBe(404);
+    expect((await admin('/admin/suspend', { suspended: true })).status).toBe(400);
+    expect((await admin('/admin/rename', { uid: 'mim' })).status).toBe(404);
+  });
+
+  it('suspends and restores, and tells the user each time', async () => {
+    await pick('mim', 'mim_r');
+    expect((await admin('/admin/suspend', { uid: 'mim', suspended: true })).status).toBe(200);
+    expect(logins.get('mim')!.disabled).toBe(true);
+    expect((await admin('/admin/suspend', { uid: 'mim', suspended: false })).status).toBe(200);
+    expect(logins.get('mim')!.disabled).toBe(false);
+    const notices = [...col('notices').values()].filter((n) => n.uid === 'mim').map((n) => n.type);
+    expect(notices).toEqual(['suspended', 'restored']);
+  });
+
+  it('shows login details only in the user list, never data', async () => {
+    await pick('mim', 'mim_r');
+    const { users } = await admin('/admin/users', {});
+    const row = users.find((u: Doc) => u.uid === 'mim');
+    expect(Object.keys(row).sort()).toEqual(['createdAt', 'deviceRequest', 'devices', 'disabled', 'email', 'isAdmin', 'lastLoginAt', 'uid', 'username']);
+  });
+
+  it('shows only what happened, to whom and when in the admin log', async () => {
+    await pick('mim', 'mim_r');
+    await admin('/admin/suspend', { uid: 'mim', suspended: true });
+    const { entries } = await admin('/admin/log', {});
+    expect(entries).toHaveLength(1);
+    expect(Object.keys(entries[0]).sort()).toEqual(['action', 'at', 'username']);
+    expect(entries[0]).toMatchObject({ action: 'suspended', username: 'mim_r' });
+  });
+
+  it("removes another person's device and tells them, but only a device that is theirs", async () => {
+    col('devices').set('mimPhone', { id: 'mimPhone', uid: 'mim', label: 'Android', at: 'x' });
+    col('devices').set('zaraPhone', { id: 'zaraPhone', uid: 'zara', label: 'Android', at: 'x' });
+    expect((await admin('/admin/device-remove', { uid: 'mim', deviceId: 'zaraPhone' })).status).toBe(400);
+    expect(col('devices').has('zaraPhone')).toBe(true);
+    expect((await admin('/admin/device-remove', { uid: 'mim', deviceId: 'mimPhone' })).status).toBe(200);
+    expect(col('devices').has('mimPhone')).toBe(false);
+    expect([...col('notices').values()].some((n) => n.uid === 'mim' && n.type === 'deviceRemoved')).toBe(true);
+  });
+
+  it("won't approve someone else's request or replace someone else's device", async () => {
+    col('deviceRequests').set('req', { id: 'req', uid: 'mim', label: 'Android', status: 'pending', at: 'x' });
+    col('devices').set('zaraPhone', { id: 'zaraPhone', uid: 'zara', label: 'Android', at: 'x' });
+    expect((await admin('/admin/device-approve', { uid: 'zara', requestId: 'req', replace: [] })).status).toBe(400);
+    expect((await admin('/admin/device-approve', { uid: 'mim', requestId: 'req', replace: ['zaraPhone'] })).status).toBe(400);
+    expect(col('devices').has('zaraPhone')).toBe(true);
+    expect(col('devices').has('req')).toBe(false);
+    expect(col('deviceRequests').get('req')!.status).toBe('pending');
+  });
+
+  it('clears the daily limits of a deleted user', async () => {
+    await pick('mim', 'mim_r');
+    const cleared: string[] = [];
+    const res = await read(await handleAdmin('/admin/delete', 'boss', { deviceId: 'bossPhone', adminUntil: Date.now() / 1000 + 60 }, { uid: 'mim', confirm: 'mim_r' }, env, json, async (uid) => void cleared.push(uid), noGoogle));
+    expect(res.status).toBe(200);
+    expect(cleared).toEqual(['mim']);
+  });
+});

@@ -5,6 +5,7 @@ import { processDueLoans } from './loans';
 import { refreshRates } from './rates';
 import { google } from './google';
 import { handleLive } from './live';
+import { verifyFirebaseToken } from './auth';
 import { bdDay } from './loanDates';
 import { LIMIT_KINDS, LimitKind, MAX_BODY_BYTES, classifyParts, dailyLimits, firstBlocked, limitsView } from './usage';
 
@@ -74,53 +75,6 @@ export class UsageLimiter extends DurableObject<Env> {
   // Called when the admin deletes the user
   async clear(): Promise<void> {
     await this.ctx.storage.deleteAll();
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Firebase login check: the app sends the user's ID token, we verify its signature
-// against Google's public keys and return the user's id and claims.
-// ---------------------------------------------------------------------------
-const JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
-let jwksCache: { keys: (JsonWebKey & { kid: string })[]; expires: number } | null = null;
-
-async function getKeys() {
-  if (jwksCache && jwksCache.expires > Date.now()) return jwksCache.keys;
-  const res = await fetch(JWKS_URL);
-  const data = (await res.json()) as { keys: (JsonWebKey & { kid: string })[] };
-  jwksCache = { keys: data.keys, expires: Date.now() + 60 * 60 * 1000 };
-  return data.keys;
-}
-
-function b64urlToBytes(s: string) {
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=');
-  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-}
-
-const decodeJson = (s: string) => JSON.parse(new TextDecoder().decode(b64urlToBytes(s)));
-
-type Verified = { uid: string; claims: Record<string, unknown> };
-
-async function verifyFirebaseToken(token: string, projectId: string): Promise<Verified | null> {
-  try {
-    const [h, p, sig] = token.split('.');
-    if (!h || !p || !sig) return null;
-    const header = decodeJson(h);
-    const payload = decodeJson(p);
-    if (header.alg !== 'RS256') return null;
-
-    const jwk = (await getKeys()).find((k) => k.kid === header.kid);
-    if (!jwk) return null;
-    const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
-    const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlToBytes(sig), new TextEncoder().encode(`${h}.${p}`));
-    if (!ok) return null;
-
-    const now = Math.floor(Date.now() / 1000);
-    if (payload.aud !== projectId || payload.iss !== `https://securetoken.google.com/${projectId}`) return null;
-    if (typeof payload.exp !== 'number' || payload.exp < now) return null;
-    return typeof payload.sub === 'string' && payload.sub ? { uid: payload.sub, claims: payload } : null;
-  } catch {
-    return null;
   }
 }
 
