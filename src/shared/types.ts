@@ -24,6 +24,7 @@ export interface Expense {
   accountName?: string; // kept so the expense still reads right after its account is deleted
   smsRef?: string; // set when the expense came from an SMS, so the same SMS can't be saved twice
   fee?: number; // the bKash, Nagad, Rocket or bank fee the SMS reported, already included in `amount`
+  debtId?: string; // made by a lend and borrow entry, which moves the account itself
 }
 
 export type AccountType = 'bank' | 'bkash' | 'nagad' | 'rocket';

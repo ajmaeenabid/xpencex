@@ -25,6 +25,11 @@ const REASON_TEXT: Record<BalanceReason, TKey> = {
   recurring: 'balance.reason.recurring',
   loanReceived: 'balance.reason.loanReceived',
   loanPayment: 'balance.reason.loanPayment',
+  lent: 'balance.reason.lent',
+  gotBack: 'balance.reason.gotBack',
+  borrowed: 'balance.reason.borrowed',
+  paidBack: 'balance.reason.paidBack',
+  debtDeleted: 'balance.reason.debtDeleted',
 };
 
 type Line = BalanceLine & { id: string };

@@ -17,9 +17,10 @@ import { buildInsights, sumByCategory, Insight } from './insights';
 import SpendingCard from './SpendingCard';
 import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/components/Rearrange';
 import RunwayCard from './RunwayCard';
+import DebtsCard from '../debts/DebtsCard';
 
 // Movable cards, in their default order
-const HOME_SECTIONS = ['budget', 'spending', 'accounts', 'runway', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
+const HOME_SECTIONS = ['budget', 'spending', 'accounts', 'runway', 'debts', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
 import { useI18n, categoryLabel } from '../../shared/i18n';
 
 const INSIGHT_STYLES: Record<Insight['tone'], { icon: typeof Info; className: string }> = {
@@ -261,6 +262,8 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
           shown={allShown}
         />
       ) },
+
+      { id: 'debts', node: user && <DebtsCard uid={user.uid} accounts={accounts} symbol={currencySymbol} /> },
 
       { id: 'loan', node: nextLoan && (
         <button

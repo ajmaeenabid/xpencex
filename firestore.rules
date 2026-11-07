@@ -168,7 +168,25 @@ service cloud.firestore {
              (!('accountId' in data) || (data.accountId is string && data.accountId.size() <= 100)) &&
              (!('accountName' in data) || (data.accountName is string && data.accountName.size() <= 120)) &&
              (!('smsRef' in data) || (data.smsRef is string && data.smsRef.size() <= 100)) &&
-             (!('fee' in data) || (data.fee is number && data.fee >= 0 && data.fee <= 1000000));
+             (!('fee' in data) || (data.fee is number && data.fee >= 0 && data.fee <= 1000000)) &&
+             (!('debtId' in data) || (data.debtId is string && data.debtId.size() <= 100));
+    }
+
+    // Lend and borrow with people (src/features/debts/debts.ts)
+    function isValidDebt(data) {
+      return data.keys().hasAll(['uid', 'person', 'kind', 'amount', 'date', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'person', 'kind', 'amount', 'date', 'note', 'accountId', 'accountName', 'expenseId', 'smsRef', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.person is string && data.person.size() >= 1 && data.person.size() <= 60 &&
+             data.kind in ['lent', 'gotBack', 'borrowed', 'paidBack'] &&
+             isPositive(data.amount) &&
+             isValidDateString(data.date) &&
+             isValidDateString(data.createdAt) &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 200)) &&
+             (!('accountId' in data) || (data.accountId is string && data.accountId.size() <= 100)) &&
+             (!('accountName' in data) || (data.accountName is string && data.accountName.size() <= 120)) &&
+             (!('expenseId' in data) || (data.expenseId is string && data.expenseId.size() <= 100)) &&
+             (!('smsRef' in data) || (data.smsRef is string && data.smsRef.size() <= 100));
     }
 
     function isValidAccount(data) {
@@ -196,7 +214,7 @@ service cloud.firestore {
              data.accountId is string && data.accountId.size() >= 1 && data.accountId.size() <= 100 &&
              data.kind in ['set', 'change'] &&
              data.amount is number &&
-             data.reason in ['start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete', 'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment'] &&
+             data.reason in ['start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete', 'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment', 'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted'] &&
              (!('previous' in data) || data.previous is number) &&
              (!('title' in data) || (data.title is string && data.title.size() <= 100)) &&
              isValidDateString(data.at);
@@ -317,6 +335,13 @@ service cloud.firestore {
     match /deposits/{depositId} {
       allow read: if isDocOwner();
       allow create: if isAuthenticated() && isValidDeposit(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    // Lend and borrow entries: never edited (a wrong one is deleted and added again)
+    match /debts/{debtId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidDebt(request.resource.data);
       allow delete: if isDocOwner();
     }
 

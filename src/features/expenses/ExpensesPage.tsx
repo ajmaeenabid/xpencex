@@ -48,7 +48,8 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
       const expense = expenses.find(e => e.id === id);
       const batch = writeBatch(db);
       batch.delete(doc(db, 'expenses', id));
-      if (expense) adjustBalance(batch, accounts, expense.accountId, expense.amount, 'expenseDelete', expense.title);
+      // A lend and borrow expense: the account movement belongs to that entry, so only the spending goes
+      if (expense && !expense.debtId) adjustBalance(batch, accounts, expense.accountId, expense.amount, 'expenseDelete', expense.title);
       await saved(batch.commit());
       setDeletingId(null);
     } catch (error) {

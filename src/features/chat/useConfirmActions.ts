@@ -9,6 +9,8 @@ import { CASH_ID, accountDisplayName } from '../accounts/accounts';
 import { adjustBalance, changeBalance, paymentFields, setBalance, shortAccount } from '../accounts/accountService';
 import { ReplyLanguage } from './language';
 import { saved } from '../../shared/lib/offlineSave';
+import { writeDebt } from '../debts/debtService';
+import { cleanPerson } from '../debts/debts';
 
 type AddMessage = (role: 'user' | 'assistant', content: string, type?: ChatMessage['type']) => string;
 
@@ -28,15 +30,18 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
   const [accountChoices, setAccountChoices] = useState<Record<string, string>>({});
   // "Also match the balance the SMS reported" tick box, by message id
   const [syncChoices, setSyncChoices] = useState<Record<string, boolean>>({});
+  // "This is money I lent" / "paid back to me" on SMS cards, by message id
+  const [debtChoices, setDebtChoices] = useState<Record<string, DebtChoice>>({});
 
   // True when this SMS was already saved (as an expense or as money in)
   const alreadySaved = async (ref: string) => {
     if (!user) return false;
-    const [spent, received] = await Promise.all([
+    const [spent, received, lent] = await Promise.all([
       getDocs(query(collection(db, 'expenses'), where('uid', '==', user.uid), where('smsRef', '==', ref), limit(1))),
       getDocs(query(collection(db, 'deposits'), where('uid', '==', user.uid), where('smsRef', '==', ref), limit(1))),
+      getDocs(query(collection(db, 'debts'), where('uid', '==', user.uid), where('smsRef', '==', ref), limit(1))),
     ]);
-    return !spent.empty || !received.empty;
+    return !spent.empty || !received.empty || !lent.empty;
   };
 
   // Money in: add it to the chosen account and log it, so Reports can show it
@@ -58,6 +63,20 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
       }
       const say = tIn(msg.replyLang);
       const batch = writeBatch(db);
+      const gotBack = debtChoices[messageId];
+      if (gotBack?.on) {
+        const person = cleanPerson(gotBack.person);
+        if (!person) return;
+        writeDebt(batch, {
+          uid: user.uid, person, kind: 'gotBack', amount: income.amount, date: income.date || new Date().toISOString(),
+          account, smsRef: sms?.ref, accountAlreadyMoved: syncTo !== undefined,
+        });
+        if (syncTo !== undefined) setBalance(batch, account, syncTo, 'smsBalance');
+        await saved(batch.commit());
+        markResolved(messageId, true);
+        addMessage('assistant', say('debts.savedGotBack', { name: person, amount: `${currencySymbol}${income.amount.toLocaleString()}` }));
+        return;
+      }
       batch.set(doc(collection(db, 'deposits')), {
         uid: user.uid,
         accountId: account.id,
@@ -105,6 +124,33 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
     setIsConfirming(true);
     try {
       const batch = writeBatch(db);
+      const lent = debtChoices[messageId];
+      if (lent?.on) {
+        const person = cleanPerson(lent.person);
+        if (!person) return;
+        const fee = typeof expense.fee === 'number' && expense.fee > 0 ? expense.fee : 0;
+        const sent = Math.round((amount - fee) * 100) / 100;
+        const account = accounts.find(a => a.id === accountId);
+        const synced = syncTo !== undefined && !!account;
+        const date = expense.date || new Date().toISOString();
+        writeDebt(batch, {
+          uid: user.uid, person, kind: 'lent', amount: sent, date, account,
+          countAsSpending: lent.spending, smsRef: sms?.ref, accountAlreadyMoved: synced,
+        });
+        // The person owes what was sent; the fee is your own cost, so it stays an expense
+        if (fee > 0) {
+          batch.set(doc(collection(db, 'expenses')), {
+            uid: user.uid, title: `${expense.title} (fee)`.slice(0, 100), amount: fee, category: expense.category || 'Other',
+            date, notes: '', fee, ...payment, createdAt: new Date().toISOString(),
+          });
+          if (!synced) adjustBalance(batch, accounts, accountId, -fee, 'expense', `${expense.title} (fee)`);
+        }
+        if (synced) setBalance(batch, account!, syncTo!, 'smsBalance');
+        await saved(batch.commit());
+        markResolved(messageId, true);
+        addMessage('assistant', say('debts.savedLent', { name: person, amount: `${currencySymbol}${sent.toLocaleString()}` }));
+        return;
+      }
       batch.set(doc(collection(db, 'expenses')), {
         uid: user.uid,
         title: expense.title,
@@ -133,5 +179,8 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
     }
   };
 
-  return { isConfirming, accountChoices, setAccountChoices, syncChoices, setSyncChoices, confirmIncome, confirmExpense };
+  return { isConfirming, accountChoices, setAccountChoices, syncChoices, setSyncChoices, debtChoices, setDebtChoices, confirmIncome, confirmExpense };
 }
+
+/** The lend and borrow tick on an SMS card: on, who it was, and whether it also counts as spending */
+export interface DebtChoice { on: boolean; person: string; spending: boolean }

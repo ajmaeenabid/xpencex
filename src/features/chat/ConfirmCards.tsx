@@ -6,6 +6,9 @@ import { CASH_ID } from '../accounts/accounts';
 import AccountPicker from '../accounts/AccountPicker';
 import { savedInAnotherVersion } from './versions';
 import { ReplyLanguage } from './language';
+import type { DebtChoice } from './useConfirmActions';
+import { personFromSms } from '../debts/debts';
+import { loadChoices } from '../debts/DebtForm';
 
 export type WithExpense = ChatMessage & { pendingExpense: Partial<Expense> };
 export type WithIncome = ChatMessage & { pendingIncome: NonNullable<ChatMessage['pendingIncome']> };
@@ -19,6 +22,8 @@ export interface CardActions {
   setAccountChoices: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   syncChoices: Record<string, boolean>;
   setSyncChoices: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  debtChoices: Record<string, DebtChoice>;
+  setDebtChoices: React.Dispatch<React.SetStateAction<Record<string, DebtChoice>>>;
   isConfirming: boolean;
   confirmExpense: (messageId: string, expense: Partial<Expense>) => void;
   confirmIncome: (messageId: string) => void;
@@ -44,6 +49,45 @@ function balanceSyncFor({ syncChoices, setSyncChoices, currencySymbol }: CardAct
       </label>
     );
 }
+
+/** "This is money I lent" or "paid back to me" on an SMS card, with who it was */
+function DebtTick({ msg, cards, label, startPerson, withSpending }: { msg: ChatMessage; cards: CardActions; label: string; startPerson: string; withSpending: boolean }) {
+  const { t } = useI18n();
+  const choice = cards.debtChoices[msg.id];
+  const set = (next: Partial<DebtChoice>) => cards.setDebtChoices(prev => ({
+    ...prev,
+    [msg.id]: { on: false, person: startPerson, spending: loadChoices().spending, ...prev[msg.id], ...next },
+  }));
+  return (
+    <div className="bg-background/50 p-3 rounded-xl space-y-3">
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input type="checkbox" className="mt-0.5 w-4 h-4 shrink-0 accent-indigo-600" checked={!!choice?.on} onChange={(e) => set({ on: e.target.checked })} />
+        <span className="text-xs font-semibold text-foreground leading-relaxed">{label}</span>
+      </label>
+      {choice?.on && (
+        <>
+          <input
+            value={choice.person}
+            onChange={(e) => set({ person: e.target.value })}
+            maxLength={60}
+            placeholder={t('debts.chatPerson')}
+            aria-label={t('debts.chatPerson')}
+            className="w-full h-10 px-3 rounded-xl bg-card border border-card-border text-sm text-foreground outline-none focus:border-indigo-500"
+          />
+          {withSpending && (
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" className="mt-0.5 w-4 h-4 shrink-0 accent-indigo-600" checked={choice.spending} onChange={(e) => set({ spending: e.target.checked })} />
+              <span className="text-xs font-medium text-muted leading-relaxed">{t('debts.chatSpending')}</span>
+            </label>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** True when the tick is on but nobody is named yet, so Confirm waits */
+const debtNeedsName = (cards: CardActions, id: string) => !!cards.debtChoices[id]?.on && !cards.debtChoices[id].person.trim();
 
 function duplicateWarningFor(t: TFunction) {
   return (
@@ -96,13 +140,16 @@ export function ExpenseCard({ msg, cards }: { msg: WithExpense; cards: CardActio
           />
         </div>
         {balanceSync(msg, accountChoices[msg.id] || msg.pendingExpense.accountId)}
+        {msg.sms && /send\s*money/i.test(msg.pendingExpense.title || '') && (
+          <DebtTick msg={msg} cards={cards} label={t('debts.chatLent')} startPerson={personFromSms(msg.pendingExpense.title || '')} withSpending />
+        )}
         {savedInAnotherVersion(messages, msg.id) && duplicateWarning}
       </div>
 
       <div className="flex gap-3 pt-2">
         <button
           onClick={() => confirmExpense(msg.id, msg.pendingExpense!)}
-          disabled={isConfirming}
+          disabled={isConfirming || debtNeedsName(cards, msg.id)}
           className="flex-1 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-bold shadow-vibrant hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none"
         >
           {isConfirming ? (
@@ -190,13 +237,14 @@ export function IncomeCard({ msg, cards }: { msg: WithIncome; cards: CardActions
           )}
         </div>
         {balanceSync(msg, chosen)}
+        {msg.sms && <DebtTick msg={msg} cards={cards} label={t('debts.chatGotBack')} startPerson="" withSpending={false} />}
         {savedInAnotherVersion(messages, msg.id) && duplicateWarning}
       </div>
 
       <div className="flex gap-3 pt-2">
         <button
           onClick={() => confirmIncome(msg.id)}
-          disabled={isConfirming || !chosen}
+          disabled={isConfirming || !chosen || debtNeedsName(cards, msg.id)}
           className="flex-1 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-bold shadow-vibrant hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none"
         >
           {isConfirming ? <><Loader2 size={16} className="animate-spin" /> {t('common.saving')}</> : chosen ? t('chat.addMoney') : t('chat.pickAccount')}

@@ -110,8 +110,11 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
           ...payment,
         });
         // Give the old amount back to the old account, then take the new amount from the chosen one
-        // Same account: one history line with the difference; otherwise one line on each account
-        if (expense!.accountId === accountId) {
+        // Same account: one history line with the difference; otherwise one line on each account.
+        // A lend and borrow expense doesn't move the account: its entry did that.
+        if (expense!.debtId) {
+          // nothing to move
+        } else if (expense!.accountId === accountId) {
           adjustBalance(batch, accounts, accountId, expense!.amount - parsedAmount, 'expenseEdit', title.trim());
         } else {
           adjustBalance(batch, accounts, expense!.accountId, expense!.amount, 'expenseEdit', title.trim());

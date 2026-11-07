@@ -131,7 +131,7 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
     recentHistory: () => recentHistory(), addMessage, setMessages, setSecretWarning, currencySymbol, tIn, t,
   });
 
-  const { isConfirming, accountChoices, setAccountChoices, syncChoices, setSyncChoices, confirmIncome, confirmExpense } = useConfirmActions({
+  const { isConfirming, accountChoices, setAccountChoices, syncChoices, setSyncChoices, debtChoices, setDebtChoices, confirmIncome, confirmExpense } = useConfirmActions({
     user, messages, accounts, currencySymbol, tIn, t, addMessage, markResolved,
   });
 
@@ -349,7 +349,7 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   );
 
   const cards: CardActions = {
-    messages, currencySymbol, accounts, accountChoices, setAccountChoices, syncChoices, setSyncChoices,
+    messages, currencySymbol, accounts, accountChoices, setAccountChoices, syncChoices, setSyncChoices, debtChoices, setDebtChoices,
     isConfirming, confirmExpense, confirmIncome, markResolved, addMessage, tIn,
   };
 
