@@ -73,7 +73,7 @@ export default function AccountsManager({ uid, accounts, symbol, openSignal }: P
       : t('accounts.confirmDelete', { account: accountDisplayName(a) });
     if (!(await confirmDialog(message, { danger: true }))) return;
     try {
-      await deleteAccountWithLoans(a.id, loans);
+      await deleteAccountWithLoans(a.id, loans, a.uid);
       setHistory([{ page: 'list' }]);
     } catch (err) {
       console.error('Error deleting account:', err);

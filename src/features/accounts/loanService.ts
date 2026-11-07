@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { collection, doc, increment, onSnapshot, query, updateDoc, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, query, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { db } from '../../shared/firebase';
 import { callWorker } from '../../shared/lib/workerApi';
 import { Account, Loan } from '../../shared/types';
 import { firstInstallmentDate } from '../../../ai-server/src/loanDates';
 import { accountDisplayName } from './accounts';
 import { saved } from '../../shared/lib/offlineSave';
+import { changeBalance } from './accountService';
 
 /** The signed-in user's loans, kept live */
 export function useLoans(uid?: string) {
@@ -63,7 +64,7 @@ export async function createLoan(uid: string, loan: NewLoan) {
       title: `Loan: ${loan.name}`.slice(0, 100),
       source: 'loan',
     });
-    batch.update(doc(db, 'accounts', loan.receiveInto.id), { balance: increment(received) });
+    changeBalance(batch, loan.receiveInto, received, 'loanReceived', loan.name);
   }
   await saved(batch.commit());
 }
@@ -80,8 +81,15 @@ export function updateLoan(loan: Loan, changes: { name: string; lender: string; 
   }));
 }
 
-/** Deletes an account together with its loans, so the server never tries to charge a missing account */
-export async function deleteAccountWithLoans(accountId: string, loans: Loan[]) {
+/** Deletes an account together with its loans and balance history, so the server never tries to charge a missing account */
+export async function deleteAccountWithLoans(accountId: string, loans: Loan[], uid: string) {
+  // History first, in batches of up to 450 (a batch takes at most 500 writes)
+  const history = await getDocs(query(collection(db, 'balanceHistory'), where('uid', '==', uid), where('accountId', '==', accountId)));
+  for (let i = 0; i < history.docs.length; i += 450) {
+    const chunk = writeBatch(db);
+    history.docs.slice(i, i + 450).forEach(d => chunk.delete(d.ref));
+    await saved(chunk.commit());
+  }
   const batch = writeBatch(db);
   for (const loan of loans.filter(l => l.accountId === accountId)) batch.delete(doc(db, 'loans', loan.id));
   batch.delete(doc(db, 'accounts', accountId));

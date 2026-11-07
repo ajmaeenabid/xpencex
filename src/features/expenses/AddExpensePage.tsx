@@ -110,8 +110,13 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
           ...payment,
         });
         // Give the old amount back to the old account, then take the new amount from the chosen one
-        adjustBalance(batch, accounts, expense!.accountId, expense!.amount);
-        adjustBalance(batch, accounts, accountId, -parsedAmount);
+        // Same account: one history line with the difference; otherwise one line on each account
+        if (expense!.accountId === accountId) {
+          adjustBalance(batch, accounts, accountId, expense!.amount - parsedAmount, 'expenseEdit', title.trim());
+        } else {
+          adjustBalance(batch, accounts, expense!.accountId, expense!.amount, 'expenseEdit', title.trim());
+          adjustBalance(batch, accounts, accountId, -parsedAmount, 'expenseEdit', title.trim());
+        }
         await saved(batch.commit());
       } else {
         // The expense and its repeat rule are saved together, so one can't exist without the other
@@ -144,7 +149,7 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
           ...payment,
           createdAt: new Date().toISOString(),
         });
-        adjustBalance(batch, accounts, accountId, -share);
+        adjustBalance(batch, accounts, accountId, -share, 'expense', title.trim());
         await saved(batch.commit());
       }
       onComplete();

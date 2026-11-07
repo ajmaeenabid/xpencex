@@ -1,4 +1,5 @@
-import { google, encode, encodeFields, TypedDoc } from './google';
+import { google, encode, encodeFields, Plain, TypedDoc } from './google';
+import { planChange } from './balanceLines';
 import { duePayments } from './loanDates';
 
 type Google = ReturnType<typeof google>;
@@ -69,6 +70,9 @@ async function payLoan(g: Google, loan: TypedDoc, now: number): Promise<number> 
   }
 
   const total = Math.round(payments.reduce((s, p) => s + p.amount, 0) * 100) / 100;
+  // The installment also goes into the account's balance history, like every other balance change
+  const historySum = typeof account.data.historySum === 'number' ? account.data.historySum : undefined;
+  const history = planChange({ balance: Number(account.data.balance), historySum }, -total, 'loanPayment', d.name, now);
   const last = payments[payments.length - 1];
   const loanUpdate = {
     remaining,
@@ -98,7 +102,18 @@ async function payLoan(g: Google, loan: TypedDoc, now: number): Promise<number> 
       },
       currentDocument: { exists: false },
     })),
-    { transform: { document: account.name, fieldTransforms: [{ fieldPath: 'balance', increment: encode(-total) }] }, currentDocument: { exists: true } },
+    { transform: { document: account.name, fieldTransforms: [
+      { fieldPath: 'balance', increment: encode(-total) },
+      ...('add' in history.historySum ? [{ fieldPath: 'historySum', increment: encode(history.historySum.add) }] : []),
+    ] }, currentDocument: { exists: true } },
+    // An account without history yet starts it here (see balanceLines.ts)
+    ...('set' in history.historySum
+      ? [{ update: { name: account.name, fields: encodeFields({ historySum: history.historySum.set }) }, updateMask: { fieldPaths: ['historySum'] }, currentDocument: { exists: true } }]
+      : []),
+    ...history.lines.map((line) => ({
+      update: { name: g.docName('balanceHistory'), fields: encodeFields({ uid: d.uid, accountId: d.accountId, ...line } as Record<string, Plain>) },
+      currentDocument: { exists: false },
+    })),
     { update: { name: loan.name, fields: encodeFields(loanUpdate) }, updateMask: { fieldPaths: Object.keys(loanUpdate) }, ...onlyIfUnchanged },
   ]);
   return payments.length;

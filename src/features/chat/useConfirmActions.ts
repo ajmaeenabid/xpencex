@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { User } from 'firebase/auth';
-import { collection, doc, getDocs, increment, limit, query, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, limit, query, where, writeBatch } from 'firebase/firestore';
 import { db } from '../../shared/firebase';
 import { Account, ChatMessage, Expense } from '../../shared/types';
 import { TFunction } from '../../shared/i18n';
 import { confirmDialog } from '../../shared/components/Dialog';
 import { CASH_ID, accountDisplayName } from '../accounts/accounts';
-import { adjustBalance, paymentFields, shortAccount } from '../accounts/accountService';
+import { adjustBalance, changeBalance, paymentFields, setBalance, shortAccount } from '../accounts/accountService';
 import { ReplyLanguage } from './language';
 import { saved } from '../../shared/lib/offlineSave';
 
@@ -68,7 +68,8 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
         source: sms ? 'sms' : 'chat',
         ...(sms && { smsRef: sms.ref }),
       });
-      batch.update(doc(db, 'accounts', account.id), syncTo !== undefined ? { balance: syncTo } : { balance: increment(income.amount) });
+      if (syncTo !== undefined) setBalance(batch, account, syncTo, 'smsBalance');
+      else changeBalance(batch, account, income.amount, 'moneyIn', income.title);
       await saved(batch.commit());
       markResolved(messageId, true);
       addMessage('assistant', say('chat.incomeSaved', { amount: `${currencySymbol}${income.amount.toLocaleString()}`, account: accountDisplayName(account) }) +
@@ -115,8 +116,9 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
         ...(sms && { smsRef: sms.ref }),
         createdAt: new Date().toISOString(),
       });
-      if (syncTo !== undefined) batch.update(doc(db, 'accounts', accountId), { balance: syncTo });
-      else adjustBalance(batch, accounts, accountId, -amount);
+      const syncAccount = syncTo !== undefined ? accounts.find(a => a.id === accountId) : undefined;
+      if (syncAccount && syncTo !== undefined) setBalance(batch, syncAccount, syncTo, 'smsBalance');
+      else adjustBalance(batch, accounts, accountId, -amount, 'expense', expense.title);
       await saved(batch.commit());
       markResolved(messageId, true);
       addMessage('assistant', payment.accountName

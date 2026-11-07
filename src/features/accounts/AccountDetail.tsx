@@ -6,6 +6,7 @@ import { useI18n } from '../../shared/i18n';
 import { accountDisplayName, isMobile } from './accounts';
 import AccountIcon from './AccountIcon';
 import LoanCard from './LoanCard';
+import BalanceHistory from './BalanceHistory';
 import { btnDanger, btnPrimary, btnSecondary, btnSmall, card, HIDDEN } from './ui';
 
 interface Props {
@@ -86,6 +87,8 @@ export default function AccountDetail({ account, loans, symbol, shown, onToggleB
           <button onClick={onDelete} className={btnDanger}><Trash2 size={16} /> {t('accounts.delete')}</button>
         </div>
       </section>
+
+      <BalanceHistory account={account} symbol={symbol} shown={shown} />
 
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-3">

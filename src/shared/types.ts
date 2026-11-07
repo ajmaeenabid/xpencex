@@ -38,6 +38,7 @@ export interface Account {
   deposit?: { amount: number; day: number }; // bank only: added automatically every month
   nextDepositDate?: string;
   createdAt?: string;
+  historySum?: number; // what the balance history adds up to (see ai-server/src/balanceLines.ts)
 }
 
 export interface Deposit {

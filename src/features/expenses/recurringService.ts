@@ -1,8 +1,9 @@
-import { collection, doc, getDocs, increment, query, runTransaction, where } from 'firebase/firestore';
+import { collection, doc, getDocs, query, runTransaction, where } from 'firebase/firestore';
 import { db } from '../../shared/firebase';
-import { RecurringExpense } from '../../shared/types';
+import { Account, RecurringExpense } from '../../shared/types';
 import { dueOccurrences } from './recurring';
 import { CASH_ID } from '../accounts/accounts';
+import { changeBalance } from '../accounts/accountService';
 
 /**
  * Creates the expense entries for every recurring rule that has come due since the last visit.
@@ -24,7 +25,8 @@ export async function processDueRecurring(uid: string): Promise<number> {
         const { due, next } = dueOccurrences(rule.nextDate, rule.frequency);
         // Reads must come before writes in a transaction; a deleted account just isn't charged
         const accountRef = rule.accountId && rule.accountId !== CASH_ID ? doc(db, 'accounts', rule.accountId) : null;
-        const accountExists = accountRef ? (await tx.get(accountRef)).exists() : false;
+        const accountSnap = accountRef ? await tx.get(accountRef) : null;
+        const account = accountSnap?.exists() ? ({ id: accountSnap.id, ...accountSnap.data() } as Account) : null;
         for (const date of due) {
           tx.set(doc(collection(db, 'expenses')), {
             uid,
@@ -39,7 +41,7 @@ export async function processDueRecurring(uid: string): Promise<number> {
           });
         }
         if (due.length) tx.update(ruleDoc.ref, { nextDate: next });
-        if (due.length && accountRef && accountExists) tx.update(accountRef, { balance: increment(-rule.amount * due.length) });
+        if (due.length && account) changeBalance(tx, account, -rule.amount * due.length, 'recurring', rule.title);
         return due.length;
       });
     } catch (err) {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { collection, deleteField, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteField, doc, writeBatch } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { AlertTriangle, CalendarClock } from 'lucide-react';
 import { db } from '../../shared/firebase';
@@ -11,6 +11,8 @@ import { BANGLADESH_BANKS, MOBILE_PROVIDERS, findDuplicate, firstDepositDate, is
 import { btnPrimary, btnSecondary, card, hintClass, inputClass, labelClass, selectClass } from './ui';
 import Combobox from '../../shared/components/Combobox';
 import { saved } from '../../shared/lib/offlineSave';
+import { setBalance } from './accountService';
+import { round2 } from '../../../ai-server/src/balanceLines';
 
 export const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
 
@@ -72,17 +74,21 @@ export default function AccountForm({ uid, accounts, symbol, account, onSaved, o
       if (account) {
         // Only reschedule when the deposit day changed or the deposit was just turned on
         const reschedule = deposit && (!account.deposit || account.deposit.day !== deposit.day);
-        await saved(updateDoc(doc(db, 'accounts', account.id), {
-          balance,
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'accounts', account.id), {
           ...(!mobile && { holderName: form.holderName.trim() }),
           ...(deposit
             ? { deposit, ...(reschedule && { nextDepositDate: firstDepositDate(deposit.day) }) }
             : { deposit: deleteField(), nextDepositDate: deleteField() }),
-        }));
+        });
+        // A balance changed by hand shows in its history as "Corrected by you", with the old balance
+        if (round2(balance) !== round2(account.balance)) setBalance(batch, account, balance, 'corrected');
+        await saved(batch.commit());
         onSaved(account.id);
       } else {
         const ref = doc(collection(db, 'accounts'));
-        await saved(setDoc(ref, {
+        const batch = writeBatch(db);
+        batch.set(ref, {
           uid,
           type: form.type,
           name,
@@ -91,7 +97,11 @@ export default function AccountForm({ uid, accounts, symbol, account, onSaved, o
           ...(!mobile && { holderName: form.holderName.trim() }),
           ...(deposit && { deposit, nextDepositDate: firstDepositDate(deposit.day) }),
           createdAt: new Date().toISOString(),
-        }));
+          historySum: round2(balance),
+        });
+        // History starts with the balance the account was made with
+        batch.set(doc(collection(db, 'balanceHistory')), { uid, accountId: ref.id, kind: 'set', amount: round2(balance), reason: 'created', at: new Date().toISOString() });
+        await saved(batch.commit());
         onSaved(ref.id);
       }
     } catch (err) {

@@ -183,7 +183,22 @@ service cloud.firestore {
                isPositive(data.deposit.amount) &&
                data.deposit.day is int && data.deposit.day >= 1 && data.deposit.day <= 31
              )) &&
-             (!('nextDepositDate' in data) || isValidDateString(data.nextDepositDate));
+             (!('nextDepositDate' in data) || isValidDateString(data.nextDepositDate)) &&
+             (!('historySum' in data) || data.historySum is number);
+    }
+
+    // One line of an account's balance history (see ai-server/src/balanceLines.ts)
+    function isValidBalanceLine(data) {
+      return data.keys().hasAll(['uid', 'accountId', 'kind', 'amount', 'reason', 'at']) &&
+             data.keys().hasOnly(['uid', 'accountId', 'kind', 'amount', 'reason', 'at', 'previous', 'title']) &&
+             data.uid == request.auth.uid &&
+             data.accountId is string && data.accountId.size() >= 1 && data.accountId.size() <= 100 &&
+             data.kind in ['set', 'change'] &&
+             data.amount is number &&
+             data.reason in ['start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete', 'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment'] &&
+             (!('previous' in data) || data.previous is number) &&
+             (!('title' in data) || (data.title is string && data.title.size() <= 100)) &&
+             isValidDateString(data.at);
     }
 
     function isValidDeposit(data) {
@@ -301,6 +316,13 @@ service cloud.firestore {
     match /deposits/{depositId} {
       allow read: if isDocOwner();
       allow create: if isAuthenticated() && isValidDeposit(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    // Balance history: written together with each balance change, never edited, deleted with its account
+    match /balanceHistory/{lineId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidBalanceLine(request.resource.data);
       allow delete: if isDocOwner();
     }
 
