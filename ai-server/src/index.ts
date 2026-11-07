@@ -7,6 +7,7 @@ import { google } from './google';
 import { handleLive } from './live';
 import { verifyFirebaseToken } from './auth';
 import { recordRun } from './health';
+import { handleRestoreLoans } from './restore';
 import { bdDay } from './loanDates';
 import { LIMIT_KINDS, LimitKind, MAX_BODY_BYTES, classifyParts, dailyLimits, firstBlocked, limitsView } from './usage';
 
@@ -132,7 +133,7 @@ export default {
     const { uid, claims } = verified;
 
     // The routes for accounts and devices, as opposed to the AI and loan routes below
-    const isAccountRoute = path.startsWith('/device/') || path.startsWith('/admin/') || path === '/account/username' || path === '/account/delete';
+    const isAccountRoute = path.startsWith('/device/') || path.startsWith('/admin/') || path === '/account/username' || path === '/account/delete' || path === '/account/restore-loans';
     let body: Record<string, unknown> = {};
     if (isAccountRoute) {
       try {
@@ -156,6 +157,7 @@ export default {
         return fresh?.uid === uid ? fresh.claims : null;
       };
       if (path === '/account/delete') return await handleDeleteAccount(uid, body, env, json, clearLimiter, verifyGoogle);
+      if (path === '/account/restore-loans') return await handleRestoreLoans(uid, body, env, json);
       if (path.startsWith('/admin/')) return await handleAdmin(path, uid, claims, body, env, json, clearLimiter, verifyGoogle);
     } catch (err) {
       console.error('Account route failed', path, err);

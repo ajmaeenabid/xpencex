@@ -9,6 +9,7 @@ import { LogOut, Pencil, Plus, Trash2, Wallet, Tag, Globe, PieChart, Repeat, Lan
 import { MAJOR_CURRENCIES, DEFAULT_CATEGORIES } from '../../shared/constants';
 import { useAccounts } from '../accounts/accountService';
 import AccountsManager from '../accounts/AccountsManager';
+import BackupCard from './BackupCard';
 import { AdminPanel } from '../../app/lazyParts';
 import LazyPart from '../../shared/components/LazyPart';
 import AccountNotices from './AccountNotices';
@@ -20,7 +21,7 @@ import { useUsernameForm } from '../auth/AccessScreens';
 import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/components/Rearrange';
 
 // Movable cards, in their default order
-const PROFILE_SECTIONS = ['accounts', 'admin', 'notices', 'pin', 'language', 'currency', 'budget', 'categoryBudgets', 'recurring', 'categories'];
+const PROFILE_SECTIONS = ['accounts', 'admin', 'notices', 'pin', 'language', 'currency', 'budget', 'categoryBudgets', 'recurring', 'categories', 'backup'];
 import Select from '../../shared/components/Select';
 import LanguageToggle from '../../shared/components/LanguageToggle';
 import { useI18n, categoryLabel } from '../../shared/i18n';
@@ -395,6 +396,8 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
         </div>
       </div>
       ) },
+
+      { id: 'backup', node: user && <BackupCard uid={user.uid} /> },
 
       { id: 'categories', node: (
       <div className="bg-card p-6 rounded-3xl shadow-sm border border-card-border space-y-6 transition-colors">
