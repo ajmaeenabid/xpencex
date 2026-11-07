@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../shared/firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, writeBatch, updateDoc, deleteField } from 'firebase/firestore';
 import { useAuth } from '../../app/App';
 import { Expense } from '../../shared/types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trash2, Edit2, Search, Download, Calendar, Tag, Loader2, Repeat, Users, Wallet } from 'lucide-react';
+import { Trash2, Edit2, Search, Download, Calendar, Tag, Loader2, Repeat, Users, Wallet, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { MAJOR_CURRENCIES, DEFAULT_CATEGORIES } from '../../shared/constants';
 import { toCSV, downloadFile } from '../reports/reportExport';
@@ -40,6 +40,16 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
 
     return unsubscribe;
   }, [user]);
+
+  // Worth it or regret: one tap sets it, tapping the same one again clears it
+  const setFeeling = async (exp: Expense, feeling: 'worth' | 'regret') => {
+    try {
+      await saved(updateDoc(doc(db, 'expenses', exp.id), { feeling: exp.feeling === feeling ? deleteField() : feeling }));
+    } catch (error) {
+      console.error('Error tagging expense:', error);
+      alertDialog(t('regret.tagFailed'));
+    }
+  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -220,6 +230,18 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
                         </button>
                       </div>
                     </div>
+                </div>
+                <div className="relative z-10 mt-3 flex items-center gap-2">
+                  {([['worth', ThumbsUp, 'regret.worth', 'bg-teal-600 text-white border-teal-600'], ['regret', ThumbsDown, 'regret.regret', 'bg-rose-500 text-white border-rose-500']] as const).map(([feeling, FeelIcon, label, on]) => (
+                    <button
+                      key={feeling}
+                      onClick={() => setFeeling(exp, feeling)}
+                      aria-pressed={exp.feeling === feeling}
+                      className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full border text-xs font-bold transition-colors ${exp.feeling === feeling ? on : 'border-card-border text-muted hover:text-foreground'}`}
+                    >
+                      <FeelIcon size={13} /> {t(label)}
+                    </button>
+                  ))}
                 </div>
                 {exp.notes && (
                   <div className="relative z-10 mt-4 px-4 py-3 bg-slate-50/50 dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-slate-700/50">

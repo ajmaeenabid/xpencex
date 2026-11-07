@@ -26,6 +26,7 @@ export interface Expense {
   fee?: number; // the bKash, Nagad, Rocket or bank fee the SMS reported, already included in `amount`
   debtId?: string; // made by a lend and borrow entry, which moves the account itself
   createdAt?: string;
+  feeling?: 'worth' | 'regret'; // tagged in Transactions: worth it, or a regret
 }
 
 export type AccountType = 'bank' | 'bkash' | 'nagad' | 'rocket' | 'cash';

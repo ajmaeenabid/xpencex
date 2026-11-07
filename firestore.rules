@@ -169,7 +169,8 @@ service cloud.firestore {
              (!('accountName' in data) || (data.accountName is string && data.accountName.size() <= 120)) &&
              (!('smsRef' in data) || (data.smsRef is string && data.smsRef.size() <= 100)) &&
              (!('fee' in data) || (data.fee is number && data.fee >= 0 && data.fee <= 1000000)) &&
-             (!('debtId' in data) || (data.debtId is string && data.debtId.size() <= 100));
+             (!('debtId' in data) || (data.debtId is string && data.debtId.size() <= 100)) &&
+             (!('feeling' in data) || data.feeling in ['worth', 'regret']);
     }
 
     // Lend and borrow with people (src/features/debts/debts.ts)
