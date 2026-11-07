@@ -16,9 +16,10 @@ import { MAJOR_CURRENCIES, DEFAULT_CATEGORIES } from '../../shared/constants';
 import { buildInsights, sumByCategory, Insight } from './insights';
 import SpendingCard from './SpendingCard';
 import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/components/Rearrange';
+import RunwayCard from './RunwayCard';
 
 // Movable cards, in their default order
-const HOME_SECTIONS = ['budget', 'spending', 'accounts', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
+const HOME_SECTIONS = ['budget', 'spending', 'accounts', 'runway', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
 import { useI18n, categoryLabel } from '../../shared/i18n';
 
 const INSIGHT_STYLES: Record<Insight['tone'], { icon: typeof Info; className: string }> = {
@@ -249,6 +250,16 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
         <p className="flex-1 min-w-0 font-bold text-sm text-foreground">{t('calc.title')}</p>
         <ChevronRight size={18} className="text-muted shrink-0" />
       </button>
+      ) },
+
+      { id: 'runway', node: accounts.length > 0 && (
+        <RunwayCard
+          accounts={accounts}
+          expenses={expenses}
+          symbol={currencySymbol}
+          userSince={user?.metadata.creationTime ? new Date(user.metadata.creationTime) : undefined}
+          shown={allShown}
+        />
       ) },
 
       { id: 'loan', node: nextLoan && (
