@@ -15,6 +15,8 @@ import RegretCard from './RegretCard';
 import { useI18n, categoryLabel } from '../../shared/i18n';
 import { useAccounts } from '../accounts/accountService';
 import { toCSV, downloadFile, buildReportHtml, printReport } from './reportExport';
+import SheetsExportButton from '../connect/SheetsExportButton';
+import { reportTabs } from '../connect/googleApps';
 import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/components/Rearrange';
 import { alertDialog } from '../../shared/components/Dialog';
 
@@ -107,6 +109,14 @@ export default function ReportsPage() {
         >
           <FileDown size={16} /> {t('reports.exportCsv')}
         </button>
+        <SheetsExportButton
+          className="col-span-2"
+          disabled={expenses.length === 0}
+          build={() => ({
+            title: t('sheets.titleReport', { date: format(new Date(), 'd MMM yyyy', { locale: dateLocale }) }),
+            tabs: reportTabs(expenses, profile?.currency || 'BDT', t, cat => categoryLabel(t, cat), profile?.monthlyBudget),
+          })}
+        />
       </div>
       ) },
 

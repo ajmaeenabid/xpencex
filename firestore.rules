@@ -14,6 +14,7 @@
 //   - currency: string (optional) - Preferred currency (default BDT)
 //   - categoryBudgets: map (optional) - Category name -> monthly limit
 //   - layout: map (optional) - page ('home' | 'reports' | 'profile') -> order of its movable cards
+//   - driveBackup: map (optional) - { auto, every (1-72), unit ('hours' | 'days'), lastAt } Google Drive backups
 //
 // Collection: expenses
 // Document ID: {expenseId}
@@ -76,6 +77,9 @@
 //
 // Document: meta/exchangeRates (AI server only; readable when signed in)
 //   - base ('USD'), rates (code -> units per 1 USD), updatedAt, sourceUpdatedAt, source
+//
+// Collection: googleLinks/{uid} (AI server only)
+//   - uid, email, token (encrypted Google refresh token), drive/sheets ('true' | 'false'), linkedAt
 //
 // Collection: devices/{deviceId} (written only by the AI server)
 //   - id, uid, label, at - a device approved for this account. Deleting it locks that device out at once.
@@ -154,7 +158,17 @@ service cloud.firestore {
              (!('monthlyBudget' in data) || isPositive(data.monthlyBudget)) &&
              (!('name' in data) || (data.name is string && data.name.size() < 100)) &&
              (!('categoryBudgets' in data) || (data.categoryBudgets is map && data.categoryBudgets.size() <= 50)) &&
-             (!('layout' in data) || isValidLayout(data.layout));
+             (!('layout' in data) || isValidLayout(data.layout)) &&
+             (!('driveBackup' in data) || isValidDriveBackup(data.driveBackup));
+    }
+
+    // Google Drive backup settings (src/features/connect/googleApps.ts)
+    function isValidDriveBackup(b) {
+      return b is map && b.keys().hasOnly(['auto', 'every', 'unit', 'lastAt']) &&
+             (!('auto' in b) || b.auto is bool) &&
+             (!('every' in b) || (b.every is int && b.every >= 1 && b.every <= 72)) &&
+             (!('unit' in b) || b.unit in ['hours', 'days']) &&
+             (!('lastAt' in b) || isValidDateString(b.lastAt));
     }
 
     function isValidExpense(data) {
@@ -435,6 +449,11 @@ service cloud.firestore {
     }
 
     match /usernames/{name} {
+      allow read, write: if false;
+    }
+
+    // Linked Google apps: the locked Google token. Only the AI server reads or writes it.
+    match /googleLinks/{uid} {
       allow read, write: if false;
     }
 

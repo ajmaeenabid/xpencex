@@ -5,22 +5,29 @@ import { callWorker } from '../../shared/lib/workerApi';
 import { downloadFile } from '../reports/reportExport';
 import { BACKUP_COLLECTIONS, BackupCollection, BackupData, planRestore, readBackup, writeBackup } from './backup';
 
-/** Downloads all of the user's data as one file, locked when a password is given */
-export async function downloadBackup(uid: string, password?: string) {
+/** All of the user's data, as it goes into a backup (also used for "Export everything" to Sheets) */
+export async function collectBackup(uid: string): Promise<BackupData> {
   const data = {} as BackupData['data'];
   for (const c of BACKUP_COLLECTIONS) {
     const snap = await getDocs(query(collection(db, c), where('uid', '==', uid)));
     data[c] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   }
   const profile = (await getDoc(doc(db, 'users', uid))).data() || {};
-  const backup: BackupData = {
+  return {
     app: 'XpenceX',
     version: 1,
     exportedAt: new Date().toISOString(),
     profile: { ...(profile.categoryBudgets && { categoryBudgets: profile.categoryBudgets }) },
     data,
   };
-  const text = await writeBackup(backup, password || undefined);
+}
+
+/** The backup file's text, locked when a password is given */
+export const backupText = async (uid: string, password?: string) => writeBackup(await collectBackup(uid), password || undefined);
+
+/** Downloads all of the user's data as one file, locked when a password is given */
+export async function downloadBackup(uid: string, password?: string) {
+  const text = await backupText(uid, password);
   downloadFile(`xpencex-backup-${format(new Date(), 'yyyy-MM-dd')}.json`, text, 'application/json');
 }
 

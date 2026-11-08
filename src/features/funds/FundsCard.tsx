@@ -10,6 +10,7 @@ import Select from '../../shared/components/Select';
 import DateField from '../../shared/components/DateField';
 import { alertDialog, confirmDialog } from '../../shared/components/Dialog';
 import { FESTIVALS, Festival, Fund, fundPlan, sortFunds } from './funds';
+import { CARD_SUB, CARD_TITLE } from '../../shared/lib/cardText';
 
 const FESTIVAL_TEXT: Record<Festival, TKey> = {
   eidFitr: 'funds.eidFitr',
@@ -87,8 +88,8 @@ export default function FundsCard({ uid, symbol }: { uid: string; symbol: string
           <PartyPopper size={20} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-muted text-xs font-bold">{t('funds.title')}</p>
-          <p className="font-bold text-sm text-foreground truncate">
+          <p className={CARD_TITLE}>{t('funds.title')}</p>
+          <p className={CARD_SUB}>
             {nearest ? t('funds.progress', { name: nearest.name, saved: money(nearest.saved), target: money(nearest.target) }) : t('funds.empty')}
           </p>
         </div>

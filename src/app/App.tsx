@@ -25,6 +25,7 @@ import LazyPart from '../shared/components/LazyPart';
 import ChatButton from '../features/chat/ChatButton';
 import ProfilePage from '../features/profile/ProfilePage';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAutoDriveBackup } from '../features/connect/useAutoDriveBackup';
 
 const lightTheme = {
   background: '#FFF8F2',
@@ -70,7 +71,8 @@ export default function App() {
   const [sessionKey, setSessionKey] = useState(0);
   const onPinUnlocked = useBackgroundLock();
   const [activeTab, setActiveTab] = useState('home');
-  // Bumped by Home's "Manage" links so Profile opens straight into the My Accounts window
+  // Bumped by Home's "Manage" links so Profile opens straight into the My Accounts window.
+  // Reset to 0 on any bottom-bar tab change, so a later visit to Profile shows its rows instead.
   const [openAccountsSignal, setOpenAccountsSignal] = useState(0);
   // Amount handed over by the calculator's "Save as expense"
   const [prefillAmount, setPrefillAmount] = useState<number | null>(null);
@@ -222,6 +224,9 @@ export default function App() {
     if (user) await fetchProfile(user.uid);
   };
 
+  // Backs up to Google Drive by itself when the person turned that on (Profile > Connected apps)
+  useAutoDriveBackup(access === 'approved' ? user?.uid : undefined, profile?.driveBackup, refreshProfile);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background transition-colors duration-300">
@@ -319,7 +324,7 @@ export default function App() {
         <AnimatePresence>
           {activeTab === 'home' && <ChatButton key="chat-fab" onOpen={() => setActiveTab('chat')} />}
         </AnimatePresence>
-        <BottomNav activeTab={activeTab} setActiveTab={(tab) => { setEditingExpense(null); setPrefillAmount(null); setPrefillPeople(null); setActiveTab(tab); }} />
+        <BottomNav activeTab={activeTab} setActiveTab={(tab) => { setEditingExpense(null); setPrefillAmount(null); setPrefillPeople(null); setOpenAccountsSignal(0); setActiveTab(tab); }} />
       </div>
     </AuthContext.Provider>
   );

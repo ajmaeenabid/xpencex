@@ -6,6 +6,7 @@ import { useI18n } from '../../shared/i18n';
 import { HIDDEN } from '../accounts/ui';
 import { findWallet, shouldAskCashCount, unrecordedSpending } from '../accounts/cash';
 import { confirmCash, countCash, createWallet } from '../accounts/cashService';
+import { CARD_SUB, CARD_TITLE } from '../../shared/lib/cardText';
 
 const field = 'w-full h-11 px-3 rounded-xl bg-background/60 border border-card-border text-sm text-foreground outline-none focus:border-indigo-500';
 const smallBtn = 'h-10 px-4 rounded-xl text-sm font-bold transition-colors disabled:opacity-50';
@@ -53,8 +54,8 @@ export default function CashCard({ uid, accounts, expenses, symbol, shown }: {
         <Banknote size={20} />
       </div>
       <div className="min-w-0">
-        <p className="text-muted text-xs font-bold">{t('cash.title')}</p>
-        <p className="font-bold text-sm text-foreground">{line}</p>
+        <p className={CARD_TITLE}>{t('cash.title')}</p>
+        <p className={CARD_SUB}>{line}</p>
       </div>
     </div>
   );

@@ -8,6 +8,8 @@ import { Trash2, Edit2, Search, Download, Calendar, Tag, Loader2, Repeat, Users,
 import { format } from 'date-fns';
 import { MAJOR_CURRENCIES, DEFAULT_CATEGORIES } from '../../shared/constants';
 import { toCSV, downloadFile } from '../reports/reportExport';
+import SheetsExportButton from '../connect/SheetsExportButton';
+import { expenseRows, tabTitle } from '../connect/googleApps';
 import { useAccounts, adjustBalance } from '../accounts/accountService';
 import { useI18n, categoryLabel } from '../../shared/i18n';
 import { alertDialog } from '../../shared/components/Dialog';
@@ -86,6 +88,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('expenses.title')}</h1>
           <p className="text-indigo-600 dark:text-indigo-400 font-bold text-xs">{t('expenses.count', { count: filteredExpenses.length })}</p>
         </div>
+        <div className="flex items-center gap-2">
         <button
           onClick={() => downloadFile(`xpencex-transactions-${format(new Date(), 'yyyy-MM-dd')}.csv`, toCSV(filteredExpenses, profile?.currency || 'BDT'), 'text/csv;charset=utf-8')}
           disabled={filteredExpenses.length === 0}
@@ -95,6 +98,15 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
         >
           <Download size={18} />
         </button>
+        <SheetsExportButton
+          variant="icon"
+          disabled={filteredExpenses.length === 0}
+          build={() => ({
+            title: t('sheets.titleExpenses', { date: format(new Date(), 'd MMM yyyy', { locale: dateLocale }) }),
+            tabs: [{ title: tabTitle(t('sheet.tabExpenses')), rows: expenseRows(filteredExpenses, profile?.currency || 'BDT', t, cat => categoryLabel(t, cat)) }],
+          })}
+        />
+        </div>
       </header>
 
       {/* Search & Filter */}

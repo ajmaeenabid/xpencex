@@ -10,8 +10,8 @@ import { MAJOR_CURRENCIES, DEFAULT_CATEGORIES } from '../../shared/constants';
 import { useAccounts } from '../accounts/accountService';
 import AccountsManager from '../accounts/AccountsManager';
 import BackupCard from './BackupCard';
-import { AdminPanel } from '../../app/lazyParts';
-import LazyPart from '../../shared/components/LazyPart';
+import AdminRow from '../admin/AdminRow';
+import ConnectedAppsCard from '../connect/ConnectedAppsCard';
 import AccountNotices from './AccountNotices';
 import DeleteAccount from './DeleteAccount';
 import PrivacyLink from '../../shared/components/PrivacyLink';
@@ -21,7 +21,7 @@ import { useUsernameForm } from '../auth/AccessScreens';
 import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/components/Rearrange';
 
 // Movable cards, in their default order
-const PROFILE_SECTIONS = ['accounts', 'admin', 'notices', 'pin', 'language', 'currency', 'budget', 'categoryBudgets', 'recurring', 'categories', 'backup'];
+const PROFILE_SECTIONS = ['accounts', 'admin', 'notices', 'pin', 'language', 'currency', 'budget', 'categoryBudgets', 'recurring', 'categories', 'connectedApps', 'backup'];
 import Select from '../../shared/components/Select';
 import LanguageToggle from '../../shared/components/LanguageToggle';
 import { useI18n, categoryLabel } from '../../shared/i18n';
@@ -215,8 +215,8 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
       <RearrangeList layout={layout} className="space-y-6" sections={[
       { id: 'accounts', node: user && <AccountsManager uid={user.uid} accounts={accounts} symbol={currencySymbol} openSignal={openAccountsSignal} /> },
 
-      // Appears only when the server confirms this user is the admin
-      { id: 'admin', node: user && <LazyPart fallback={null} quietOnError><AdminPanel /></LazyPart> },
+      // Appears only for the admin; the admin screen itself downloads when the row is tapped
+      { id: 'admin', node: user && <AdminRow uid={user.uid} /> },
 
       { id: 'notices', node: user && <AccountNotices uid={user.uid} /> },
 
@@ -396,6 +396,8 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
         </div>
       </div>
       ) },
+
+      { id: 'connectedApps', node: user && <ConnectedAppsCard uid={user.uid} /> },
 
       { id: 'backup', node: user && <BackupCard uid={user.uid} /> },
 

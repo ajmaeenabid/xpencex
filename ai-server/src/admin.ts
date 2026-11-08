@@ -30,8 +30,9 @@ async function nameOf(g: G, target: AuthUser) {
 async function removeUser(g: G, uid: string, onDeleted: (uid: string) => Promise<void>) {
   // Block the login first, so nothing new is written while the data is removed
   await g.updateUser(uid, { disableUser: true, signOutEverywhere: true });
-  const removed = await g.deleteUserData(uid);
+  // Before the data goes: daily counts, and the Google link (it must be revoked while its token is still there)
   await onDeleted(uid);
+  const removed = await g.deleteUserData(uid);
   await g.deleteLogin(uid);
   await forgetInLog(g, uid);
   return removed;

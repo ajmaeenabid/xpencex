@@ -8,6 +8,14 @@ export interface UserProfile {
   currency?: string;
   categoryBudgets?: Record<string, number>;
   layout?: Partial<Record<'home' | 'reports' | 'profile', string[]>>; // order of the movable cards per page
+  driveBackup?: DriveBackupSettings; // Google Drive backups (src/features/connect)
+}
+
+export interface DriveBackupSettings {
+  auto?: boolean; // back up by itself while the app is open
+  every?: number; // 1 to 72
+  unit?: 'hours' | 'days';
+  lastAt?: string; // ISO date of the last backup to Drive
 }
 
 export interface Expense {

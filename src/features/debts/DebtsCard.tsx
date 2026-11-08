@@ -5,6 +5,7 @@ import { useI18n } from '../../shared/i18n';
 import { debtTotals } from './debts';
 import { useDebts } from './debtService';
 import DebtsWindow from './DebtsWindow';
+import { CARD_SUB, CARD_TITLE } from '../../shared/lib/cardText';
 
 /** Home card: what people owe you and what you owe; opens the Lend & borrow window */
 export default function DebtsCard({ uid, accounts, symbol }: { uid: string; accounts: Account[]; symbol: string }) {
@@ -24,15 +25,15 @@ export default function DebtsCard({ uid, accounts, symbol }: { uid: string; acco
           <HandHeart size={20} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-muted text-xs font-bold">{t('debts.title')}</p>
+          <p className={CARD_TITLE}>{t('debts.title')}</p>
           {toGet > 0 || toGive > 0 ? (
-            <p className="font-bold text-sm text-foreground truncate">
+            <p className={CARD_SUB}>
               {toGet > 0 && <span className="text-teal-600 dark:text-teal-400">{t('debts.cardGet', { amount: money(toGet) })}</span>}
               {toGet > 0 && toGive > 0 && ' · '}
               {toGive > 0 && <span className="text-rose-500">{t('debts.cardGive', { amount: money(toGive) })}</span>}
             </p>
           ) : (
-            <p className="font-bold text-sm text-foreground truncate">{t('debts.cardEmpty')}</p>
+            <p className={CARD_SUB}>{t('debts.cardEmpty')}</p>
           )}
         </div>
         <ChevronRight size={18} className="text-muted shrink-0" />

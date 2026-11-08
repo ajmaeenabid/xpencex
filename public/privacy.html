@@ -32,7 +32,7 @@
 <body>
 <main>
   <h1>XpenceX privacy policy</h1>
-  <p class="date">Last updated: 5 November 2026</p>
+  <p class="date">Last updated: 8 November 2026</p>
   <p class="date"><a href="/privacy-bn.html" lang="bn">বাংলায় পড়ুন</a></p>
 
   <p>XpenceX is an expense tracker with an AI assistant. This page explains what it collects, where that goes, and how you can delete it.</p>
@@ -57,6 +57,7 @@
       <tr><td>Money records</td><td>Expenses (with "worth it" or "regret" if you tag them), money received, accounts, balances and the history of each balance change, loans, festival savings goals, samity (savings group) rounds you record, recurring expenses, categories, budgets and your currency</td><td>To run the expense tracker</td></tr>
       <tr><td>Lend and borrow</td><td>The names you type for people you lend money to or borrow from, with the amounts, dates and any notes</td><td>To show who owes whom</td></tr>
       <tr><td>Chats</td><td>Your typed messages, the assistant's replies, written transcripts of live chats, a written version of your voice messages, and the names of files you attach</td><td>So you can return to your conversations</td></tr>
+      <tr><td>Linked Google apps</td><td>Only if you link Google Drive or Google Sheets: which ones you linked, the Google account's email address, the date you linked, and a permission key from Google, which we keep locked (encrypted). Also your Drive backup settings and the time of your last Drive backup</td><td>To back up to your Drive and export to your Sheets when you ask, or on the schedule you choose</td></tr>
       <tr><td>Daily counts</td><td>How many AI messages, voice messages, live chats and files you used today</td><td>To apply the daily limits</td></tr>
     </table>
   </div>
@@ -95,9 +96,18 @@
     <li><strong>SMS:</strong> XpenceX never reads your SMS inbox. It only sees a message you paste or share into it yourself. Wallet and bank messages it recognises are read on your phone and aren't sent to the AI. Other messages you paste are treated like any typed message.</li>
   </ul>
 
+  <h2>Google Drive and Google Sheets</h2>
+  <p>You can link Google Drive and Google Sheets in Profile, under Connected apps. This is optional, and only the Google account you signed in with can be linked.</p>
+  <ul>
+    <li><strong>What XpenceX can reach:</strong> only the files it creates in your Drive (your XpenceX backups and exported sheets). It can't see, open or change any of your other files.</li>
+    <li><strong>What is sent:</strong> a backup holds all your money records and chats, the same as a downloaded backup file. An export holds the records you chose to export. They go straight from the app to your Google account and are stored there, under Google's terms.</li>
+    <li><strong>Automatic backups</strong> run only while the app is open, at the time you choose, and you can turn them off.</li>
+    <li><strong>Unlinking</strong> both apps removes our permission key and asks Google to cancel the permission. Backups and sheets already in your Drive stay there until you delete them. You can also remove access in your Google account settings.</li>
+  </ul>
+
   <h2>Who handles your data</h2>
   <ul>
-    <li><strong>Google:</strong> sign-in, database and app hosting (Firebase), and the AI (Gemini)</li>
+    <li><strong>Google:</strong> sign-in, database and app hosting (Firebase), the AI (Gemini), and, if you link them, Google Drive and Google Sheets</li>
     <li><strong>Cloudflare:</strong> runs our server, which passes your AI requests to Google and keeps the daily counts. It doesn't store your messages, recordings or files. Our server's technical logs may include error details.</li>
   </ul>
   <p>The app also downloads currency exchange rates from open.er-api.com. That request is made by our server and contains nothing about you.</p>
@@ -109,7 +119,7 @@
   <h2>Keeping and deleting your data</h2>
   <p>We keep your data until you delete it or delete your account. The one exception is chat history, which keeps 20 chats. When it is full, starting a new chat permanently removes your oldest unpinned chat, and tells you when it does. Pinned chats are never removed this way. If all 20 are pinned, new chats aren't saved until you make room.</p>
   <ul>
-    <li><strong>To delete everything:</strong> open Profile, choose Delete my account, and confirm with Google. This permanently removes your account, money records, chats, devices and daily counts from our systems.</li>
+    <li><strong>To delete everything:</strong> open Profile, choose Delete my account, and confirm with Google. This permanently removes your account, money records, chats, devices, daily counts and any Google link from our systems. Backups and sheets in your own Google Drive are yours, and stay there until you delete them.</li>
     <li><strong>To delete one chat:</strong> open the chat list and tap the delete button beside it.</li>
     <li><strong>To ask for help:</strong> write to the address below.</li>
   </ul>

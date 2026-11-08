@@ -4,16 +4,18 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { useAuth } from '../../app/App';
 import { Expense } from '../../shared/types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Banknote, Wallet, Clock, Tag, Sparkles, AlertTriangle, CheckCircle2, Info, Landmark, Smartphone, ChevronRight, Sun, Moon, Eye, EyeOff, HandCoins, Calculator } from 'lucide-react';
+import { Banknote, Wallet, Clock, Tag, Landmark, Smartphone, ChevronRight, Sun, Moon, Eye, EyeOff, Calculator } from 'lucide-react';
 import { CalculatorSheet, SpendingCharts } from '../../app/lazyParts';
 import LazyPart, { LoadingSpot } from '../../shared/components/LazyPart';
 import { format, startOfMonth, startOfWeek, subMonths } from 'date-fns';
 import { useAccounts } from '../accounts/accountService';
 import { useLoans } from '../accounts/loanService';
-import { activeLoans, nextAmount } from '../accounts/loans';
+import { activeLoans } from '../accounts/loans';
 import { accountDisplayName, isMobile, MOBILE_PROVIDERS } from '../accounts/accounts';
 import { MAJOR_CURRENCIES, DEFAULT_CATEGORIES } from '../../shared/constants';
-import { buildInsights, sumByCategory, Insight } from './insights';
+import { buildInsights, sumByCategory } from './insights';
+import InsightsCard from './InsightsCard';
+import NextLoanCard from './NextLoanCard';
 import SpendingCard from './SpendingCard';
 import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/components/Rearrange';
 import RunwayCard from './RunwayCard';
@@ -25,13 +27,7 @@ import SamityCard from '../samity/SamityCard';
 // Movable cards, in their default order
 const HOME_SECTIONS = ['budget', 'spending', 'accounts', 'cash', 'runway', 'debts', 'funds', 'samity', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
 import { useI18n, categoryLabel } from '../../shared/i18n';
-
-const INSIGHT_STYLES: Record<Insight['tone'], { icon: typeof Info; className: string }> = {
-  danger: { icon: AlertTriangle, className: 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400' },
-  warning: { icon: AlertTriangle, className: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' },
-  good: { icon: CheckCircle2, className: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' },
-  info: { icon: Info, className: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400' },
-};
+import { CARD_SUB, CARD_TITLE } from '../../shared/lib/cardText';
 
 export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }: { onViewAll?: () => void; onManageAccounts?: () => void; onSaveExpense?: (amount: number, people?: number) => void }) {
   const [calcOpen, setCalcOpen] = useState(false);
@@ -45,7 +41,6 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
   const [summary, setSummary] = useState({ today: 0, week: 0, month: 0 });
   const accounts = useAccounts(user?.uid);
   const openLoans = activeLoans(useLoans(user?.uid));
-  const nextLoan = openLoans[0];
   const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
   // Balances stay hidden until the user taps them; they hide again when Home is left
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
@@ -236,8 +231,8 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
             <Landmark size={20} />
           </div>
           <div className="flex-1">
-            <p className="font-bold text-sm text-foreground">{t('home.addAccounts')}</p>
-            <p className="text-xs text-muted font-medium">{t('home.addAccountsHint')}</p>
+            <p className={CARD_TITLE}>{t('home.addAccounts')}</p>
+            <p className={CARD_SUB}>{t('home.addAccountsHint')}</p>
           </div>
           <ChevronRight size={18} className="text-muted" />
         </button>
@@ -251,7 +246,7 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
         <div className="w-10 h-10 shrink-0 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
           <Calculator size={20} />
         </div>
-        <p className="flex-1 min-w-0 font-bold text-sm text-foreground">{t('calc.title')}</p>
+        <p className={`flex-1 min-w-0 ${CARD_TITLE}`}>{t('calc.title')}</p>
         <ChevronRight size={18} className="text-muted shrink-0" />
       </button>
       ) },
@@ -274,50 +269,9 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
 
       { id: 'samity', node: user && <SamityCard uid={user.uid} accounts={accounts} symbol={currencySymbol} /> },
 
-      { id: 'loan', node: nextLoan && (
-        <button
-          onClick={onManageAccounts}
-          className="w-full flex items-center gap-3 p-4 bg-card rounded-[2rem] shadow-soft border border-card-border text-left"
-        >
-          <div className="w-10 h-10 shrink-0 bg-amber-50 dark:bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-700 dark:text-amber-400">
-            <HandCoins size={20} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-muted text-xs font-bold">{t('loans.homeTitle')}</p>
-            <p className="font-bold text-sm text-foreground truncate">
-              {t('loans.homeLine', { amount: `${currencySymbol}${nextAmount(nextLoan).toLocaleString()}`, loan: nextLoan.name })}
-            </p>
-            <p className="text-[11px] text-muted font-medium truncate">
-              {t('loans.homeWhen', { date: format(new Date(nextLoan.nextDueDate), 'd MMM', { locale: dateLocale }), account: nextLoan.accountName })}
-              {openLoans.length > 1 && ` · ${t('loans.homeMore', { count: openLoans.length })}`}
-            </p>
-          </div>
-          <ChevronRight size={18} className="text-muted shrink-0" />
-        </button>
-      ) },
+      { id: 'loan', node: openLoans.length > 0 && <NextLoanCard loans={openLoans} symbol={currencySymbol} onManage={onManageAccounts} /> },
 
-      { id: 'insights', node: insights.length > 0 && (
-        <div className="bg-card p-6 rounded-[2.5rem] shadow-soft border border-card-border space-y-4">
-          <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <Sparkles size={18} className="text-indigo-600 dark:text-indigo-400" />
-            {t('home.insights')}
-          </h3>
-          {insights.map(insight => {
-            const { icon: Icon, className } = INSIGHT_STYLES[insight.tone];
-            return (
-              <div key={insight.id} className="flex items-start gap-3">
-                <div className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center ${className}`}>
-                  <Icon size={18} />
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-foreground">{insight.title}</p>
-                  <p className="text-xs text-muted font-medium leading-relaxed">{insight.detail}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) },
+      { id: 'insights', node: insights.length > 0 && <InsightsCard insights={insights} /> },
 
       { id: 'categoryBudgets', node: Object.keys(categoryBudgets).length > 0 && (
         <div className="bg-card p-6 rounded-[2.5rem] shadow-soft border border-card-border space-y-4">

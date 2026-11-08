@@ -22,6 +22,11 @@ ADMIN_UIDS = "vNQuoT4KGBTItv1tLZkAO255xuv1"
 # "true": a brand new account's first device also waits for the admin (used during testing).
 # Change to "false" to let a person's first device in straight away. Extra devices always need approval.
 REQUIRE_FIRST_DEVICE_APPROVAL = "true"
+# Linked Google apps (Drive backups, Sheets exports). The client ID is public, so it can sit here
+# (the same value as VITE_GOOGLE_CLIENT_ID in the app). Two secrets go in .dev.vars and in Cloudflare:
+#   GOOGLE_CLIENT_SECRET  the OAuth client's secret from Google Cloud
+#   GOOGLE_TOKEN_KEY      32 random bytes in base64, which lock the saved Google tokens
+GOOGLE_CLIENT_ID = "77916812361-rbhs4vgr2p0cdmlu96umf52nd2agnssb.apps.googleusercontent.com"
 
 # Every hour: take loan installments that have come due, and refresh exchange rates once they
 # are 10 days old (free on Cloudflare)

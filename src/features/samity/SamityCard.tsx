@@ -10,6 +10,7 @@ import { alertDialog, confirmDialog } from '../../shared/components/Dialog';
 import AccountPicker from '../accounts/AccountPicker';
 import { Samity, payoutAmount, samityStatus } from './samity';
 import { createSamity, deleteSamity, payRound, receivePayout, undoPayout, undoRound, useSamities } from './samityService';
+import { CARD_SUB, CARD_TITLE } from '../../shared/lib/cardText';
 
 const field = 'w-full h-11 px-3 rounded-xl bg-background/60 border border-card-border text-sm text-foreground outline-none focus:border-indigo-500';
 const btn = 'h-9 px-3 rounded-xl text-xs font-bold transition-colors disabled:opacity-50';
@@ -62,8 +63,8 @@ export default function SamityCard({ uid, accounts, symbol }: { uid: string; acc
       <button onClick={() => setOpen(o => !o)} aria-expanded={open} className="w-full flex items-center gap-3 text-left">
         <div className="w-10 h-10 shrink-0 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400"><Users size={20} /></div>
         <div className="flex-1 min-w-0">
-          <p className="text-muted text-xs font-bold">{t('samity.title')}</p>
-          <p className="font-bold text-sm text-foreground truncate">{first ? first.name : t('samity.empty')}</p>
+          <p className={CARD_TITLE}>{t('samity.title')}</p>
+          <p className={CARD_SUB}>{first ? first.name : t('samity.empty')}</p>
         </div>
         <ChevronDown size={18} className={cn('shrink-0 text-muted transition-transform', open && 'rotate-180')} />
       </button>

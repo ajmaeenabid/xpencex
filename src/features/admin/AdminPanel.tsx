@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { format } from 'date-fns';
-import { ShieldCheck, ChevronRight, X, Search, Smartphone, Ban, RotateCcw, Trash2, Check, AlertTriangle, ShieldAlert, Lock, Users, History, LogOut } from 'lucide-react';
+import { ShieldCheck, X, Search, Smartphone, Ban, RotateCcw, Trash2, Check, AlertTriangle, ShieldAlert, Lock, Users, History, LogOut } from 'lucide-react';
 import { cn } from '../../shared/lib/utils';
 import { WorkerError } from '../../shared/lib/workerApi';
 import { useI18n, TKey } from '../../shared/i18n';
 import { WrongGoogleAccountError, signInWasCancelled } from '../auth/googleSignIn';
 import { AdminAction, AdminHealth, AdminLogEntry, AdminUser, UserFilter, UserStatus, deleteConfirmed, displayName, userStatus, visibleUsers } from './admin';
-import { approveDevice, checkIsAdmin, confirmWithGoogle, deleteUser, getHealth, listLog, listUsers, refuseDevice, removeDevice, setSuspended } from './adminService';
+import { approveDevice, confirmWithGoogle, deleteUser, getHealth, listLog, listUsers, refuseDevice, removeDevice, setSuspended } from './adminService';
 import HealthBox from './HealthBox';
 import { confirmDialog } from '../../shared/components/Dialog';
 
@@ -32,11 +32,9 @@ const STATUS: Record<UserStatus, { key: TKey; className: string }> = {
 
 const actionClass = 'flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold disabled:opacity-50';
 
-/** Profile row, shown only to the admin, that opens a popup to manage who can use the app */
-export default function AdminPanel() {
+/** The admin screen to manage who can use the app. Opened from the Profile row in AdminRow.tsx. */
+export default function AdminPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t, dateLocale } = useI18n();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [open, setOpen] = useState(false);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -57,8 +55,6 @@ export default function AdminPanel() {
   const [view, setView] = useState<'users' | 'log'>('users');
   const [log, setLog] = useState<AdminLogEntry[]>([]);
   const [health, setHealth] = useState<AdminHealth | null>(null);
-
-  useEffect(() => { checkIsAdmin().then(setIsAdmin); }, []);
 
   const lock = () => setUnlocked(false);
 
@@ -97,10 +93,10 @@ export default function AdminPanel() {
     }
   };
 
-  const openPopup = () => { lock(); setLockError(''); setView('users'); setOpen(true); };
+  // Everything resets on close, so the next open starts on the lock step with a clean screen
   const closePopup = () => {
-    setOpen(false); setExpanded(null); setDeleting(null); setTyped(''); setActionError(''); setSearch('');
-    setDone(''); setFilter('all');
+    onClose(); setExpanded(null); setDeleting(null); setTyped(''); setActionError(''); setSearch('');
+    setDone(''); setFilter('all'); setLockError(''); setView('users');
     lock();
   };
 
@@ -167,8 +163,6 @@ export default function AdminPanel() {
       setExpanded(null);
     });
   };
-
-  if (!isAdmin) return null;
 
   const lockView = (
     <div className="px-5 pt-2 pb-6 space-y-4">
@@ -296,17 +290,6 @@ export default function AdminPanel() {
 
   return (
     <>
-      <button
-        onClick={openPopup}
-        className="w-full bg-card p-6 rounded-3xl shadow-sm border border-card-border flex items-center gap-3 text-left transition-colors hover:border-indigo-500/40"
-      >
-        <div className="w-10 h-10 shrink-0 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-          <ShieldCheck size={20} />
-        </div>
-        <h3 className="flex-1 min-w-0 font-bold text-foreground">{t('admin.title')}</h3>
-        <ChevronRight size={20} className="text-muted shrink-0" />
-      </button>
-
       {/* Rendered on <body> so it covers the whole screen, including the bottom bar. Profile stays
           mounted underneath, so exiting returns to the same spot. */}
       {createPortal(

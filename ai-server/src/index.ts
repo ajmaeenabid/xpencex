@@ -8,6 +8,7 @@ import { handleLive } from './live';
 import { verifyFirebaseToken } from './auth';
 import { recordRun } from './health';
 import { handleRestoreLoans } from './restore';
+import { forgetGoogleLink, handleGoogleApps } from './googleApps';
 import { bdDay } from './loanDates';
 import { LIMIT_KINDS, LimitKind, MAX_BODY_BYTES, classifyParts, dailyLimits, firstBlocked, limitsView } from './usage';
 
@@ -24,6 +25,10 @@ interface Env {
   ADMIN_UIDS?: string;
   REQUIRE_FIRST_DEVICE_APPROVAL?: string;
   FIREBASE_SERVICE_ACCOUNT?: string;
+  // Linked Google apps (Drive backups, Sheets exports). See src/googleApps.ts
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  GOOGLE_TOKEN_KEY?: string;
   LIMITER: DurableObjectNamespace<UsageLimiter>;
 }
 
@@ -133,7 +138,7 @@ export default {
     const { uid, claims } = verified;
 
     // The routes for accounts and devices, as opposed to the AI and loan routes below
-    const isAccountRoute = path.startsWith('/device/') || path.startsWith('/admin/') || path === '/account/username' || path === '/account/delete' || path === '/account/restore-loans';
+    const isAccountRoute = path.startsWith('/device/') || path.startsWith('/admin/') || path.startsWith('/google/') || path === '/account/username' || path === '/account/delete' || path === '/account/restore-loans';
     let body: Record<string, unknown> = {};
     if (isAccountRoute) {
       try {
@@ -150,7 +155,11 @@ export default {
 
       if (!(await deviceIsApproved(uid, claims, env))) return json({ error: 'This device is not approved.', device: true }, 403);
 
-      const clearLimiter = (id: string) => env.LIMITER.get(env.LIMITER.idFromName(id)).clear();
+      // Runs when an account is deleted: forget its daily counts and its linked Google apps
+      const clearLimiter = async (id: string) => {
+        await forgetGoogleLink(env, id).catch((err) => console.error('Could not remove the Google link', err));
+        await env.LIMITER.get(env.LIMITER.idFromName(id)).clear();
+      };
       // A separate, fresh Google sign-in that proves the person is here right now. It must be this same user.
       const verifyGoogle = async (googleToken: unknown) => {
         const fresh = typeof googleToken === 'string' ? await verifyFirebaseToken(googleToken, env.FIREBASE_PROJECT_ID) : null;
@@ -158,6 +167,7 @@ export default {
       };
       if (path === '/account/delete') return await handleDeleteAccount(uid, body, env, json, clearLimiter, verifyGoogle);
       if (path === '/account/restore-loans') return await handleRestoreLoans(uid, body, env, json);
+      if (path.startsWith('/google/')) return await handleGoogleApps(path, uid, body, env, json);
       if (path.startsWith('/admin/')) return await handleAdmin(path, uid, claims, body, env, json, clearLimiter, verifyGoogle);
     } catch (err) {
       console.error('Account route failed', path, err);
