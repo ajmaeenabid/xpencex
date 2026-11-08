@@ -51,3 +51,17 @@ export function sortFunds(funds: Fund[], now = new Date()): Fund[] {
     return a.dueDate.localeCompare(b.dueDate) * (pa ? -1 : 1);
   });
 }
+
+/** Rounds to a tidy amount people would type: 1, 2 or 5 times a power of ten */
+export function tidyAmount(n: number): number {
+  if (!(n > 0)) return 0;
+  const power = 10 ** Math.floor(Math.log10(n));
+  const step = [1, 2, 5, 10].find(s => n <= s * power * 1.5) ?? 10;
+  return step * power;
+}
+
+/** Quick "set aside" buttons: about 5%, 10% and 25% of the goal, tidy and different from each other */
+export function quickAmounts(target: number): number[] {
+  const picks = [0.05, 0.1, 0.25].map(share => Math.max(10, tidyAmount(target * share)));
+  return [...new Set(picks)];
+}

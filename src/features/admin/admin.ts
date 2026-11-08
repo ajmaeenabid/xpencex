@@ -71,3 +71,37 @@ export function visibleUsers(users: AdminUser[], search: string, filter: UserFil
 
 /** Delete needs the exact name typed, ignoring spaces around it */
 export const deleteConfirmed = (u: AdminUser, typed: string) => typed.trim() === displayName(u);
+
+/** A comment someone sent from Profile > Send feedback, as the admin sees it */
+export interface AdminComment {
+  id: string;
+  uid: string;
+  username: string;
+  email: string;
+  text: string;
+  at: string; // ISO
+}
+
+export interface CommentGroup {
+  uid: string;
+  name: string; // @username, or the email when there is none
+  email: string;
+  comments: AdminComment[]; // newest first
+  latest: string;
+}
+
+/** Comments grouped by person: whoever wrote most recently first, each person's newest comment first */
+export function groupComments(comments: AdminComment[], search = ''): CommentGroup[] {
+  const q = search.trim().toLowerCase();
+  const groups = new Map<string, CommentGroup>();
+  for (const c of comments) {
+    const name = c.username ? `@${c.username}` : c.email || c.uid;
+    if (q && ![name, c.email, c.text].some(v => v.toLowerCase().includes(q))) continue;
+    const g = groups.get(c.uid) ?? { uid: c.uid, name, email: c.email, comments: [], latest: '' };
+    g.comments.push(c);
+    if (c.at > g.latest) g.latest = c.at;
+    groups.set(c.uid, g);
+  }
+  for (const g of groups.values()) g.comments.sort((a, b) => b.at.localeCompare(a.at));
+  return [...groups.values()].sort((a, b) => b.latest.localeCompare(a.latest));
+}

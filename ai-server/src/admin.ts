@@ -54,7 +54,8 @@ async function forgetInLog(g: G, uid: string) {
 
 /**
  * Admin routes. Only uids listed in ADMIN_UIDS (a server setting the app can't change) get in.
- * They return login details only: never expenses, accounts, chats or settings.
+ * They return login details only, plus the comments people chose to send the admin:
+ * never expenses, accounts, chats or settings.
  */
 export async function handleAdmin(path: string, callerUid: string, claims: Record<string, unknown>, body: Record<string, unknown>, env: AdminEnv, json: Json, onDeleted: (uid: string) => Promise<void>, verifyGoogle: VerifyGoogle) {
   const admins = adminUids(env);
@@ -99,6 +100,23 @@ export async function handleAdmin(path: string, callerUid: string, claims: Recor
   if (path === '/admin/log') {
     const entries = await g.latest('adminLog', 50);
     return json({ entries: entries.map(({ action, username, at }) => ({ action, username, at })) });
+  }
+
+  // Comments people sent from Profile > Send feedback, newest first, with who sent them
+  if (path === '/admin/comments') {
+    const [docs, names, users] = await Promise.all([
+      g.query({ from: [{ collectionId: 'feedback' }], orderBy: [{ field: { fieldPath: 'createdAt' }, direction: 'DESCENDING' }], limit: 500 }),
+      g.listAll('usernames'),
+      g.listUsers(),
+    ]);
+    const usernames = new Map(names.map((n) => [n.uid, n.username]));
+    const emails = new Map(users.map((u) => [u.localId, u.email || '']));
+    return json({
+      comments: docs.map((d) => {
+        const uid = String(d.data.uid || '');
+        return { id: d.id, uid, username: usernames.get(uid) || '', email: emails.get(uid) || '', text: String(d.data.text || ''), at: String(d.data.createdAt || '') };
+      }),
+    });
   }
 
   if (path === '/admin/users') {

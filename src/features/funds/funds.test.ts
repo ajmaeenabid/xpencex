@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Fund, fundPlan, sortFunds } from './funds';
+import { Fund, fundPlan, quickAmounts, sortFunds, tidyAmount } from './funds';
 
 const now = new Date('2026-11-20T12:00:00.000Z');
 const inDays = (d: number) => new Date(now.getTime() + d * 86_400_000).toISOString();
@@ -26,5 +26,23 @@ describe('festival funds', () => {
   it('shows the soonest upcoming fund first and past ones last', () => {
     const f = (id: string, d: number) => ({ id, dueDate: inDays(d) }) as Fund;
     expect(sortFunds([f('past', -10), f('later', 60), f('soon', 5)], now).map(x => x.id)).toEqual(['soon', 'later', 'past']);
+  });
+});
+
+describe('quick set-aside amounts', () => {
+  it('rounds to tidy amounts', () => {
+    expect(tidyAmount(480)).toBe(500);
+    expect(tidyAmount(1000)).toBe(1000);
+    expect(tidyAmount(2300)).toBe(2000);
+    expect(tidyAmount(0)).toBe(0);
+  });
+
+  it('suggests about 5%, 10% and 25% of the goal', () => {
+    expect(quickAmounts(10000)).toEqual([500, 1000, 2000]);
+    expect(quickAmounts(50000)).toEqual([2000, 5000, 10000]);
+  });
+
+  it('never suggests tiny or repeated amounts', () => {
+    expect(quickAmounts(100)).toEqual([10, 20]);
   });
 });

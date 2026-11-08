@@ -14,6 +14,11 @@ import LoanForm from './LoanForm';
 import { btnSmall, iconButton } from './ui';
 import { alertDialog, confirmDialog } from '../../shared/components/Dialog';
 import CashForm from './CashForm';
+import { format } from 'date-fns';
+import { useAuth } from '../../app/App';
+import SheetsExportButton from '../connect/SheetsExportButton';
+import { SavedBalanceLine, accountsTabs } from '../connect/exportTables';
+import { loadMine } from '../connect/exportData';
 
 // The pages inside the window; Back goes to the previous one
 type View =
@@ -32,7 +37,8 @@ interface Props {
 
 /** Profile row that opens the My Accounts window: accounts, their balances and their loans */
 export default function AccountsManager({ uid, accounts, symbol, openSignal }: Props) {
-  const { t } = useI18n();
+  const { t, dateLocale } = useI18n();
+  const { profile } = useAuth();
   const loans = useLoans(uid);
   const [open, setOpen] = useState(false);
   const [history, setHistory] = useState<View[]>([{ page: 'list' }]);
@@ -182,6 +188,15 @@ export default function AccountsManager({ uid, accounts, symbol, openSignal }: P
                     <h2 className="text-base font-bold truncate">{title}</h2>
                     {subtitle && <p className="text-xs text-muted font-medium truncate">{subtitle}</p>}
                   </div>
+                  {view.page === 'list' && accounts.length > 0 && (
+                    <SheetsExportButton
+                      variant="icon"
+                      build={async () => ({
+                        title: t('sheets.titleAccounts', { date: format(new Date(), 'd MMM yyyy', { locale: dateLocale }) }),
+                        tabs: accountsTabs(accounts, await loadMine<SavedBalanceLine>(uid, 'balanceHistory'), loans, profile?.currency || 'BDT', t),
+                      })}
+                    />
+                  )}
                   {view.page === 'list' && accounts.length > 0 && (
                     <button onClick={() => go({ page: 'accountForm' })} className={cn(btnSmall, 'bg-indigo-600 text-white hover:bg-indigo-700')}>
                       <Plus size={15} /> {t('accounts.add')}

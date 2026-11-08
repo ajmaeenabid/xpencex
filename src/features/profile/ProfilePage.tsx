@@ -12,6 +12,7 @@ import AccountsManager from '../accounts/AccountsManager';
 import BackupCard from './BackupCard';
 import AdminRow from '../admin/AdminRow';
 import ConnectedAppsCard from '../connect/ConnectedAppsCard';
+import FeedbackCard from '../feedback/FeedbackCard';
 import AccountNotices from './AccountNotices';
 import DeleteAccount from './DeleteAccount';
 import PrivacyLink from '../../shared/components/PrivacyLink';
@@ -21,7 +22,7 @@ import { useUsernameForm } from '../auth/AccessScreens';
 import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/components/Rearrange';
 
 // Movable cards, in their default order
-const PROFILE_SECTIONS = ['accounts', 'admin', 'notices', 'pin', 'language', 'currency', 'budget', 'categoryBudgets', 'recurring', 'categories', 'connectedApps', 'backup'];
+const PROFILE_SECTIONS = ['accounts', 'admin', 'notices', 'pin', 'language', 'currency', 'budget', 'categoryBudgets', 'recurring', 'categories', 'connectedApps', 'backup', 'feedback'];
 import Select from '../../shared/components/Select';
 import LanguageToggle from '../../shared/components/LanguageToggle';
 import { useI18n, categoryLabel } from '../../shared/i18n';
@@ -400,6 +401,8 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
       { id: 'connectedApps', node: user && <ConnectedAppsCard uid={user.uid} /> },
 
       { id: 'backup', node: user && <BackupCard uid={user.uid} /> },
+
+      { id: 'feedback', node: user && <FeedbackCard uid={user.uid} /> },
 
       { id: 'categories', node: (
       <div className="bg-card p-6 rounded-3xl shadow-sm border border-card-border space-y-6 transition-colors">

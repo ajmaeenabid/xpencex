@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { format } from 'date-fns';
-import { ShieldCheck, X, Search, Smartphone, Ban, RotateCcw, Trash2, Check, AlertTriangle, ShieldAlert, Lock, Users, History, LogOut } from 'lucide-react';
+import { ShieldCheck, X, Search, Smartphone, Ban, RotateCcw, Trash2, Check, AlertTriangle, ShieldAlert, Lock, Users, History, LogOut, MessageSquareText, ChevronRight } from 'lucide-react';
 import { cn } from '../../shared/lib/utils';
 import { WorkerError } from '../../shared/lib/workerApi';
 import { useI18n, TKey } from '../../shared/i18n';
@@ -10,6 +10,7 @@ import { WrongGoogleAccountError, signInWasCancelled } from '../auth/googleSignI
 import { AdminAction, AdminHealth, AdminLogEntry, AdminUser, UserFilter, UserStatus, deleteConfirmed, displayName, userStatus, visibleUsers } from './admin';
 import { approveDevice, confirmWithGoogle, deleteUser, getHealth, listLog, listUsers, refuseDevice, removeDevice, setSuspended } from './adminService';
 import HealthBox from './HealthBox';
+import CommentsWindow from './CommentsWindow';
 import { confirmDialog } from '../../shared/components/Dialog';
 
 const LOG_TEXT: Record<AdminAction, TKey> = {
@@ -55,6 +56,7 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
   const [view, setView] = useState<'users' | 'log'>('users');
   const [log, setLog] = useState<AdminLogEntry[]>([]);
   const [health, setHealth] = useState<AdminHealth | null>(null);
+  const [commentsOpen, setCommentsOpen] = useState(false);
 
   const lock = () => setUnlocked(false);
 
@@ -96,19 +98,20 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
   // Everything resets on close, so the next open starts on the lock step with a clean screen
   const closePopup = () => {
     onClose(); setExpanded(null); setDeleting(null); setTyped(''); setActionError(''); setSearch('');
-    setDone(''); setFilter('all'); setLockError(''); setView('users');
+    setDone(''); setFilter('all'); setLockError(''); setView('users'); setCommentsOpen(false);
     lock();
   };
 
   // Close with the Escape key, and stop the page behind from scrolling
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closePopup(); };
+    // While Comments is open, Escape belongs to it
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !commentsOpen) closePopup(); };
     window.addEventListener('keydown', onKey);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
-  }, [open]);
+  }, [open, commentsOpen]);
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
@@ -364,6 +367,17 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
                     <ShieldAlert size={14} className="shrink-0 mt-px text-indigo-600 dark:text-indigo-400" /> {t('admin.privacyNote')}
                   </p>
                   {health && <HealthBox health={health} />}
+                  <button
+                    onClick={() => setCommentsOpen(true)}
+                    className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-card-border text-left transition-colors hover:border-indigo-500/40"
+                  >
+                    <span className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300"><MessageSquareText size={20} /></span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-bold text-foreground">{t('comments.title')}</span>
+                      <span className="block text-xs text-muted font-medium">{t('comments.hint')}</span>
+                    </span>
+                    <ChevronRight size={18} className="shrink-0 text-muted" />
+                  </button>
                   <div role="tablist" className="p-1 grid grid-cols-2 gap-1 bg-background/60 rounded-2xl">
                     {([
                       { id: 'users', label: t('admin.tabUsers'), Icon: Users },
@@ -456,6 +470,7 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
         </AnimatePresence>,
         document.body
       )}
+      <CommentsWindow open={open && unlocked && commentsOpen} onClose={() => setCommentsOpen(false)} onLocked={lock} />
     </>
   );
 }

@@ -4,7 +4,8 @@ import { AlertTriangle, CalendarClock, HandCoins } from 'lucide-react';
 import { Loan } from '../../shared/types';
 import { useI18n } from '../../shared/i18n';
 import DetailSheet from '../../shared/components/DetailSheet';
-import { nextAmount } from '../accounts/loans';
+import { installmentsLeft, nextAmount } from '../accounts/loans';
+import AddToCalendarButton from '../connect/AddToCalendarButton';
 import TapCard, { ChipTone, IconBox, TONE_CLASS } from './TapCard';
 
 // A payment this close shows as a warning
@@ -73,6 +74,14 @@ export default function NextLoanCard({ loans, symbol, onManage }: {
                   {t('loans.homeLeft', { amount: money(loan.remaining) })}
                 </span>
               </div>
+              <AddToCalendarButton
+                event={{
+                  title: t('calendar.loanTitle', { loan: loan.name, amount: money(loan.installment) }),
+                  date: new Date(loan.nextDueDate),
+                  details: t('calendar.loanDetails', { account: loan.accountName, left: money(loan.remaining) }),
+                  repeat: { every: 'month', times: installmentsLeft(loan) },
+                }}
+              />
             </div>
           );
         })}

@@ -5,6 +5,7 @@ import { cn } from '../../shared/lib/utils';
 import { useI18n } from '../../shared/i18n';
 import { installmentsLeft, loanProgress, nextAmount } from './loans';
 import { btnSmall, card } from './ui';
+import AddToCalendarButton from '../connect/AddToCalendarButton';
 
 /** One loan: what is left, the installment, the next date and the last one taken */
 export default function LoanCard({ loan, symbol, onEdit }: { loan: Loan; symbol: string; onEdit: () => void }) {
@@ -55,6 +56,17 @@ export default function LoanCard({ loan, symbol, onEdit }: { loan: Loan; symbol:
           <div className="h-full rounded-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }} />
         </div>
       </div>
+
+      {active && (
+        <AddToCalendarButton
+          event={{
+            title: t('calendar.loanTitle', { loan: loan.name, amount: money(loan.installment) }),
+            date: new Date(loan.nextDueDate),
+            details: t('calendar.loanDetails', { account: loan.accountName, left: money(loan.remaining) }),
+            repeat: { every: 'month', times: installmentsLeft(loan) },
+          }}
+        />
+      )}
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
         {facts.map(f => (

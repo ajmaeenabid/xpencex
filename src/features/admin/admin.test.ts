@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AdminUser, deleteConfirmed, displayName, latestNotices, userStatus, visibleUsers } from './admin';
+import { AdminComment, AdminUser, deleteConfirmed, displayName, groupComments, latestNotices, userStatus, visibleUsers } from './admin';
 
 const device = { id: 'd1', label: 'Android, Chrome', at: '2026-10-30T10:00:00.000Z' };
 
@@ -46,5 +46,29 @@ describe('admin panel helpers', () => {
     const n = (id: string, at: string) => ({ id, uid: 'u', type: 'restored' as const, at });
     const notices = [n('a', '2026-10-01T10:00:00.000Z'), n('b', '2026-10-29T10:00:00.000Z'), n('c', '2026-10-15T10:00:00.000Z')];
     expect(latestNotices(notices, 2).map(x => x.id)).toEqual(['b', 'c']);
+  });
+});
+
+describe('groupComments', () => {
+  const c = (id: string, uid: string, at: string, text = 'Nice app', username = ''): AdminComment =>
+    ({ id, uid, username, email: `${uid}@mail.com`, text, at });
+
+  it('groups by person, most recent writer first, newest comment first', () => {
+    const groups = groupComments([
+      c('1', 'a', '2026-11-01T10:00:00Z', 'Old', 'rahim'),
+      c('2', 'b', '2026-11-05T10:00:00Z'),
+      c('3', 'a', '2026-11-03T10:00:00Z', 'Newer', 'rahim'),
+    ]);
+    expect(groups.map(g => g.uid)).toEqual(['b', 'a']);
+    expect(groups[1].name).toBe('@rahim');
+    expect(groups[1].comments.map(x => x.text)).toEqual(['Newer', 'Old']);
+    expect(groups[0].name).toBe('b@mail.com');
+  });
+
+  it('searches names, emails and the comment text', () => {
+    const all = [c('1', 'a', '2026-11-01T10:00:00Z', 'Samity is great', 'rahim'), c('2', 'b', '2026-11-02T10:00:00Z', 'Bug in reports')];
+    expect(groupComments(all, 'bug').map(g => g.uid)).toEqual(['b']);
+    expect(groupComments(all, 'RAHIM').map(g => g.uid)).toEqual(['a']);
+    expect(groupComments(all, 'zzz')).toEqual([]);
   });
 });

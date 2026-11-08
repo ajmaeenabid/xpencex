@@ -2,7 +2,7 @@ import { signInWithCustomToken } from 'firebase/auth';
 import { auth } from '../../shared/firebase';
 import { callWorker } from '../../shared/lib/workerApi';
 import { freshGoogleToken } from '../auth/googleSignIn';
-import { AdminHealth, AdminLogEntry, AdminUser } from './admin';
+import { AdminComment, AdminHealth, AdminLogEntry, AdminUser } from './admin';
 
 /** The admin confirms with Google; the server only accepts admin changes for 10 minutes after this */
 export async function confirmWithGoogle() {
@@ -54,3 +54,5 @@ export const removeDevice = (uid: string, deviceId: string) => callWorker('/admi
 export const setSuspended = (uid: string, suspended: boolean) => callWorker('/admin/suspend', { uid, suspended });
 
 export const deleteUser = (uid: string, confirm: string) => callWorker('/admin/delete', { uid, confirm });
+
+export const listComments = () => callWorker<{ comments: AdminComment[] }>('/admin/comments').then(r => r.comments);

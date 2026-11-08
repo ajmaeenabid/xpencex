@@ -78,6 +78,9 @@
 // Document: meta/exchangeRates (AI server only; readable when signed in)
 //   - base ('USD'), rates (code -> units per 1 USD), updatedAt, sourceUpdatedAt, source
 //
+// Collection: feedback (comments about the app; the admin reads them through the AI server)
+//   - uid, text (1-1000, secrets blocked and numbers masked by the app), createdAt
+//
 // Collection: googleLinks/{uid} (AI server only)
 //   - uid, email, token (encrypted Google refresh token), drive/sheets ('true' | 'false'), linkedAt
 //
@@ -160,6 +163,15 @@ service cloud.firestore {
              (!('categoryBudgets' in data) || (data.categoryBudgets is map && data.categoryBudgets.size() <= 50)) &&
              (!('layout' in data) || isValidLayout(data.layout)) &&
              (!('driveBackup' in data) || isValidDriveBackup(data.driveBackup));
+    }
+
+    // A comment about the app (src/features/feedback/feedback.ts). Checked and masked before saving.
+    function isValidFeedback(data) {
+      return data.keys().hasAll(['uid', 'text', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'text', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 1000 &&
+             isValidDateString(data.createdAt);
     }
 
     // Google Drive backup settings (src/features/connect/googleApps.ts)
@@ -450,6 +462,13 @@ service cloud.firestore {
 
     match /usernames/{name} {
       allow read, write: if false;
+    }
+
+    // Comments people send about the app. They can't be edited; the admin reads them through the AI server.
+    match /feedback/{commentId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidFeedback(request.resource.data);
+      allow update, delete: if false;
     }
 
     // Linked Google apps: the locked Google token. Only the AI server reads or writes it.

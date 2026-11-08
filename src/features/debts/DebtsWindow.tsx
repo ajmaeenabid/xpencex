@@ -13,6 +13,9 @@ import { btnPrimary, btnSecondary, btnSmall, card, iconButton } from '../account
 import { Debt, DebtKind, Person, debtTotals, owedChange, people, settleEntry } from './debts';
 import { deleteDebt } from './debtService';
 import DebtForm, { KIND_TEXT } from './DebtForm';
+import { useAuth } from '../../app/App';
+import SheetsExportButton from '../connect/SheetsExportButton';
+import { debtsTabs } from '../connect/exportTables';
 
 type View =
   | { page: 'list' }
@@ -29,6 +32,8 @@ export default function DebtsWindow({ open, onClose, uid, accounts, debts, symbo
   symbol: string;
 }) {
   const { t, dateLocale } = useI18n();
+  const { profile } = useAuth();
+  const currency = profile?.currency || 'BDT';
   const [history, setHistory] = useState<View[]>([{ page: 'list' }]);
   const view = history[history.length - 1];
   const go = (next: View) => setHistory(h => [...h, next]);
@@ -193,6 +198,15 @@ export default function DebtsWindow({ open, onClose, uid, accounts, debts, symbo
                 <h2 className="text-base font-bold truncate">{title}</h2>
                 {subtitle && <p className="text-xs text-muted font-medium truncate">{subtitle}</p>}
               </div>
+              {view.page === 'list' && everyone.length > 0 && (
+                <SheetsExportButton
+                  variant="icon"
+                  build={() => ({
+                    title: t('sheets.titleDebts', { date: format(new Date(), 'd MMM yyyy', { locale: dateLocale }) }),
+                    tabs: debtsTabs(debts, currency, t),
+                  })}
+                />
+              )}
               {view.page === 'list' && everyone.length > 0 && (
                 <button onClick={() => go({ page: 'form' })} className={cn(btnSmall, 'bg-indigo-600 text-white hover:bg-indigo-700')}>
                   <Plus size={15} /> {t('debts.add')}

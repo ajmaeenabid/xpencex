@@ -19,6 +19,7 @@ export default function DetailSheet({ open, onClose, icon, title, about, childre
 }) {
   const { t } = useI18n();
 
+  // Above the full-screen windows (z-60) it can open from, below dialogs (z-100).
   // Close with Escape, and stop the page behind from scrolling
   useEffect(() => {
     if (!open) return;
@@ -32,7 +33,7 @@ export default function DetailSheet({ open, onClose, icon, title, about, childre
   return createPortal(
     <AnimatePresence>
       {open && (
-        <div key="sheet" className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+        <div key="sheet" className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

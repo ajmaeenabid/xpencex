@@ -44,6 +44,22 @@ export function SheetsLogo({ size = 20, className }: LogoProps) {
   );
 }
 
+/** Google Calendar */
+export function CalendarLogo({ size = 20, className }: LogoProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 200 200" aria-hidden="true" className={className}>
+      <path fill="#FFFFFF" d="M152.637 47.363H47.363v105.274h105.274z" />
+      <path fill="#EA4335" d="M152.637 200 200 152.637h-47.363z" />
+      <path fill="#FBBC04" d="M200 47.363h-47.363v105.274H200z" />
+      <path fill="#34A853" d="M152.637 152.637H47.363V200h105.274z" />
+      <path fill="#188038" d="M0 152.637v31.576C0 192.937 7.063 200 15.788 200h31.575v-47.363z" />
+      <path fill="#1967D2" d="M200 47.363V15.788C200 7.063 192.937 0 184.212 0h-31.575v47.363z" />
+      <path fill="#4285F4" d="M152.637 0H15.788C7.063 0 0 7.063 0 15.788v136.849h47.363V47.363h105.274z" />
+      <text x="100" y="124" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontSize="64" fontWeight="700" fill="#4285F4">31</text>
+    </svg>
+  );
+}
+
 /**
  * A logo on a light tile. The light background keeps Google's colours readable in dark mode too.
  */
