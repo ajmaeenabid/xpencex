@@ -6,6 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+# The phone app's settings for release builds: public addresses only, no secrets
+!.env.production
 
 # Office lock files
 ~$*
@@ -23,3 +25,13 @@ backup-before-google-signin/
 
 # Firebase VS Code extension working files
 .firebase/
+
+# Android release: the signing key and its passwords must never be committed. Keep a copy somewhere safe:
+# without it you can never update the app on people's phones.
+*.jks
+*.keystore
+android/keystore.properties
+# The built app file is uploaded to Firebase Hosting, not kept in git
+public/download/*.apk
+# Android Studio build output (the app file is made with npm run android:release)
+android/app/release/
