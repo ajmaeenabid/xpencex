@@ -167,6 +167,7 @@ export default function SamityWindow({ open, onClose, uid, list, accounts, symbo
               {st.nextUnpaid && (
                 <AddToCalendarButton
                   className="h-10 px-4 text-sm"
+                  label={t('calendar.samityPayButton')}
                   event={{
                     title: t('calendar.samityPayTitle', { name: s.name, amount: money(s.amount) }),
                     date: st.nextUnpaid.date,
@@ -178,6 +179,7 @@ export default function SamityWindow({ open, onClose, uid, list, accounts, symbo
               {!s.payout && st.myTurnDate.getTime() >= Date.now() - 86_400_000 && (
                 <AddToCalendarButton
                   className="h-10 px-4 text-sm"
+                  label={t('calendar.samityPayoutButton')}
                   event={{
                     title: t('calendar.samityPayoutTitle', { name: s.name, pot: money(payoutAmount(s)) }),
                     date: st.myTurnDate,

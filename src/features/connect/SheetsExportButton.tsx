@@ -5,6 +5,7 @@ import { useI18n } from '../../shared/i18n';
 import { cn } from '../../shared/lib/utils';
 import { isOnline } from '../../shared/lib/offlineSave';
 import DetailSheet from '../../shared/components/DetailSheet';
+import { alertDialog } from '../../shared/components/Dialog';
 import { GoogleAppsCancelled, WrongGoogleAccountError, preloadGoogleApps } from '../auth/googleSignIn';
 import { SheetTab } from './googleApps';
 import { GoogleNoPermissionError, GoogleNotLinkedError, linkGoogleApp, useGoogleApps } from './googleAppsService';
@@ -16,9 +17,11 @@ const SHEETS_GREEN = 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark
  * "Export to Google Sheets" for any screen. `build` makes the tabs when tapped, so the data is current.
  * If Sheets isn't linked yet, it offers to link it first.
  */
-export default function SheetsExportButton({ build, disabled, variant = 'wide', className }: {
+export default function SheetsExportButton({ build, disabled, emptyMessage, variant = 'wide', className }: {
   build: () => Promise<{ title: string; tabs: SheetTab[] }> | { title: string; tabs: SheetTab[] };
   disabled?: boolean;
+  // When set, there is nothing to export yet: the button stays tappable and says this instead
+  emptyMessage?: string;
   variant?: 'wide' | 'icon' | 'plain';
   className?: string;
 }) {
@@ -56,6 +59,7 @@ export default function SheetsExportButton({ build, disabled, variant = 'wide', 
 
   const start = () => {
     setError('');
+    if (emptyMessage) { alertDialog(emptyMessage); return; }
     if (!isOnline()) return setError(t('google.offline'));
     if (status?.notSetUp) return setError(t('google.notSetUp'));
     if (!status?.apps.sheets) return setAsking(true);

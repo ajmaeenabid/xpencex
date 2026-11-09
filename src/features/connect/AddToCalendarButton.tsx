@@ -3,8 +3,11 @@ import { cn } from '../../shared/lib/utils';
 import { CalendarLogo } from '../../shared/components/GoogleLogos';
 import { CalendarEvent, calendarLink } from './calendar';
 
-/** Opens Google Calendar with this event filled in; the person checks it and taps Save there */
-export default function AddToCalendarButton({ event, className }: { event: CalendarEvent; className?: string }) {
+/**
+ * Opens Google Calendar with this event filled in; the person checks it and taps Save there.
+ * `label` replaces "Add to Google Calendar" where a screen has more than one of these buttons.
+ */
+export default function AddToCalendarButton({ event, className, label }: { event: CalendarEvent; className?: string; label?: string }) {
   const { t } = useI18n();
   return (
     <a
@@ -16,7 +19,7 @@ export default function AddToCalendarButton({ event, className }: { event: Calen
         className,
       )}
     >
-      <CalendarLogo size={15} className="shrink-0" /> {t('calendar.add')}
+      <CalendarLogo size={15} className="shrink-0" /> {label ?? t('calendar.add')}
     </a>
   );
 }
