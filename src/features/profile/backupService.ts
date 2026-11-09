@@ -14,7 +14,7 @@ export async function collectBackup(uid: string): Promise<BackupData> {
   }
   const profile = (await getDoc(doc(db, 'users', uid))).data() || {};
   return {
-    app: 'XpenceX',
+    app: 'Xpences',
     version: 1,
     exportedAt: new Date().toISOString(),
     profile: { ...(profile.categoryBudgets && { categoryBudgets: profile.categoryBudgets }) },
@@ -28,7 +28,7 @@ export const backupText = async (uid: string, password?: string) => writeBackup(
 /** Downloads all of the user's data as one file, locked when a password is given */
 export async function downloadBackup(uid: string, password?: string) {
   const text = await backupText(uid, password);
-  downloadFile(`xpencex-backup-${format(new Date(), 'yyyy-MM-dd')}.json`, text, 'application/json');
+  downloadFile(`xpences-backup-${format(new Date(), 'yyyy-MM-dd')}.json`, text, 'application/json');
 }
 
 export interface RestoreResult { added: number; skipped: number; failed: number }

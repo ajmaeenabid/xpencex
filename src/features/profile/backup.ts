@@ -6,8 +6,11 @@ export type BackupCollection = (typeof BACKUP_COLLECTIONS)[number];
 
 type Item = Record<string, unknown> & { id: string };
 
+/** Backups made before the app was renamed (2026-11-09) say 'XpenceX'; they still restore */
+const BACKUP_NAMES: unknown[] = ['Xpences', 'XpenceX'];
+
 export interface BackupData {
-  app: 'XpenceX';
+  app: 'Xpences' | 'XpenceX';
   version: 1;
   exportedAt: string;
   profile: { categoryBudgets?: Record<string, number> };
@@ -15,7 +18,7 @@ export interface BackupData {
 }
 
 interface LockedFile {
-  app: 'XpenceX';
+  app: 'Xpences' | 'XpenceX';
   version: 1;
   locked: true;
   salt: string;
@@ -44,7 +47,7 @@ export async function writeBackup(backup: BackupData, password?: string): Promis
   // Built in pieces, so a very large backup doesn't overflow String.fromCharCode
   let b64 = '';
   for (let i = 0; i < sealed.length; i += 0x8000) b64 += String.fromCharCode(...sealed.subarray(i, i + 0x8000));
-  const file: LockedFile = { app: 'XpenceX', version: 1, locked: true, salt: toB64(salt), iv: toB64(iv), data: btoa(b64) };
+  const file: LockedFile = { app: 'Xpences', version: 1, locked: true, salt: toB64(salt), iv: toB64(iv), data: btoa(b64) };
   return JSON.stringify(file);
 }
 
@@ -63,7 +66,7 @@ export const isLocked = (text: string) => parse(text)?.locked === true;
 /** Reads a backup file, unlocking it with the password if it is locked */
 export async function readBackup(text: string, password?: string): Promise<BackupData> {
   let file = parse(text);
-  if (file?.app !== 'XpenceX' || file.version !== 1) throw new BackupError('notBackup');
+  if (!BACKUP_NAMES.includes(file?.app) || file.version !== 1) throw new BackupError('notBackup');
   if (file.locked) {
     if (!password) throw new BackupError('needsPassword');
     try {
@@ -74,7 +77,7 @@ export async function readBackup(text: string, password?: string): Promise<Backu
       throw new BackupError('wrongPassword'); // AES-GCM refuses a wrong key
     }
   }
-  if (file?.app !== 'XpenceX' || !file.data || typeof file.data !== 'object') throw new BackupError('notBackup');
+  if (!BACKUP_NAMES.includes(file?.app) || !file.data || typeof file.data !== 'object') throw new BackupError('notBackup');
   for (const c of BACKUP_COLLECTIONS) if (!Array.isArray(file.data[c])) file.data[c] = [];
   return file as BackupData;
 }

@@ -1,6 +1,6 @@
-# XpenceX: AI-Powered Personal Expense Tracker
+# Xpences: AI-Powered Personal Expense Tracker
 
-XpenceX is a mobile-first expense tracker built for the CSE 412 (Software Engineering) course. Besides manual entry, you can log expenses by **chatting in Bangla, English or Banglish**, by **voice**, by **photographing a receipt**, or by **pasting/sharing a bKash, Nagad, Rocket or bank SMS**. You confirm every entry before it is saved.
+Xpences is a mobile-first expense tracker built for the CSE 412 (Software Engineering) course. Besides manual entry, you can log expenses by **chatting in Bangla, English or Banglish**, by **voice**, by **photographing a receipt**, or by **pasting/sharing a bKash, Nagad, Rocket or bank SMS**. You confirm every entry before it is saved.
 
 ## Features
 
@@ -21,7 +21,7 @@ XpenceX is a mobile-first expense tracker built for the CSE 412 (Software Engine
 - **Google sign-in**: no passwords to remember, a username chosen at first sign-in, and an optional 6-digit PIN lock on each device
 - **Device approval**: each new device waits for the admin before it can open an account
 - **Admin panel**: approve or remove devices, suspend or delete users; no access to anyone's data
-- **Installable app (PWA)**: add to home screen, works offline, "Share to XpenceX" for SMS on Android
+- **Installable app (PWA)**: add to home screen, works offline, "Share to Xpences" for SMS on Android
 
 ## Tech stack
 

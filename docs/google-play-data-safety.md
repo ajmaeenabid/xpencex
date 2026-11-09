@@ -1,4 +1,4 @@
-# Google Play Data safety form: answers for XpenceX
+# Google Play Data safety form: answers for Xpences
 
 Copy these into Play Console > App content > Data safety. They match `public/privacy.html`. If the app starts collecting something new, update both.
 

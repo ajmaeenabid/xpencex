@@ -3,7 +3,7 @@ import { BACKUP_COLLECTIONS, BackupData, BackupError, isLocked, planRestore, rea
 
 const empty = Object.fromEntries(BACKUP_COLLECTIONS.map(c => [c, []])) as unknown as BackupData['data'];
 const backup = (data: Partial<BackupData['data']> = {}): BackupData => ({
-  app: 'XpenceX', version: 1, exportedAt: '2026-11-08T10:00:00.000Z', profile: { categoryBudgets: { Food: 3000 } },
+  app: 'Xpences', version: 1, exportedAt: '2026-11-08T10:00:00.000Z', profile: { categoryBudgets: { Food: 3000 } },
   data: { ...empty, ...data },
 });
 
@@ -25,14 +25,18 @@ describe('backup file', () => {
     await expect(readBackup(text, 'wrong')).rejects.toMatchObject({ reason: 'wrongPassword' });
   }, 20_000);
 
-  it('refuses files that are not XpenceX backups', async () => {
+  it('refuses files that are not Xpences backups', async () => {
     for (const bad of ['', 'hello', '{"app":"Other"}', '[1,2]']) {
       await expect(readBackup(bad)).rejects.toBeInstanceOf(BackupError);
     }
   });
 
+  it('still reads backups made before the rename, which say XpenceX', async () => {
+    expect((await readBackup(JSON.stringify({ ...backup(), app: 'XpenceX' }))).data.expenses).toEqual(backup().data.expenses);
+  });
+
   it('reads a file saved with a byte order mark', async () => {
-    expect((await readBackup('﻿' + JSON.stringify(backup()))).app).toBe('XpenceX');
+    expect((await readBackup('﻿' + JSON.stringify(backup()))).app).toBe('Xpences');
   });
 });
 

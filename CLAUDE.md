@@ -1,4 +1,4 @@
-# XpenceX
+# Xpences
 
 Expense tracker PWA (React 19 + TypeScript + Vite + Tailwind v4), Firebase Auth/Firestore, Gemini via a Cloudflare Worker.
 
@@ -9,6 +9,7 @@ Expense tracker PWA (React 19 + TypeScript + Vite + Tailwind v4), Firebase Auth/
 ## Layout
 - `src/app/` shell (App.tsx owns tabs + auth context) · `src/features/<feature>/` screens + logic per feature
 - `src/shared/` cross-feature UI, `lib/` (smsParser, sensitiveData), firebase, types, constants
+- The logo lives only in `src/shared/brand/logoSvg.ts`; `npm run icons` renders every PNG icon and splash from it.
 - Tests sit next to their file as `*.test.ts`. Keep logic in plain `.ts` files so it can be tested.
 
 ## Rules

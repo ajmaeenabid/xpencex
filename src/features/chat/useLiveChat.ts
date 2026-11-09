@@ -107,7 +107,7 @@ export function useLiveChat({
     if (explainIfBlocked('live')) return;
     liveLanguageRef.current = lang;
     const instruction = `
-    You are XpenceX Assistant, a friendly money helper in a live voice conversation.
+    You are Xpences Assistant, a friendly money helper in a live voice conversation.
     ${liveLanguageRules(lang)}
     Keep answers short: one to three spoken sentences, with no lists or tables. The conversation lasts one minute at most.
     Never repeat an OTP, PIN, password or verification code, or an account, card or phone number. If you hear one, warn the user not to share it.

@@ -90,7 +90,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
         </div>
         <div className="flex items-center gap-2">
         <button
-          onClick={() => downloadFile(`xpencex-transactions-${format(new Date(), 'yyyy-MM-dd')}.csv`, toCSV(filteredExpenses, profile?.currency || 'BDT'), 'text/csv;charset=utf-8')}
+          onClick={() => downloadFile(`xpences-transactions-${format(new Date(), 'yyyy-MM-dd')}.csv`, toCSV(filteredExpenses, profile?.currency || 'BDT'), 'text/csv;charset=utf-8')}
           disabled={filteredExpenses.length === 0}
           title={t('expenses.export')}
           aria-label={t('expenses.export')}

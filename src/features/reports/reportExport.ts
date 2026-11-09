@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { Expense } from '../../shared/types';
 import { sumByCategory } from '../home/insights';
+import { isNative, shareFile } from '../../shared/lib/nativeApp';
 
 function csvCell(value: unknown): string {
   const s = String(value ?? '');
@@ -16,6 +17,11 @@ export function toCSV(expenses: Expense[], currency: string): string {
 }
 
 export function downloadFile(filename: string, content: string, mime: string) {
+  // The phone app can't download; it shares the file instead (save to Files, Drive, WhatsApp...)
+  if (isNative()) {
+    shareFile(filename, '﻿' + content, filename).catch(err => console.error('Could not share the file:', err));
+    return;
+  }
   // BOM so Excel opens UTF-8 (e.g. ৳) correctly
   const blob = new Blob(['﻿' + content], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -52,7 +58,7 @@ export function buildReportHtml(opts: {
   th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} td.num,th.num{text-align:right}
   h2{font-size:15px;margin-top:28px}
 </style></head><body>
-<h1>${escapeHtml(title)} · XpenceX</h1>
+<h1>${escapeHtml(title)} · Xpences</h1>
 <div class="muted">${name ? escapeHtml(name) + ' · ' : ''}Generated ${format(new Date(), 'd MMM yyyy, HH:mm')}</div>
 <div class="stats">
   <div class="stat">Total spent<b>${money(total)}</b></div>
@@ -73,6 +79,12 @@ ${expenses.map(e => `<tr><td>${format(new Date(e.date), 'd MMM yyyy')}</td><td>$
 
 /** Opens the report in a new tab and triggers the browser's print dialog ("Save as PDF"). */
 export function printReport(html: string): boolean {
+  // The phone app has no print window: the report is shared as a page, which opens in the phone's
+  // browser, where Print > Save as PDF works
+  if (isNative()) {
+    shareFile('xpences-report.html', html, 'Xpences report').catch(err => console.error('Could not share the report:', err));
+    return true;
+  }
   const w = window.open('', '_blank');
   if (!w) return false;
   w.document.write(html);

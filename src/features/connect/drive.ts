@@ -4,22 +4,40 @@ import { backupText } from '../profile/backupService';
 import { backupFileName, oldBackups } from './googleApps';
 import { googleAccessToken, googleFetch } from './googleAppsService';
 
-// Backups in the person's own Google Drive, in a folder called "XpenceX backups".
-// With the drive.file permission XpenceX only ever sees the folder and files it made itself.
+// Backups in the person's own Google Drive, in a folder called "Xpences backups".
+// With the drive.file permission Xpences only ever sees the folder and files it made itself.
 
 const API = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,createdTime';
-const FOLDER_NAME = 'XpenceX backups';
+const FOLDER_NAME = 'Xpences backups';
+// The folder's name before the app was renamed (2026-11-09). It is renamed the first time it is found.
+const OLD_FOLDER_NAME = 'XpenceX backups';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
 export interface DriveBackup { id: string; name: string; createdTime: string; size?: string; locked: boolean }
 
 const drive = (url: string, init?: RequestInit) => googleFetch('drive', url, init);
 
-async function backupFolder(): Promise<string> {
-  const q = `name='${FOLDER_NAME}' and mimeType='${FOLDER_MIME}' and trashed=false`;
+const findFolder = async (name: string): Promise<string | undefined> => {
+  const q = `name='${name}' and mimeType='${FOLDER_MIME}' and trashed=false`;
   const found = await (await drive(`${API}?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1`)).json();
-  if (found.files?.[0]?.id) return found.files[0].id;
+  return found.files?.[0]?.id;
+};
+
+async function backupFolder(): Promise<string> {
+  const current = await findFolder(FOLDER_NAME);
+  if (current) return current;
+  // Backups made before the rename: give their folder the new name, so they all stay together
+  const old = await findFolder(OLD_FOLDER_NAME);
+  if (old) {
+    // If renaming fails, the backups still go to the old folder, and the rename is tried again next time
+    await drive(`${API}/${old}?fields=id`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: FOLDER_NAME }),
+    }).catch(err => console.error('Could not rename the backup folder:', err));
+    return old;
+  }
   const made = await (await drive(`${API}?fields=id`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

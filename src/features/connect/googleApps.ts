@@ -45,7 +45,7 @@ export function oldBackups<T extends { createdTime: string }>(files: T[], keep =
 }
 
 export const backupFileName = (now: Date, locked: boolean) =>
-  `xpencex-backup-${format(now, 'yyyy-MM-dd-HHmm')}${locked ? '-locked' : ''}.json`;
+  `xpences-backup-${format(now, 'yyyy-MM-dd-HHmm')}${locked ? '-locked' : ''}.json`;
 
 // ---------------------------------------------------------------------------
 // Google Sheets tables

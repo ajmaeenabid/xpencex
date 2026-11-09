@@ -1,6 +1,6 @@
 {
-  "name": "XpenceX | AI Expense Tracker",
-  "short_name": "XpenceX",
+  "name": "Xpences | AI Expense Tracker",
+  "short_name": "Xpences",
   "description": "Track expenses by chat, voice, receipt photo or bKash/Nagad SMS.",
   "start_url": "/",
   "scope": "/",

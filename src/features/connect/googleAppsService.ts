@@ -6,7 +6,7 @@ import { GoogleApp } from './googleApps';
 // Linking and using Google apps. The AI server keeps the lasting permission (ai-server/src/googleApps.ts);
 // this side asks for a one-hour access token when it backs up or exports, and talks to Google directly.
 
-// openid + email let the server check it is the same Google account. drive.file lets XpenceX see and
+// openid + email let the server check it is the same Google account. drive.file lets Xpences see and
 // change only the files it made itself (backups and exported sheets), never anything else in Drive.
 const SCOPE = 'openid email https://www.googleapis.com/auth/drive.file';
 

@@ -3,7 +3,7 @@
 export const GOOGLE_APPS = ['drive', 'sheets'] as const;
 export type GoogleApp = (typeof GOOGLE_APPS)[number];
 
-// One permission covers both apps: XpenceX can see and change only the files it created itself,
+// One permission covers both apps: Xpences can see and change only the files it created itself,
 // never the rest of the person's Drive. Google counts it as a low-risk ("non-sensitive") scope.
 export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
@@ -28,7 +28,7 @@ export function idTokenEmail(idToken: unknown): string | null {
   }
 }
 
-/** Only the Google account the person signed in to XpenceX with may be linked */
+/** Only the Google account the person signed in to Xpences with may be linked */
 export const sameAccount = (linkedEmail: string | null, accountEmail: string | undefined) =>
   !!linkedEmail && !!accountEmail && linkedEmail === accountEmail.toLowerCase();
 

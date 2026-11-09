@@ -3,7 +3,7 @@ import type { AdminEnv } from './admin';
 import { GoogleApp, GOOGLE_APPS, anyOn, appsAfter, grantedDriveFile, idTokenEmail, isGoogleApp, lockToken, sameAccount, unlockToken } from './googleAppsRules';
 
 // ---------------------------------------------------------------------------
-// Google apps a user links to their XpenceX account (Drive for backups, Sheets for exports).
+// Google apps a user links to their Xpences account (Drive for backups, Sheets for exports).
 //
 // 1. The app asks Google for a one-time code (Google's own pop-up, or a native plugin in the phone app).
 // 2. /google/link swaps the code for a long-lasting refresh token, checks it is the same Google account
@@ -85,7 +85,8 @@ export async function handleGoogleApps(path: string, uid: string, body: Record<s
     const { ok, data } = await tokenCall(env, {
       code: body.code,
       grant_type: 'authorization_code',
-      ...(body.native !== true && { redirect_uri: 'postmessage' }),
+      // The browser pop-up's codes use 'postmessage'; codes from the phone's own Google sign-in use none
+      redirect_uri: body.native === true ? '' : 'postmessage',
     });
     if (!ok || typeof data.access_token !== 'string') {
       // e.g. invalid_client (wrong client secret), redirect_uri_mismatch, invalid_grant (code already used)
@@ -141,7 +142,7 @@ export async function handleGoogleApps(path: string, uid: string, body: Record<s
     }
     const { ok, data } = await tokenCall(env, { refresh_token: refresh, grant_type: 'refresh_token' });
     if (!ok || typeof data.access_token !== 'string') {
-      // The person removed XpenceX in their Google account settings: start over
+      // The person removed Xpences in their Google account settings: start over
       if (data.error === 'invalid_grant') {
         await g.deleteDoc(COLLECTION, uid);
         return json({ error: 'notLinked', notLinked: true }, 409);

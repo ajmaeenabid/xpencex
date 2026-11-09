@@ -13,9 +13,10 @@ DAILY_LIVE_LIMIT = "3"
 # Longest live chat in seconds. If you change this, also change MAX_LIVE_SECONDS in src/features/chat/limits.ts.
 LIVE_SECONDS = "60"
 LIVE_MODEL = "gemini-3.8-live"
-# Web addresses allowed to call this server. The first one is the fallback.
-# Add your deployed app's address here when you put it online.
-ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:5173,https://xpensex-abid.web.app,https://xpensex-abid.firebaseapp.com"
+# Addresses allowed to call this server. The first one is the fallback.
+# https://localhost is the installed phone app (Capacitor). localhost:3000 is development on this computer.
+# The website is deliberately not listed: Xpences is used only as the installed app.
+ALLOWED_ORIGINS = "https://localhost,http://localhost:3000,http://localhost:5173"
 # User IDs (Firebase Console > Authentication > Users > User UID) that may use the admin panel.
 # Separate several with commas. The admin key itself is the FIREBASE_SERVICE_ACCOUNT secret.
 ADMIN_UIDS = "vNQuoT4KGBTItv1tLZkAO255xuv1"

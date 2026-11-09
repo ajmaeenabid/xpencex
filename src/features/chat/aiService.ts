@@ -163,7 +163,7 @@ export function parseReply(text: string): ChatResult {
 
 export async function processInput(input: string, categories: string[], spendingContext = '', history: ChatTurn[] = [], lang: ReplyLanguage = 'en'): Promise<ChatResult> {
   const prompt = `
-    You are XpenceX Assistant, a smart expense tracker.
+    You are Xpences Assistant, a smart expense tracker.
     ${languageRules(lang)}
     Conversation so far (oldest first):
     ${historyBlock(history)}
@@ -210,7 +210,7 @@ export async function processInput(input: string, categories: string[], spending
 
 export async function processAudioInput(audioData: string, mimeType: string, categories: string[], spendingContext = '', history: ChatTurn[] = [], lang: ReplyLanguage = 'en'): Promise<ChatResult> {
   const prompt = `
-    You are XpenceX Assistant, a smart expense tracker.
+    You are Xpences Assistant, a smart expense tracker.
     ${languageRules(lang)}
     Conversation so far (oldest first):
     ${historyBlock(history)}
@@ -265,7 +265,7 @@ export async function processAttachment(
   lang: ReplyLanguage = 'en',
 ): Promise<ChatResult> {
   const prompt = `
-    You are XpenceX Assistant, a smart expense tracker.
+    You are Xpences Assistant, a smart expense tracker.
     ${attachmentLanguageRules(lang, !!message)}
     Conversation so far (oldest first):
     ${historyBlock(history)}

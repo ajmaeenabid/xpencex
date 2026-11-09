@@ -66,7 +66,7 @@ export function isFreshGoogleSignIn(claims: Record<string, unknown>, now = Date.
 // ---------------------------------------------------------------------------
 // Usernames
 // ---------------------------------------------------------------------------
-const RESERVED = ['admin', 'administrator', 'xpencex', 'support', 'help', 'moderator', 'official', 'system'];
+const RESERVED = ['admin', 'administrator', 'xpencex', 'xpences', 'support', 'help', 'moderator', 'official', 'system'];
 const USERNAME = /^[\p{L}\p{N}][\p{L}\p{M}\p{N}_.]{2,19}$/u;
 
 export const cleanUsername = (name: unknown) => (typeof name === 'string' ? name.normalize('NFC').trim() : '');

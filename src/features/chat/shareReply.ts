@@ -221,7 +221,7 @@ async function replyPicture(markdown: string): Promise<File> {
   layOut(blocks, context, family, true);
   const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('No picture');
-  return new File([blob], 'xpencex-reply.png', { type: 'image/png' });
+  return new File([blob], 'xpences-reply.png', { type: 'image/png' });
 }
 
 function savePicture(file: File) {

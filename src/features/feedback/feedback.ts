@@ -1,4 +1,4 @@
-// Comments people send about XpenceX (Profile > Send feedback). Plain rules, no database calls.
+// Comments people send about Xpences (Profile > Send feedback). Plain rules, no database calls.
 import { containsSecret } from '../../shared/lib/sensitiveData';
 import { maskSensitive } from '../../shared/lib/smsParser';
 

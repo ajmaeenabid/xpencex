@@ -77,7 +77,7 @@ export default function ReportsPage() {
   };
 
   const handleCsv = () =>
-    downloadFile(`xpencex-all-expenses-${format(new Date(), 'yyyy-MM-dd')}.csv`, toCSV(expenses, profile?.currency || 'BDT'), 'text/csv;charset=utf-8');
+    downloadFile(`xpences-all-expenses-${format(new Date(), 'yyyy-MM-dd')}.csv`, toCSV(expenses, profile?.currency || 'BDT'), 'text/csv;charset=utf-8');
 
   const COLORS = ['#F97C45', '#14b8a6', '#F5B942', '#EE5578', '#9B7BD4', '#4AA3DF'];
 
@@ -96,22 +96,20 @@ export default function ReportsPage() {
       { id: 'export', node: (
       <div className="grid grid-cols-2 gap-3">
         <button
-          onClick={handleMonthlyPdf}
-          disabled={expenses.length === 0}
+          onClick={() => (expenses.length === 0 ? alertDialog(t('reports.noExpensesYet')) : handleMonthlyPdf())}
           className="flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-bold shadow-vibrant disabled:opacity-50 disabled:shadow-none"
         >
           <FileText size={16} /> {t('reports.monthlyPdf')}
         </button>
         <button
-          onClick={handleCsv}
-          disabled={expenses.length === 0}
+          onClick={() => (expenses.length === 0 ? alertDialog(t('reports.noExpensesYet')) : handleCsv())}
           className="flex items-center justify-center gap-2 py-3 bg-card text-foreground border border-card-border rounded-2xl text-sm font-bold disabled:opacity-50"
         >
           <FileDown size={16} /> {t('reports.exportCsv')}
         </button>
         <SheetsExportButton
           className="col-span-2"
-          disabled={expenses.length === 0}
+          emptyMessage={expenses.length === 0 ? t('reports.noExpensesYet') : undefined}
           build={() => ({
             title: t('sheets.titleReport', { date: format(new Date(), 'd MMM yyyy', { locale: dateLocale }) }),
             tabs: reportTabs(expenses, profile?.currency || 'BDT', t, cat => categoryLabel(t, cat), profile?.monthlyBudget),
