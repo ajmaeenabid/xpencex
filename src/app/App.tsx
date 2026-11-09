@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, createContext, useContext } from 'react';
 import { onAuthStateChanged, onIdTokenChanged, User } from 'firebase/auth';
 import { auth, db } from '../shared/firebase';
-import { doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocFromCache, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { Expense, UserProfile } from '../shared/types';
 import { processDueRecurring } from '../features/expenses/recurringService';
 import { processDueDeposits } from '../features/accounts/accountService';
@@ -14,18 +14,23 @@ import { processDueLoansNow } from '../features/accounts/loanService';
 import LoginPage from '../features/auth/LoginPage';
 import AccessScreen from '../features/auth/AccessScreens';
 import { DeviceStatus, openDevice, signOutAndForget } from '../features/auth/deviceService';
+import { savedLoginClaims } from '../features/auth/savedLogin';
 import PinLock, { useBackgroundLock } from '../features/pin/PinLock';
 import { isPinLocked } from '../features/pin/pin';
 import BottomNav from '../shared/components/BottomNav';
 import HomePage from '../features/home/HomePage';
 import ExpensesPage from '../features/expenses/ExpensesPage';
 import AddExpensePage from '../features/expenses/AddExpensePage';
-import { ChatPage, ReportsPage, warmUp } from './lazyParts';
+import { ButtonTour, ChatPage, ReportsPage, WelcomeSlides, warmUp } from './lazyParts';
 import LazyPart from '../shared/components/LazyPart';
 import ChatButton from '../features/chat/ChatButton';
 import ProfilePage from '../features/profile/ProfilePage';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAutoDriveBackup } from '../features/connect/useAutoDriveBackup';
+import { isNative } from '../shared/lib/nativeApp';
+import { useKeyboardOpen } from '../shared/lib/keyboard';
+import { SystemBars, SystemBarsStyle } from '@capacitor/core';
+import UpdateNotice from '../features/download/UpdateNotice';
 
 const lightTheme = {
   background: '#FFF8F2',
@@ -61,6 +66,11 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
+/** The tabs that stay ready once opened (the chat keeps itself; "Add" starts fresh each time) */
+const KEPT_PAGES = ['home', 'expenses', 'reports', 'profile'];
+/** A short fade only: sliding or zooming whole pages costs too much on phones */
+const PAGE_FADE = { duration: 0.18, ease: 'easeOut' } as const;
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -82,7 +92,9 @@ export default function App() {
   // survives switching tabs. It only starts fresh on "New chat" or when the app is reopened.
   const [chatMounted, setChatMounted] = useState(false);
   const [chatVisible, setChatVisible] = useState(false);
-  // Text shared to the app from another app (Android: long-press an SMS > Share > XpenceX)
+  // The bottom bar and the chat button step aside while the keyboard is open, so they never cover what is typed
+  const keyboardOpen = useKeyboardOpen();
+  // Text shared to the app from another app (Android: long-press an SMS > Share > Xpences)
   const [sharedText, setSharedText] = useState<string | null>(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -99,9 +111,44 @@ export default function App() {
     setActiveTab('chat');
   }, []);
 
+  // In the phone app, "Share to Xpences" arrives from Android instead of in the address
+  useEffect(() => {
+    if (!isNative()) return;
+    let handle: { remove: () => Promise<void> } | null = null;
+    import('@capgo/capacitor-share-target').then(({ CapacitorShareTarget }) =>
+      CapacitorShareTarget.addListener('shareReceived', (event) => {
+        const text = (event.texts || []).join(' ').trim() || (event.title || '').trim();
+        if (!text) return;
+        setSharedText(text);
+        setActiveTab('chat');
+      }),
+    ).then(h => { handle = h; }).catch(err => console.error('Share listener failed:', err));
+    return () => { handle?.remove(); };
+  }, []);
+
   useEffect(() => {
     if (activeTab === 'chat') setChatMounted(true);
-    else setChatVisible(false);
+    setChatVisible(activeTab === 'chat');
+  }, [activeTab]);
+
+  // Pages stay ready once opened, so moving between tabs is instant: no waiting for the old page to
+  // leave, no rebuilding, no reloading data. "Add" starts fresh each time, so it is not kept.
+  const [visited, setVisited] = useState<string[]>(['home']);
+  useEffect(() => {
+    if (KEPT_PAGES.includes(activeTab)) setVisited(v => (v.includes(activeTab) ? v : [...v, activeTab]));
+  }, [activeTab]);
+
+  // Each tab remembers how far down it was scrolled
+  const scrollByTab = useRef<Record<string, number>>({});
+  const tabNow = useRef(activeTab);
+  useEffect(() => {
+    const remember = () => { scrollByTab.current[tabNow.current] = window.scrollY; };
+    window.addEventListener('scroll', remember, { passive: true });
+    return () => window.removeEventListener('scroll', remember);
+  }, []);
+  useLayoutEffect(() => {
+    tabNow.current = activeTab;
+    window.scrollTo(0, activeTab === 'add' ? 0 : scrollByTab.current[activeTab] ?? 0);
   }, [activeTab]);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
@@ -111,14 +158,23 @@ export default function App() {
 
   const theme = isDarkMode ? darkTheme : lightTheme;
 
+  // Everything before Home (loading, sign-in, waiting for approval, the PIN lock) is always light.
+  // The person's light/dark choice applies from Home on, where its switch is.
+  const beforeHome = loading || !user || access !== 'approved' || isPinLocked(user.uid) || profile?.welcome === 'slides';
+  const showDark = isDarkMode && !beforeHome;
+
   useEffect(() => {
     localStorage.setItem('darkMode', JSON.stringify(isDarkMode));
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
   }, [isDarkMode]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', showDark);
+    // Phone app: light clock and battery icons on the dark theme, dark ones on the light theme
+    if (isNative()) {
+      SystemBars.setStyle({ style: showDark ? SystemBarsStyle.Dark : SystemBarsStyle.Light })
+        .catch(err => console.error('Could not set the status bar style:', err));
+    }
+  }, [showDark]);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
@@ -135,6 +191,7 @@ export default function App() {
         name: auth.currentUser?.displayName || '',
         currency: 'BDT',
         monthlyBudget: 5000,
+        welcome: 'slides', // a brand-new account: show the welcome slides, then the button tour
       };
       await setDoc(docRef, newProfile);
       setProfile(newProfile);
@@ -155,10 +212,35 @@ export default function App() {
     setAccess(status);
   };
 
+  /** The profile saved on this phone, shown at once; enterApp then brings the fresh copy */
+  const showSavedProfile = async (uid: string) => {
+    try {
+      const snap = await getDocFromCache(doc(db, 'users', uid));
+      if (snap.exists()) setProfile(snap.data() as UserProfile);
+    } catch {
+      // Not saved on this phone yet: enterApp loads it
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
+        // Fast start: a phone approved before carries its pass in the saved login, so Home opens straight
+        // away from the data saved here while the server confirms in the background. If the server says the
+        // phone was removed, it is signed out, as the watcher below does. firestore.rules check every read anyway.
+        if (savedLoginClaims(user.toJSON(), user.uid)?.deviceId) {
+          await showSavedProfile(user.uid);
+          setAccess('approved');
+          setLoading(false);
+          openDevice()
+            .then(async (status) => {
+              if (status === 'approved') await enterApp(user.uid);
+              else if (status !== 'offline') await signOutAndForget({ removed: true });
+            })
+            .catch(err => console.error('Background device check failed:', err));
+          return;
+        }
         await checkAccess(user.uid);
       } else {
         setAccess(null);
@@ -220,6 +302,12 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [access]);
 
+  /** Moves a new account on from the welcome slides to the tour, and from the tour to done */
+  const finishWelcome = (next: 'tour' | 'done') => {
+    setProfile(p => (p ? { ...p, welcome: next } : p));
+    if (user) updateDoc(doc(db, 'users', user.uid), { welcome: next }).catch(err => console.error('Could not save the welcome step:', err));
+  };
+
   const refreshProfile = async () => {
     if (user) await fetchProfile(user.uid);
   };
@@ -250,8 +338,8 @@ export default function App() {
   // Checked on every render, so nothing shows for even a moment on a locked phone
   const pinLocked = isPinLocked(user.uid);
 
-  const renderContent = () => {
-    switch (activeTab) {
+  const renderPage = (tab: string) => {
+    switch (tab) {
       case 'home': return (
         <HomePage
           onViewAll={() => setActiveTab('expenses')}
@@ -279,35 +367,42 @@ export default function App() {
   return (
     <AuthContext.Provider value={{ user, profile, loading, refreshProfile, isDarkMode, toggleDarkMode, theme }}>
       {pinLocked && <PinLock uid={user.uid} onUnlocked={onPinUnlocked} />}
+      {/* Brand-new accounts: the welcome slides once, then the button tour on Home */}
+      {!pinLocked && profile?.welcome === 'slides' && (
+        <LazyPart fallback={null}>
+          <WelcomeSlides onDone={() => { setActiveTab('home'); finishWelcome('tour'); }} />
+        </LazyPart>
+      )}
+      {!pinLocked && profile?.welcome === 'tour' && activeTab === 'home' && !keyboardOpen && (
+        <LazyPart fallback={null}>
+          <ButtonTour onDone={() => finishWelcome('done')} />
+        </LazyPart>
+      )}
       <div key={sessionKey} inert={pinLocked} className={`min-h-screen bg-background text-foreground font-sans ${activeTab === 'home' ? 'pb-44' : 'pb-24'} transition-colors duration-300 relative overflow-x-clip`}>
-        {/* Decorative background elements */}
-        <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-          <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-indigo-500/10 dark:bg-indigo-400/25 rounded-full blur-[120px]" />
-          <div className="absolute top-[20%] -right-[10%] w-[35%] h-[35%] bg-purple-500/10 dark:bg-purple-400/20 rounded-full blur-[100px]" />
-          <div className="absolute -bottom-[10%] left-[20%] w-[30%] h-[30%] bg-amber-400/15 dark:bg-amber-400/15 rounded-full blur-[80px]" />
-        </div>
-
+        {/* The soft colour glows behind everything are drawn by body::before in index.css */}
         <div className="relative z-10">
-          {/* Show the chat once the previous page has finished animating out */}
-          <AnimatePresence mode="wait" onExitComplete={() => { if (activeTab === 'chat') setChatVisible(true); }}>
-            {activeTab !== 'chat' && (
+          {/* Opened pages stay ready and are only shown or hidden, with a quick fade (see KEPT_PAGES) */}
+          {visited.map(tab => (
             <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, scale: 0.98, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 1.02, y: -10 }}
-              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-              className="max-w-md mx-auto px-4 pt-6"
+              key={tab}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: activeTab === tab ? 1 : 0 }}
+              transition={PAGE_FADE}
+              className={activeTab === tab ? 'max-w-md mx-auto px-4 pt-6' : 'hidden'}
             >
-              {renderContent()}
+              {renderPage(tab)}
             </motion.div>
-            )}
-          </AnimatePresence>
+          ))}
+          {activeTab === 'add' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={PAGE_FADE} className="max-w-md mx-auto px-4 pt-6">
+              {renderPage('add')}
+            </motion.div>
+          )}
           {chatMounted && user && (
             <motion.div
               initial={false}
-              animate={chatVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
-              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+              animate={{ opacity: chatVisible ? 1 : 0 }}
+              transition={PAGE_FADE}
               className={chatVisible ? 'max-w-md mx-auto px-4 pt-6' : 'hidden'}
             >
               <LazyPart>
@@ -322,9 +417,10 @@ export default function App() {
           )}
         </div>
         <AnimatePresence>
-          {activeTab === 'home' && <ChatButton key="chat-fab" onOpen={() => setActiveTab('chat')} />}
+          {activeTab === 'home' && !keyboardOpen && <ChatButton key="chat-fab" onOpen={() => setActiveTab('chat')} />}
         </AnimatePresence>
-        <BottomNav activeTab={activeTab} setActiveTab={(tab) => { setEditingExpense(null); setPrefillAmount(null); setPrefillPeople(null); setOpenAccountsSignal(0); setActiveTab(tab); }} />
+        {!keyboardOpen && <BottomNav activeTab={activeTab} setActiveTab={(tab) => { setEditingExpense(null); setPrefillAmount(null); setPrefillPeople(null); setOpenAccountsSignal(0); setActiveTab(tab); }} />}
+        <UpdateNotice />
       </div>
     </AuthContext.Provider>
   );

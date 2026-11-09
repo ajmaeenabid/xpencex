@@ -32,7 +32,7 @@ export default function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
   return (
     <nav
       aria-label={t('nav.main')}
-      className="fixed bottom-6 left-4 right-4 max-w-md mx-auto bg-white/[0.03] dark:bg-white/[0.02] backdrop-blur-md backdrop-saturate-200 border border-white/30 dark:border-white/15 px-2 py-2.5 flex justify-between items-center z-50 rounded-[2.5rem] shadow-[0_8px_32px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.25)] transition-all duration-300"
+      className="glass-bar fixed bottom-[calc(1.5rem+var(--sab))] left-4 right-4 max-w-md mx-auto px-2 py-2.5 flex justify-between items-center z-50 rounded-[2.5rem]"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -42,6 +42,7 @@ export default function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
           return (
             <div key={tab.id} className="flex-1 flex justify-center">
               <motion.button
+                data-tour={tab.id}
                 onClick={() => go(tab.id)}
                 aria-label={t('nav.addExpense')}
                 aria-current={isActive ? 'page' : undefined}
@@ -59,6 +60,7 @@ export default function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
         return (
           <motion.button
             key={tab.id}
+            data-tour={tab.id}
             onClick={() => go(tab.id)}
             aria-label={tab.label}
             aria-current={isActive ? 'page' : undefined}
@@ -73,7 +75,7 @@ export default function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
               <motion.span
                 layoutId="activeTabPill"
                 transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute inset-0 rounded-2xl bg-indigo-500/12 dark:bg-indigo-400/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
+                className="glass-bubble absolute inset-0 rounded-2xl"
               />
             )}
             <motion.span

@@ -50,7 +50,7 @@ export default function CashCard({ uid, accounts, expenses, symbol, shown }: {
 
   const header = (line: React.ReactNode) => (
     <div className="flex items-center gap-3">
-      <div className="w-10 h-10 shrink-0 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+      <div className="w-10 h-10 shrink-0 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
         <Banknote size={20} />
       </div>
       <div className="min-w-0">

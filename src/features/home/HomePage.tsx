@@ -107,9 +107,10 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
           <p className="text-muted text-sm font-medium">{format(new Date(), 'EEEE, d MMMM', { locale: dateLocale })}</p>
         </div>
         <div className="flex items-center gap-2">
-        <RearrangeButton layout={layout} />
+        <span data-tour="move-cards"><RearrangeButton layout={layout} /></span>
         {/* Quick light / dark switch */}
         <motion.button
+          data-tour="theme"
           onClick={toggleDarkMode}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.9 }}
@@ -159,10 +160,10 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
             </div>
             <div className="h-3 bg-black/20 rounded-full overflow-hidden backdrop-blur-sm">
               <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: progress / 100 }}
                 transition={{ duration: 1, ease: "easeOut" }}
-                className={`h-full rounded-full ${progress > 90 ? 'bg-rose-400' : 'bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]'}`}
+                className={`h-full w-full origin-left rounded-full ${progress > 90 ? 'bg-rose-400' : 'bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]'}`}
               />
             </div>
           </div>
@@ -288,10 +289,10 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
                 </div>
                 <div className="h-2 bg-background rounded-full overflow-hidden">
                   <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: pct / 100 }}
                     transition={{ duration: 0.8, ease: 'easeOut' }}
-                    className={`h-full rounded-full ${barColor}`}
+                    className={`h-full w-full origin-left rounded-full ${barColor}`}
                   />
                 </div>
               </div>

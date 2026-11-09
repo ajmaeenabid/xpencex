@@ -169,6 +169,10 @@ function Row({ id, editing, lifted, onDrop, children }: {
       onPointerCancel={cancelHold}
       onDragEnd={drop}
       onContextMenu={editing ? (e: React.MouseEvent) => e.preventDefault() : undefined}
+      // Cards slide into place only while they are being rearranged. Otherwise a card growing as its data
+      // arrives would make every card below it glide down, which looks like lag.
+      // (Reorder.Item's type only lists true, but it hands the value straight to motion, where false turns it off.)
+      layout={editing as true}
       animate={{ scale: dragging ? 1.03 : editing ? 0.97 : 1 }}
       transition={{ type: 'spring', stiffness: 420, damping: 32 }}
       className={cn(

@@ -8,7 +8,11 @@ const loaders = {
   spendingCharts: () => import('../features/reports/SpendingCharts'),
   calculator: () => import('../features/calculator/CalculatorSheet'),
   admin: () => import('../features/admin/AdminPanel'),
+  // Only brand-new accounts need these, so they are not part of warmUp()
 };
+
+export const WelcomeSlides = lazy(() => import('../features/welcome/WelcomeSlides'));
+export const ButtonTour = lazy(() => import('../features/welcome/ButtonTour'));
 
 export const ChatPage = lazy(loaders.chat);
 export const ReportsPage = lazy(loaders.reports);

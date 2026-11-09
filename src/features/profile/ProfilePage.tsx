@@ -16,6 +16,7 @@ import FeedbackCard from '../feedback/FeedbackCard';
 import AccountNotices from './AccountNotices';
 import DeleteAccount from './DeleteAccount';
 import PrivacyLink from '../../shared/components/PrivacyLink';
+import { appVersion } from '../../shared/lib/nativeApp';
 import PinSettings from '../pin/PinSettings';
 import { signOutAndForget } from '../auth/deviceService';
 import { useUsernameForm } from '../auth/AccessScreens';
@@ -31,6 +32,8 @@ import { saved } from '../../shared/lib/offlineSave';
 
 export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal?: number }) {
   const { user, profile, refreshProfile } = useAuth();
+  const [version, setVersion] = useState('');
+  useEffect(() => { appVersion().then(setVersion).catch(() => { /* shows just the name */ }); }, []);
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [budget, setBudget] = useState(profile?.monthlyBudget?.toString() || '5000');
@@ -460,9 +463,9 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
 
       {profile?.username && <DeleteAccount username={profile.username} />}
 
-      {/* App Info */}
+      {/* App Info: the real version of the installed app */}
       <div className="text-center py-6">
-        <p className="text-muted text-xs font-bold">XpenceX v1.0.0</p>
+        <p className="text-muted text-xs font-bold">Xpences{version && ` v${version}`}</p>
         <p className="mt-2"><PrivacyLink /></p>
       </div>
     </div>

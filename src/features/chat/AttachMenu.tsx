@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Camera, FileText, Image as ImageIcon, X } from 'lucide-react';
 import { useI18n } from '../../shared/i18n';
 import { FILE_PICKER_ACCEPT, IMAGE_PICKER_ACCEPT } from './attachments';
+import { keepTyping } from '../../shared/lib/keyboard';
 
 type InputRef = React.RefObject<HTMLInputElement | null>;
 
@@ -57,6 +58,7 @@ export default function AttachMenu({
                   <button
                     key={option.label}
                     role="menuitem"
+                    {...keepTyping}
                     onClick={() => openPicker(option.input)}
                     className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-background/60 text-foreground text-xs font-bold hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                   >

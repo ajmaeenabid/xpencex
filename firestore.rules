@@ -162,7 +162,8 @@ service cloud.firestore {
              (!('name' in data) || (data.name is string && data.name.size() < 100)) &&
              (!('categoryBudgets' in data) || (data.categoryBudgets is map && data.categoryBudgets.size() <= 50)) &&
              (!('layout' in data) || isValidLayout(data.layout)) &&
-             (!('driveBackup' in data) || isValidDriveBackup(data.driveBackup));
+             (!('driveBackup' in data) || isValidDriveBackup(data.driveBackup)) &&
+             (!('welcome' in data) || data.welcome in ['slides', 'tour', 'done']);
     }
 
     // A comment about the app (src/features/feedback/feedback.ts). Checked and masked before saving.

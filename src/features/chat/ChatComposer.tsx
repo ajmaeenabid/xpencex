@@ -6,6 +6,7 @@ import { useI18n, TKey } from '../../shared/i18n';
 import { MAX_LIVE_SECONDS, MAX_VOICE_SECONDS, TIME_WARNING_SECONDS, MediaKind, formatClock as formatTime } from './limits';
 import { LiveSession, LiveState } from './liveSession';
 import { PreparedAttachment } from './attachments';
+import { keepTyping } from '../../shared/lib/keyboard';
 
 const WAVE_BARS = 24;
 
@@ -182,6 +183,7 @@ export default function ChatComposer({
           </button>
         ) : (
           <button
+            {...keepTyping}
             onClick={() => { if (!explainIfBlocked('file')) setAttachMenuOpen(true); }}
             aria-label={t('chat.attach')}
             title={t('chat.attach')}

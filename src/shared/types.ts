@@ -9,6 +9,9 @@ export interface UserProfile {
   categoryBudgets?: Record<string, number>;
   layout?: Partial<Record<'home' | 'reports' | 'profile', string[]>>; // order of the movable cards per page
   driveBackup?: DriveBackupSettings; // Google Drive backups (src/features/connect)
+  // Brand-new accounts only: 'slides' (welcome slides next), then 'tour' (button tour on Home), then 'done'.
+  // Accounts made before this existed have no value and never see them.
+  welcome?: 'slides' | 'tour' | 'done';
 }
 
 export interface DriveBackupSettings {

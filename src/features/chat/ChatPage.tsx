@@ -28,6 +28,8 @@ import AttachMenu from './AttachMenu';
 import ChatComposer from './ChatComposer';
 import { CardActions } from './ConfirmCards';
 import { isOnline } from '../../shared/lib/offlineSave';
+import { cn } from '../../shared/lib/utils';
+import { useKeyboardOpen } from '../../shared/lib/keyboard';
 
 // Money questions get a status that says the assistant is looking at the user's data
 const MONEY_QUESTION = /spen|expens|budget|report|total|sav|cost|money|taka|tk|৳|balance|month|week|afford|plan/i;
@@ -44,6 +46,7 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   const [loading, setLoading] = useState(false);
   // What the assistant is doing right now, shown while waiting for a reply
   const { t, lang } = useI18n();
+  const keyboardOpen = useKeyboardOpen();
   const [status, setStatus] = useState<TKey>('chat.status.thinking');
   const [openSteps, setOpenSteps] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -354,7 +357,9 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   };
 
   return (
-    <div className="relative flex flex-col h-[calc(100dvh-7.5rem)] overflow-hidden">
+    // The screen minus the phone's status and navigation bars, the space above (pt-6) and the bottom bar
+    // (6rem). While typing, the bottom bar is hidden, so the message box sits just above the keyboard.
+    <div className={cn('relative flex flex-col overflow-hidden', keyboardOpen ? 'h-[calc(100dvh-var(--sat)-2.25rem)]' : 'h-[calc(100dvh-var(--sat)-var(--sab)-7.5rem)]')}>
       {/* Chat history drawer */}
       <ChatDrawer
         sidebarOpen={sidebarOpen}

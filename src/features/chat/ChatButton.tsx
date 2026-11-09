@@ -28,7 +28,7 @@ export default function ChatButton({ onOpen }: { onOpen: () => void }) {
   };
 
   return (
-    <div className="fixed bottom-[7.25rem] inset-x-0 z-40 pointer-events-none">
+    <div className="fixed bottom-[calc(7.25rem+var(--sab))] inset-x-0 z-40 pointer-events-none">
       <div className="max-w-md mx-auto px-5 flex justify-end items-center gap-3">
         <AnimatePresence>
           {showHint && (
@@ -59,6 +59,7 @@ export default function ChatButton({ onOpen }: { onOpen: () => void }) {
           {/* Soft pulse ring, outside the button because glossy buttons clip their overflow */}
           <span className="absolute inset-0 rounded-full animate-glow pointer-events-none" aria-hidden />
           <motion.button
+            data-tour="chat-bubble"
             onClick={open}
             onHoverStart={() => setShowHint(true)}
             onHoverEnd={() => setShowHint(false)}

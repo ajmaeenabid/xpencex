@@ -4,6 +4,7 @@ import { auth, db } from '../../shared/firebase';
 import { WorkerError, callWorker } from '../../shared/lib/workerApi';
 import { DeviceProof, proofMessage } from '../../../ai-server/src/deviceRules';
 import { savedLoginClaims } from './savedLogin';
+import { forgetNativeGoogle } from './googleSignIn';
 
 // How this device gets permission to use the account. The rules are on the server (ai-server/src/devices.ts).
 
@@ -101,6 +102,8 @@ export async function signOutAndForget({ removed = false } = {}) {
     // storage can be blocked; signing out still works
   }
   await signOut(auth);
+  // In the phone app, let Google's account picker show again next time
+  await forgetNativeGoogle();
   try {
     await terminate(db);
     await clearIndexedDbPersistence(db);

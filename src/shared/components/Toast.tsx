@@ -24,7 +24,7 @@ export function ToastHost() {
   }, [note]);
 
   return createPortal(
-    <div className="fixed top-4 inset-x-0 z-[60] flex justify-center px-4 pointer-events-none">
+    <div className="fixed top-[calc(1rem+var(--sat))] inset-x-0 z-[60] flex justify-center px-4 pointer-events-none">
       <AnimatePresence>
         {note && (
           <motion.div

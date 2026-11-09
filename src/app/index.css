@@ -11,14 +11,14 @@
  * so all English text is semibold whatever font-weight a component asks for.
  */
 @font-face {
-  font-family: "XpenceX Garamond";
+  font-family: "Xpences Garamond";
   src: url('./fonts/ebgaramond-semibold-normal.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "XpenceX Garamond";
+  font-family: "Xpences Garamond";
   src: url('./fonts/ebgaramond-semibold-italic.woff2') format('woff2');
   font-weight: 100 900;
   font-style: italic;
@@ -34,7 +34,7 @@
 @theme {
   /* Garamond semibold for all English text, headings included; Hind Siliguri covers Bangla letters
      (Garamond has none, so the browser switches per letter) */
-  --font-sans: "XpenceX Garamond", "Hind Siliguri", Garamond, serif;
+  --font-sans: "Xpences Garamond", "Hind Siliguri", Garamond, serif;
   --font-display: var(--font-sans);
 
   --color-background: var(--background);
@@ -154,18 +154,35 @@
 
   body {
     @apply antialiased transition-colors duration-300 bg-background text-foreground;
+  }
+
+  /* The soft colour glows, on their own layer fixed to the screen. (background-attachment: fixed
+     made phones repaint the whole background on every scroll, which made scrolling jerky.)
+     The last three are the glows that used to be blurred circles in App.tsx; plain gradients look
+     the same and cost almost nothing to draw. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background-image:
       radial-gradient(900px 600px at 0% 0%, rgba(255, 176, 131, 0.35), transparent 60%),
       radial-gradient(800px 600px at 100% 20%, rgba(247, 114, 143, 0.16), transparent 60%),
-      radial-gradient(900px 700px at 40% 100%, rgba(255, 205, 170, 0.35), transparent 60%);
-    background-attachment: fixed;
+      radial-gradient(900px 700px at 40% 100%, rgba(255, 205, 170, 0.35), transparent 60%),
+      radial-gradient(40% 40% at 10% 10%, color-mix(in srgb, var(--color-indigo-500) 10%, transparent), transparent 70%),
+      radial-gradient(35% 35% at 92% 37%, color-mix(in srgb, var(--color-purple-500) 10%, transparent), transparent 70%),
+      radial-gradient(30% 30% at 35% 95%, rgba(251, 191, 36, 0.12), transparent 70%);
   }
 
-  .dark body {
+  .dark body::before {
     background-image:
       radial-gradient(900px 650px at 0% 0%, rgba(255, 140, 90, 0.42), transparent 62%),
       radial-gradient(800px 600px at 100% 20%, rgba(238, 85, 120, 0.26), transparent 62%),
-      radial-gradient(900px 700px at 40% 100%, rgba(255, 160, 110, 0.32), transparent 62%);
+      radial-gradient(900px 700px at 40% 100%, rgba(255, 160, 110, 0.32), transparent 62%),
+      radial-gradient(40% 40% at 10% 10%, color-mix(in srgb, var(--color-indigo-400) 22%, transparent), transparent 70%),
+      radial-gradient(35% 35% at 92% 37%, color-mix(in srgb, var(--color-purple-400) 18%, transparent), transparent 70%),
+      radial-gradient(30% 30% at 35% 95%, rgba(251, 191, 36, 0.12), transparent 70%);
   }
 
   ::selection {
@@ -413,4 +430,76 @@ input[type='number']::-webkit-outer-spin-button {
 input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* ---------------------------------------------------------------------------
+   Phone app: Android draws Xpences edge to edge, under the status bar (clock, battery) and the
+   navigation buttons. These rules keep the app clear of both. In a browser both values are 0,
+   so nothing changes there. Capacitor fills --safe-area-inset-* (capacitor.config.ts, SystemBars).
+   --------------------------------------------------------------------------- */
+:root {
+  --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+}
+
+body {
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
+}
+
+/* Every full-screen window, sheet and dialog stops at the two bars */
+.fixed.inset-0 {
+  top: var(--sat);
+  bottom: var(--sab);
+}
+
+/* The strips behind the status bar and the navigation buttons, in the app's own colours */
+.safe-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 300;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--background) 90%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.safe-bar-top { top: 0; height: var(--sat); }
+.safe-bar-bottom { bottom: 0; height: var(--sab); }
+
+/* ---------------------------------------------------------------------------
+   The bottom bar: Apple-style liquid glass (blur only, so it stays smooth on every phone).
+   A frosted body with bright edges, and a raised glass bubble behind the open tab.
+   --------------------------------------------------------------------------- */
+.glass-bar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.16));
+  -webkit-backdrop-filter: blur(14px) saturate(190%) brightness(1.06);
+  backdrop-filter: blur(14px) saturate(190%) brightness(1.06);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 22px rgba(255, 255, 255, 0.22),
+    0 12px 32px rgba(60, 25, 10, 0.22),
+    0 2px 6px rgba(60, 25, 10, 0.08);
+}
+.glass-bubble {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.35));
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -1px 2px color-mix(in srgb, var(--color-indigo-700) 12%, transparent),
+    0 3px 10px color-mix(in srgb, var(--color-indigo-700) 18%, transparent);
+}
+.dark .glass-bar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 22px rgba(255, 255, 255, 0.06),
+    0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.dark .glass-bubble {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 3px 10px rgba(0, 0, 0, 0.35);
 }
