@@ -19,7 +19,9 @@ describe('backup file', () => {
     const b = backup({ accounts: [{ id: 'a1', uid: 'old', balance: 5000 }] });
     const text = await writeBackup(b, 'my secret');
     expect(isLocked(text)).toBe(true);
-    expect(text).not.toContain('5000');
+    // The readable data must not be in the file (a bare "5000" can turn up in the random-looking text by chance)
+    expect(text).not.toContain('"balance"');
+    expect(text).not.toContain('accounts');
     expect(await readBackup(text, 'my secret')).toEqual(b);
     await expect(readBackup(text)).rejects.toMatchObject({ reason: 'needsPassword' });
     await expect(readBackup(text, 'wrong')).rejects.toMatchObject({ reason: 'wrongPassword' });

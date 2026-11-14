@@ -24,6 +24,7 @@ import AddExpensePage from '../features/expenses/AddExpensePage';
 import { ButtonTour, ChatPage, ReportsPage, WelcomeSlides, warmUp } from './lazyParts';
 import LazyPart from '../shared/components/LazyPart';
 import { revealSection } from '../features/search/revealSection';
+import { OPEN_EXPENSE_SETTINGS } from '../features/expenses/ExpenseSettings';
 import ProfilePage from '../features/profile/ProfilePage';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAutoDriveBackup } from '../features/connect/useAutoDriveBackup';
@@ -394,6 +395,8 @@ export default function App() {
           onGoTo={place => {
             setEditingExpense(null); setEditingIncome(null); setPrefillAmount(null); setPrefillPeople(null);
             setActiveTab(place.tab);
+            // A card in the Expenses side panel: open the panel once the page is there, then find the card
+            if (place.panel) window.setTimeout(() => window.dispatchEvent(new Event(OPEN_EXPENSE_SETTINGS)), 120);
             if (place.section) revealSection(`${place.tab}:${place.section}`, !!place.open);
           }}
           onAskAi={text => { setChatDraft(text); setActiveTab('chat'); }}

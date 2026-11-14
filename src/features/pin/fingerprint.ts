@@ -19,13 +19,14 @@ export const setFingerprintOn = (uid: string, on: boolean, store: Store | null =
   try { if (on) store?.setItem(key(uid), '1'); else store?.removeItem(key(uid)); } catch { /* stays as it was */ }
 };
 
-const plugin = async () => (await import('@capgo/capacitor-native-biometric')).NativeBiometric;
+// Inside a list: awaiting a bare Capacitor plugin asks it for .then(), which throws "not implemented"
+const plugin = async () => [(await import('@capgo/capacitor-native-biometric')).NativeBiometric] as const;
 
 /** Whether this phone has a fingerprint or face unlock set up */
 export async function fingerprintAvailable(): Promise<boolean> {
   if (!isNative()) return false;
   try {
-    return (await (await plugin()).isAvailable()).isAvailable;
+    return (await (await plugin())[0].isAvailable()).isAvailable;
   } catch {
     return false;
   }
@@ -35,7 +36,7 @@ export async function fingerprintAvailable(): Promise<boolean> {
 export async function verifyFingerprint(texts: { title: string; subtitle: string; cancel: string }): Promise<boolean> {
   if (!isNative()) return false;
   try {
-    await (await plugin()).verifyIdentity({ title: texts.title, subtitle: texts.subtitle, negativeButtonText: texts.cancel, maxAttempts: 3 });
+    await (await plugin())[0].verifyIdentity({ title: texts.title, subtitle: texts.subtitle, negativeButtonText: texts.cancel, maxAttempts: 3 });
     return true;
   } catch {
     return false; // cancelled, too many tries, or not set up: the PIN still works

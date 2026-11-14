@@ -238,6 +238,8 @@ export const bn: Messages = {
 
   // Expenses list
   'expenses.title': 'লেনদেন',
+  'expenses.settings': 'বাজেট ও ক্যাটাগরি',
+  'expenses.settingsHint': 'আপনার বাজেট, নিয়মিত খরচ ও ক্যাটাগরি।',
   'expenses.count': 'মোট {count}টি',
   'expenses.export': 'CSV হিসেবে ডাউনলোড',
   'expenses.search': 'খরচ খুঁজুন',
@@ -1522,6 +1524,9 @@ export const bn: Messages = {
   'search.ask': 'জিজ্ঞেস',
   'search.askLabel': 'এ নিয়ে এআই-কে জিজ্ঞেস করুন',
   'search.suggested': 'জনপ্রিয়',
+  'search.recentTitle': 'সাম্প্রতিক',
+  'search.recentAsked': 'এআই-কে জিজ্ঞেস করেছেন',
+  'search.removeRecent': 'সাম্প্রতিক থেকে {name} সরান',
   'search.none': 'অ্যাপে কিছু পাওয়া যায়নি।',
   'search.noneAsk': '“{text}” নিয়ে এআই-কে জিজ্ঞেস করুন',
   'search.back': 'ফিরে যান',

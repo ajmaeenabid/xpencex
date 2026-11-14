@@ -233,6 +233,8 @@ export const en = {
 
   // Expenses list
   'expenses.title': 'Transactions',
+  'expenses.settings': 'Budgets and categories',
+  'expenses.settingsHint': 'Your budget, repeating expenses and categories.',
   'expenses.count': '{count} Total',
   'expenses.export': 'Export to CSV',
   'expenses.search': 'Search your expenses',
@@ -1517,6 +1519,9 @@ export const en = {
   'search.ask': 'Ask',
   'search.askLabel': 'Ask the AI about this',
   'search.suggested': 'Popular',
+  'search.recentTitle': 'Recent',
+  'search.recentAsked': 'Asked the AI',
+  'search.removeRecent': 'Remove {name} from recent',
   'search.none': 'Nothing found in the app.',
   'search.noneAsk': 'Ask the AI about “{text}”',
   'search.back': 'Back',

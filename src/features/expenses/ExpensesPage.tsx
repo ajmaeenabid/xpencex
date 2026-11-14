@@ -6,7 +6,8 @@ import { Deposit, Expense } from '../../shared/types';
 import { useIncome } from '../income/incomeService';
 import { IncomeRow } from '../income/IncomeRow';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trash2, Edit2, Search, Download, Calendar, Tag, Loader2, Repeat, Users, Wallet, ThumbsUp, ThumbsDown, Receipt as ReceiptIcon, SlidersHorizontal } from 'lucide-react';
+import { Trash2, Edit2, Search, Download, Calendar, Tag, Loader2, Repeat, Users, Wallet, ThumbsUp, ThumbsDown, Receipt as ReceiptIcon, SlidersHorizontal, PanelLeft } from 'lucide-react';
+import ExpenseSettingsDrawer, { OPEN_EXPENSE_SETTINGS } from './ExpenseSettings';
 import { format } from 'date-fns';
 import { MAJOR_CURRENCIES, DEFAULT_CATEGORIES } from '../../shared/constants';
 import { toCSV, downloadFile } from '../reports/reportExport';
@@ -43,6 +44,13 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
   const { t, dateLocale } = useI18n();
   // Receipts: the window from the header button, and one receipt opened from its icon on a row
   const [receiptsOpen, setReceiptsOpen] = useState(false);
+  // Side panel with budgets, recurring expenses and categories; search can open it too
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setSettingsOpen(true);
+    window.addEventListener(OPEN_EXPENSE_SETTINGS, open);
+    return () => window.removeEventListener(OPEN_EXPENSE_SETTINGS, open);
+  }, []);
   const receipts = useReceipts(user?.uid, receiptsOpen);
   const [viewing, setViewing] = useState<Expense | null>(null);
 
@@ -159,10 +167,20 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
 
   return (
     <div className="space-y-8 pb-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('expenses.title')}</h1>
+      <header className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+        <button
+          onClick={() => setSettingsOpen(true)}
+          title={t('expenses.settings')}
+          aria-label={t('expenses.settings')}
+          className="shrink-0 w-10 h-10 bg-card rounded-xl shadow-soft border border-card-border flex items-center justify-center text-indigo-600 dark:text-indigo-400"
+        >
+          <PanelLeft size={18} />
+        </button>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight truncate">{t('expenses.title')}</h1>
           <p className="text-indigo-600 dark:text-indigo-400 font-bold text-xs">{t('expenses.count', { count: filteredExpenses.length })}</p>
+        </div>
         </div>
         <div className="flex items-center gap-2">
         <button
@@ -439,6 +457,8 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
           onDelete={() => deleteRowReceipt(viewing)}
         />
       )}
+
+      <ExpenseSettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

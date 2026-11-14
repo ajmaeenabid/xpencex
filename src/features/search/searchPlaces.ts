@@ -11,6 +11,7 @@ export interface Place {
   tab: PlaceTab;
   section?: string; // the card's id on that page (RearrangeList)
   open?: boolean;
+  panel?: boolean; // the card is in the Expenses side panel (ExpenseSettings.tsx), which opens first
   action?: 'darkMode';
 }
 
@@ -42,15 +43,15 @@ export const PLACES: Place[] = [
   { id: 'pin', tab: 'profile', section: 'pin' },
   { id: 'language', tab: 'profile', section: 'language' },
   { id: 'currency', tab: 'profile', section: 'currency' },
-  { id: 'budget', tab: 'profile', section: 'budget' },
-  { id: 'categoryBudgets', tab: 'profile', section: 'categoryBudgets' },
-  { id: 'recurring', tab: 'profile', section: 'recurring' },
+  { id: 'budget', tab: 'expenses', section: 'budget', panel: true },
+  { id: 'categoryBudgets', tab: 'expenses', section: 'categoryBudgets', panel: true },
+  { id: 'recurring', tab: 'expenses', section: 'recurring', panel: true },
   { id: 'reminders', tab: 'profile', section: 'reminders', open: true },
   { id: 'widget', tab: 'profile', section: 'widget' },
   { id: 'google', tab: 'profile', section: 'connectedApps', open: true },
   { id: 'backup', tab: 'profile', section: 'backup' },
   { id: 'feedback', tab: 'profile', section: 'feedback', open: true },
-  { id: 'categories', tab: 'profile', section: 'categories' },
+  { id: 'categories', tab: 'expenses', section: 'categories', panel: true },
   { id: 'activity', tab: 'profile', section: 'notices' },
 
   { id: 'darkMode', tab: 'home', action: 'darkMode' },

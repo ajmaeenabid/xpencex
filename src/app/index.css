@@ -351,6 +351,13 @@ select:focus {
     inset 0 2px 4px rgba(var(--shadow-color), 0.04),
     0 0 0 4px rgba(249, 124, 69, 0.15);
 }
+/* A text box inside a field that draws its own border (like the search bar): no ring or glow of its own */
+.input-bare,
+.input-bare:focus,
+.input-bare:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 
 /* ---------------------------------------------------------------
  * Motion

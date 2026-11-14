@@ -6,18 +6,24 @@ import type { PlannedReminder, ReminderText } from './reminders';
 // Planning again replaces everything planned before, so the list always matches the latest data.
 
 const CHANNEL = 'reminders';
+// INEXACT: every reminder is scheduled with isExactNotification: false. The plugin otherwise treats each one
+// as exact and, since the app has no exact-alarm permission (removed in AndroidManifest.xml, Google Play
+// limits it), opens the "Alarms & reminders" settings screen and waits there, so nothing gets scheduled.
+// Inexact reminders come within about an hour of their time on Android 12+.
 const BUDGET_IDS = { 80: 9080, 100: 9100 } as const;
 
 /** Sent on window when the person allows notifications in the app */
 export const REMINDERS_ALLOWED = 'xpences-reminders-allowed';
 
-const plugin = async () => (await import('@capacitor/local-notifications')).LocalNotifications;
+// Handed back inside a list: a Capacitor plugin can't be returned from an async function on its own,
+// because awaiting it asks it for .then(), which Capacitor answers with "not implemented" (every call failed)
+const plugin = async () => [(await import('@capacitor/local-notifications')).LocalNotifications] as const;
 
 /** Whether reminders may show. `ask` shows Android's question when it hasn't been answered yet. */
 export async function remindersAllowed(ask: boolean): Promise<boolean> {
   if (!isNative()) return false;
   try {
-    const ln = await plugin();
+    const [ln] = await plugin();
     let { display } = await ln.checkPermissions();
     if (display !== 'granted' && ask && display !== 'denied') {
       ({ display } = await ln.requestPermissions());
@@ -54,7 +60,7 @@ export function reminderWords(text: ReminderText, t: TFunction, money: (n: numbe
 export async function scheduleReminders(plan: PlannedReminder[], words: (r: PlannedReminder) => { title: string; body: string }) {
   if (!isNative()) return;
   try {
-    const ln = await plugin();
+    const [ln] = await plugin();
     await ln.createChannel({ id: CHANNEL, name: 'Reminders', importance: 3 }).catch(() => {});
     const pending = (await ln.getPending()).notifications.filter(n => n.id !== BUDGET_IDS[80] && n.id !== BUDGET_IDS[100]);
     if (pending.length) await ln.cancel({ notifications: pending.map(n => ({ id: n.id })) });
@@ -65,6 +71,8 @@ export async function scheduleReminders(plan: PlannedReminder[], words: (r: Plan
         ...words(r),
         channelId: CHANNEL,
         schedule: { at: r.at, allowWhileIdle: true },
+        // See INEXACT: without this the plugin waits on a settings screen and schedules nothing
+        isExactNotification: false,
         extra: { tab: r.tab },
       })),
     });
@@ -77,8 +85,8 @@ export async function scheduleReminders(plan: PlannedReminder[], words: (r: Plan
 export async function sendBudgetAlert(percent: 80 | 100, words: { title: string; body: string }) {
   if (!isNative()) return;
   try {
-    const ln = await plugin();
-    await ln.schedule({ notifications: [{ id: BUDGET_IDS[percent], ...words, channelId: CHANNEL, schedule: { at: new Date(Date.now() + 1000) }, extra: { tab: 'home' } }] });
+    const [ln] = await plugin();
+    await ln.schedule({ notifications: [{ id: BUDGET_IDS[percent], ...words, channelId: CHANNEL, schedule: { at: new Date(Date.now() + 1000) }, isExactNotification: false, extra: { tab: 'home' } }] });
   } catch (err) {
     console.error('Could not send the budget alert', err);
   }
@@ -88,7 +96,7 @@ export async function sendBudgetAlert(percent: 80 | 100, words: { title: string;
 export async function clearReminders() {
   if (!isNative()) return;
   try {
-    const ln = await plugin();
+    const [ln] = await plugin();
     const pending = (await ln.getPending()).notifications;
     if (pending.length) await ln.cancel({ notifications: pending.map(n => ({ id: n.id })) });
   } catch {
@@ -99,7 +107,7 @@ export async function clearReminders() {
 /** Tapping a reminder opens its screen */
 export async function onReminderTap(open: (tab: string) => void): Promise<() => void> {
   if (!isNative()) return () => {};
-  const ln = await plugin();
+  const [ln] = await plugin();
   const handle = await ln.addListener('localNotificationActionPerformed', (e) => {
     const tab = e.notification.extra?.tab;
     if (typeof tab === 'string') open(tab);
