@@ -113,7 +113,7 @@ export default function LoanForm({ uid, account, accounts, symbol, loan, calcula
               </span>
               <span>
                 <span className="block text-sm font-bold text-foreground">{t('loans.addMoney')}</span>
-                <span className="block text-[11px] text-muted font-medium">
+                <span className="block text-[12px] text-muted font-medium">
                   {calculated ? t('loans.receivedHint', { amount: `${symbol}${calculated.received.toLocaleString()}` }) : t('loans.addMoneyHint')}
                 </span>
               </span>

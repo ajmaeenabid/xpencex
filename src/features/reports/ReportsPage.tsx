@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import MonthCompareCard from './MonthCompareCard';
+import { EarnedChart } from '../income/IncomeCards';
+import { REPORTS_MONTHS, fetchAllExpenses, windowStart } from '../expenses/expenseQueries';
 import { db } from '../../shared/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../../app/App';
@@ -21,7 +24,7 @@ import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/compo
 import { alertDialog } from '../../shared/components/Dialog';
 
 // Movable cards, in their default order
-const REPORT_SECTIONS = ['export', 'analysis', 'accounts', 'fees', 'regret', 'monthly', 'breakdown'];
+const REPORT_SECTIONS = ['export', 'earned', 'compare', 'analysis', 'accounts', 'fees', 'regret', 'monthly', 'breakdown'];
 
 export default function ReportsPage() {
   const { user, profile, isDarkMode } = useAuth();
@@ -34,7 +37,8 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, 'expenses'), where('uid', '==', user.uid), orderBy('date', 'desc'));
+    // The last 12 months, which is all the charts show (older months aren't read)
+    const q = query(collection(db, 'expenses'), where('uid', '==', user.uid), where('date', '>=', windowStart(REPORTS_MONTHS)), orderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setExpenses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense)));
     });
@@ -76,8 +80,15 @@ export default function ReportsPage() {
     if (!printReport(html)) alertDialog(t('reports.allowPopups'));
   };
 
-  const handleCsv = () =>
-    downloadFile(`xpences-all-expenses-${format(new Date(), 'yyyy-MM-dd')}.csv`, toCSV(expenses, profile?.currency || 'BDT'), 'text/csv;charset=utf-8');
+  // Exports cover every expense, read only when tapped
+  const handleCsv = async () => {
+    try {
+      downloadFile(`xpences-all-expenses-${format(new Date(), 'yyyy-MM-dd')}.csv`, toCSV(await fetchAllExpenses(user!.uid), profile?.currency || 'BDT'), 'text/csv;charset=utf-8');
+    } catch (err) {
+      console.error('Could not export expenses:', err);
+      alertDialog(t('expenses.exportFailed'));
+    }
+  };
 
   const COLORS = ['#F97C45', '#14b8a6', '#F5B942', '#EE5578', '#9B7BD4', '#4AA3DF'];
 
@@ -110,14 +121,16 @@ export default function ReportsPage() {
         <SheetsExportButton
           className="col-span-2"
           emptyMessage={expenses.length === 0 ? t('reports.noExpensesYet') : undefined}
-          build={() => ({
+          build={async () => ({
             title: t('sheets.titleReport', { date: format(new Date(), 'd MMM yyyy', { locale: dateLocale }) }),
-            tabs: reportTabs(expenses, profile?.currency || 'BDT', t, cat => categoryLabel(t, cat), profile?.monthlyBudget),
+            tabs: reportTabs(await fetchAllExpenses(user!.uid), profile?.currency || 'BDT', t, cat => categoryLabel(t, cat), profile?.monthlyBudget),
           })}
         />
       </div>
       ) },
 
+      { id: 'earned', node: user && <EarnedChart uid={user.uid} expenses={expenses} symbol={currencySymbol} /> },
+      { id: 'compare', node: <MonthCompareCard expenses={expenses} symbol={currencySymbol} /> },
       { id: 'analysis', node: <SpendingCharts expenses={expenses} symbol={currencySymbol} budget={profile?.monthlyBudget} /> },
 
       { id: 'accounts', node: <AccountsReport expenses={expenses} accounts={accounts} symbol={currencySymbol} /> },
@@ -158,7 +171,8 @@ export default function ReportsPage() {
 
       { id: 'breakdown', node: (
       <div className="bg-card p-6 rounded-3xl shadow-sm border border-card-border transition-colors">
-        <h3 className="text-lg font-bold mb-6 text-foreground">{t('reports.breakdown')}</h3>
+        <h3 className="text-lg font-bold text-foreground">{t('reports.breakdown')}</h3>
+        <p className="text-xs text-muted font-medium mb-6">{t('reports.last12Months')}</p>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -195,7 +209,7 @@ export default function ReportsPage() {
               </div>
               <div className="text-right">
                 <span className="text-sm font-bold text-foreground">{currencySymbol} {item.value.toLocaleString()}</span>
-                <span className="text-[10px] text-muted font-bold ml-2">
+                <span className="text-[11px] text-muted font-bold ml-2">
                   {grandTotal > 0 ? ((item.value / grandTotal) * 100).toFixed(1) : '0.0'}%
                 </span>
               </div>

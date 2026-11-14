@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { addMonths, format } from 'date-fns';
-import { CalendarDays, Check, ChevronRight, PartyPopper, Plus, Trash2 } from 'lucide-react';
+import { CalendarDays, Check, ChevronRight, PiggyBank, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../../app/App';
 import { useI18n, TKey } from '../../shared/i18n';
 import { cn } from '../../shared/lib/utils';
@@ -12,8 +12,11 @@ import { btnPrimary, btnSecondary, btnSmall, card, inputClass, labelClass } from
 import SheetsExportButton from '../connect/SheetsExportButton';
 import AddToCalendarButton from '../connect/AddToCalendarButton';
 import { fundsTabs } from '../connect/exportTables';
-import { FESTIVALS, Festival, Fund, fundPlan, quickAmounts } from './funds';
-import { addToFund, createFund, deleteFund } from './fundService';
+import { FESTIVALS, Festival, Fund, fundPlan, mainSource, quickAmounts } from './funds';
+import { addToFund, createFund, deleteFund, takeFromFund } from './fundService';
+import { useAccounts } from '../accounts/accountService';
+import AccountPicker from '../accounts/AccountPicker';
+import type { Account } from '../../shared/types';
 
 export const FESTIVAL_TEXT: Record<Festival, TKey> = {
   eidFitr: 'funds.eidFitr',
@@ -28,17 +31,20 @@ type Page = { page: 'list' } | { page: 'fund'; id: string } | { page: 'new' };
 
 const ring = (f: Fund) => (fundPlan(f).reached ? 'text-emerald-500' : 'text-amber-500');
 
-/** The full Festival fund window: all goals, one goal's page, and a new goal in three steps */
-export default function FundsWindow({ open, onClose, uid, funds, symbol }: {
+/** The full Savings goals window: all goals, one goal's page, and a new goal in three steps */
+export default function FundsWindow({ open, onClose, uid, funds, symbol, startFundId }: {
   open: boolean;
   onClose: () => void;
   uid: string;
   funds: Fund[]; // sorted, nearest first
   symbol: string;
+  startFundId?: string; // open straight on this goal (from the month-end suggestion)
 }) {
   const { t, dateLocale } = useI18n();
   const { profile } = useAuth();
   const nav = usePages<Page>({ page: 'list' });
+  const accounts = useAccounts(uid);
+  useEffect(() => { if (open && startFundId) nav.go({ page: 'fund', id: startFundId }); }, [open, startFundId]);
   const [busy, setBusy] = useState(false);
   const money = (n: number) => `${symbol}${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
   const day = (iso: string) => format(new Date(iso), 'd MMM yyyy', { locale: dateLocale });
@@ -47,13 +53,14 @@ export default function FundsWindow({ open, onClose, uid, funds, symbol }: {
   const act = async (action: () => Promise<unknown>) => {
     setBusy(true);
     try { await action(); return true; }
-    catch (err) { console.error('Festival fund change failed:', err); alertDialog(t('funds.error')); return false; }
+    catch (err) { console.error('Savings goal change failed:', err); alertDialog(t('funds.error')); return false; }
     finally { setBusy(false); }
   };
 
   /** "42 days left", "Today", "Passed" or "Goal reached", with a colour */
   const when = (f: Fund) => {
     const p = fundPlan(f);
+    if (!f.dueDate && !p.reached) return { text: t('funds.noDate'), tone: 'bg-background text-muted border border-card-border' };
     if (p.reached) return { text: t('funds.dayReached'), tone: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' };
     if (p.passed) return { text: t('funds.dayPassed'), tone: 'bg-background text-muted border border-card-border' };
     if (p.daysLeft === 0) return { text: t('funds.dayToday'), tone: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' };
@@ -93,7 +100,7 @@ export default function FundsWindow({ open, onClose, uid, funds, symbol }: {
                 <div className="flex-1 min-w-0 space-y-1">
                   <p className="font-bold text-foreground truncate">{f.name}</p>
                   <p className="text-sm text-muted font-semibold tabular-nums truncate">{t('funds.detailOf', { saved: money(f.saved), target: money(f.target) })}</p>
-                  <span className={cn('inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold', w.tone)}>{w.text}</span>
+                  <span className={cn('inline-flex px-2.5 py-0.5 rounded-full text-[12px] font-bold', w.tone)}>{w.text}</span>
                 </div>
                 <ChevronRight size={20} className="text-muted shrink-0" />
               </button>
@@ -115,7 +122,7 @@ export default function FundsWindow({ open, onClose, uid, funds, symbol }: {
     const fund = funds.find(f => f.id === id);
     if (fund) {
       title = fund.name;
-      subtitle = day(fund.dueDate);
+      subtitle = fund.dueDate ? day(fund.dueDate) : t('funds.noDate');
       body = (
         <FundDetail
           fund={fund}
@@ -123,17 +130,19 @@ export default function FundsWindow({ open, onClose, uid, funds, symbol }: {
           money={money}
           symbol={symbol}
           when={when(fund)}
-          onAdd={amount => act(() => addToFund(fund, amount))}
+          accounts={accounts}
+          onAdd={(amount, account) => act(() => addToFund(fund, amount, account))}
+          onTake={(amount, account) => act(() => takeFromFund(fund, amount, account))}
           onDelete={async () => {
             if (!(await confirmDialog(t('funds.confirmDelete', { name: fund.name }), { danger: true }))) return;
             if (await act(() => deleteFund(fund))) nav.back();
           }}
-          calendar={!fundPlan(fund).passed && (
+          calendar={!!fund.dueDate && !fundPlan(fund).passed && (
             <AddToCalendarButton
               className="h-10 px-4 text-sm"
               event={{
                 title: t('calendar.fundTitle', { name: fund.name }),
-                date: new Date(fund.dueDate),
+                date: new Date(fund.dueDate!),
                 details: t('calendar.fundDetails', { target: money(fund.target), saved: money(fund.saved) }),
               }}
             />
@@ -163,7 +172,7 @@ export default function FundsWindow({ open, onClose, uid, funds, symbol }: {
       onClose={close}
       onBack={nav.back}
       pageKey={nav.depth + nav.page.page}
-      icon={<PartyPopper size={18} className="shrink-0 text-amber-600 dark:text-amber-400" />}
+      icon={<PiggyBank size={18} className="shrink-0 text-amber-600 dark:text-amber-400" />}
       title={title}
       subtitle={subtitle}
       action={action}
@@ -198,19 +207,21 @@ function FundsHero({ funds, money }: { funds: Fund[]; money: (n: number) => stri
           </p>
         )}
       </div>
-      <PartyPopper size={120} className="absolute -right-6 -bottom-6 text-white/15" aria-hidden="true" />
+      <PiggyBank size={120} className="absolute -right-6 -bottom-6 text-white/15" aria-hidden="true" />
     </div>
   );
 }
 
 /** One goal: a big ring, quick amounts to set aside, the weekly plan, calendar and delete */
-function FundDetail({ fund, busy, money, symbol, when, onAdd, onDelete, calendar }: {
+function FundDetail({ fund, busy, money, symbol, when, accounts, onAdd, onTake, onDelete, calendar }: {
   fund: Fund;
   busy: boolean;
   money: (n: number) => string;
   symbol: string;
   when: { text: string; tone: string };
-  onAdd: (amount: number) => Promise<unknown>;
+  accounts: Account[];
+  onAdd: (amount: number, account: Account | null) => Promise<unknown>;
+  onTake: (amount: number, account: Account | null) => Promise<unknown>;
   onDelete: () => void;
   calendar: React.ReactNode;
 }) {
@@ -218,6 +229,12 @@ function FundDetail({ fund, busy, money, symbol, when, onAdd, onDelete, calendar
   const p = fundPlan(fund);
   const [other, setOther] = useState('');
   const otherValue = parseFloat(other);
+  // Where the money is: '' = only set aside, or an account it moves out of (and back into)
+  const [source, setSource] = useState('');
+  const [takeAmount, setTakeAmount] = useState('');
+  const [takeInto, setTakeInto] = useState(() => mainSource(fund) || '');
+  const takeValue = parseFloat(takeAmount);
+  const pick = (id: string) => accounts.find(a => a.id === id) || null;
 
   return (
     <>
@@ -237,7 +254,7 @@ function FundDetail({ fund, busy, money, symbol, when, onAdd, onDelete, calendar
           <p className="font-bold text-foreground">{t('funds.setAsideTitle')}</p>
           <div className="flex flex-wrap gap-2">
             {quickAmounts(fund.target).map(amount => (
-              <button key={amount} disabled={busy} onClick={() => onAdd(amount)} className="h-10 px-4 rounded-xl text-sm font-bold bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200 border border-amber-200/70 dark:border-amber-500/20 disabled:opacity-50 transition-transform active:scale-95">
+              <button key={amount} disabled={busy} onClick={() => onAdd(amount, pick(source))} className="h-10 px-4 rounded-xl text-sm font-bold bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200 border border-amber-200/70 dark:border-amber-500/20 disabled:opacity-50 transition-transform active:scale-95">
                 +{money(amount)}
               </button>
             ))}
@@ -253,18 +270,46 @@ function FundDetail({ fund, busy, money, symbol, when, onAdd, onDelete, calendar
             />
             <button
               disabled={busy || !(otherValue > 0)}
-              onClick={async () => { await onAdd(otherValue); setOther(''); }}
+              onClick={async () => { await onAdd(otherValue, pick(source)); setOther(''); }}
               className={cn(btnPrimary, 'shrink-0')}
             >
               {t('funds.setAside')}
             </button>
           </div>
+          <MoneySource label={t('funds.fromWhere')} value={source} onChange={setSource} accounts={accounts} symbol={symbol} noneLabel={t('funds.onlySetAside')} />
+        </div>
+      )}
+
+      {fund.saved > 0 && (
+        <div className={cn(card, 'p-5 space-y-3')}>
+          <p className="font-bold text-foreground">{t('funds.takeOutTitle')}</p>
+          <div className="flex gap-2">
+            <input
+              type="number" min="0" step="0.01" inputMode="decimal"
+              placeholder={`${symbol} 0`}
+              aria-label={t('funds.takeOutAmount')}
+              className={inputClass}
+              value={takeAmount}
+              onChange={e => setTakeAmount(e.target.value)}
+            />
+            <button
+              disabled={busy || !(takeValue > 0) || takeValue > fund.saved}
+              onClick={async () => { await onTake(takeValue, pick(takeInto)); setTakeAmount(''); }}
+              className={cn(btnSecondary, 'shrink-0')}
+            >
+              {t('funds.takeOut')}
+            </button>
+          </div>
+          {takeValue > fund.saved && <p className="text-xs font-semibold text-rose-500">{t('funds.takeOutTooMuch', { saved: money(fund.saved) })}</p>}
+          <MoneySource label={t('funds.backInto')} value={takeInto} onChange={setTakeInto} accounts={accounts} symbol={symbol} noneLabel={t('funds.onlyRemove')} />
         </div>
       )}
 
       <div className={cn(card, 'p-5 space-y-3')}>
         {p.reached ? (
           <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">{t('funds.reached', { target: money(fund.target) })}</p>
+        ) : !fund.dueDate ? (
+          <p className="text-sm font-semibold text-muted">{t('funds.leftToGo', { left: money(p.left) })}</p>
         ) : p.passed ? (
           <p className="text-sm font-semibold text-muted">{t('funds.passed', { date: format(new Date(fund.dueDate), 'd MMM yyyy', { locale: dateLocale }) })}</p>
         ) : (
@@ -299,13 +344,14 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 /** A new goal in three short steps: which occasion, how much, and when */
-function NewFund({ busy, symbol, onCreate }: { busy: boolean; symbol: string; onCreate: (name: string, target: number, date: string) => void }) {
+function NewFund({ busy, symbol, onCreate }: { busy: boolean; symbol: string; onCreate: (name: string, target: number, date: string | null) => void }) {
   const { t } = useI18n();
   const [step, setStep] = useState(1);
   const [preset, setPreset] = useState<string>('eidFitr');
   const [custom, setCustom] = useState('');
   const [target, setTarget] = useState('');
   const [date, setDate] = useState(format(addMonths(new Date(), 3), 'yyyy-MM-dd'));
+  const [noDate, setNoDate] = useState(false);
   const name = preset === 'custom' ? custom.trim() : t(FESTIVAL_TEXT[preset as Festival]);
   const value = parseFloat(target);
   const ready = [!!name, value > 0, !!date][step - 1];
@@ -357,10 +403,16 @@ function NewFund({ busy, symbol, onCreate }: { busy: boolean; symbol: string; on
       {step === 3 && (
         <div className="space-y-3">
           <p className="text-lg font-bold">{t('funds.stepDate', { name })}</p>
-          <div>
-            <span className={labelClass}>{t('funds.date')}</span>
-            <DateField value={date} onChange={setDate} ariaLabel={t('funds.date')} />
-          </div>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" className="w-4 h-4 accent-indigo-600" checked={noDate} onChange={e => setNoDate(e.target.checked)} />
+            <span className="text-sm font-semibold text-foreground">{t('funds.noDateOption')}</span>
+          </label>
+          {!noDate && (
+            <div>
+              <span className={labelClass}>{t('funds.date')}</span>
+              <DateField value={date} onChange={setDate} ariaLabel={t('funds.date')} />
+            </div>
+          )}
           <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-sm font-semibold text-amber-800 dark:text-amber-200">
             {t('funds.review', { name, target: `${symbol}${value.toLocaleString()}` })}
           </div>
@@ -371,8 +423,25 @@ function NewFund({ busy, symbol, onCreate }: { busy: boolean; symbol: string; on
         {step > 1 && <button onClick={() => setStep(s => s - 1)} className={cn(btnSecondary, 'flex-1')}>{t('common.back')}</button>}
         {step < 3
           ? <button disabled={!ready} onClick={() => setStep(s => s + 1)} className={cn(btnPrimary, 'flex-1')}>{t('common.next')}</button>
-          : <button disabled={busy || !ready} onClick={() => onCreate(name, value, date)} className={cn(btnPrimary, 'flex-1')}>{t('funds.create')}</button>}
+          : <button disabled={busy || !ready} onClick={() => onCreate(name, value, noDate ? null : date)} className={cn(btnPrimary, 'flex-1')}>{t('funds.create')}</button>}
       </div>
+    </div>
+  );
+}
+
+/** "Where is this money?": only set aside, or one of the accounts */
+function MoneySource({ label, value, onChange, accounts, symbol, noneLabel }: {
+  label: string; value: string; onChange: (id: string) => void; accounts: Account[]; symbol: string; noneLabel: string;
+}) {
+  if (accounts.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-bold text-muted">{label}</p>
+      <button type="button" onClick={() => onChange('')} aria-pressed={!value}
+        className={cn('px-3 py-2 rounded-xl text-xs font-bold border', !value ? 'bg-amber-500 text-white border-amber-500' : 'bg-background/50 text-muted border-card-border')}>
+        {noneLabel}
+      </button>
+      <AccountPicker accounts={accounts} value={value} onChange={onChange} symbol={symbol} includeCash={false} compact />
     </div>
   );
 }

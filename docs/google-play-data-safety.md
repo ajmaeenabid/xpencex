@@ -29,11 +29,15 @@ Check each answer against the form's wording when you fill it in, because Google
 | Other in-app messages (Messages) | Yes | Yes | Optional | App functionality |
 | Other user-generated content (App activity) | Yes | Yes | Optional | App functionality |
 | Device or other IDs (Device or other IDs) | Yes | No | Required | App functionality, Fraud prevention and security |
+| Crash logs (App info and performance) | Yes | No | Required | App functionality |
+| Diagnostics (App info and performance) | Yes | No | Required | App functionality |
 
 Notes:
 
 - **Processed only for a moment:** the form lets you mark data as "processed ephemerally" if it's held only in memory. Don't tick this for photos, files or audio, because Google's free service may keep them.
+- **Receipts (added 2026-11-11):** Photos and Files and docs are now also *stored* when a person keeps one as a receipt (Cloudflare R2, through our server; optional; up to 100 per person; deleted with the account). The answers in the table don't change: Collected Yes, Optional, App functionality. They are still "Shared" only because of what goes to Gemini.
 - **Financial info:** "Required" because the tracker can't work without expense records. Only the parts a user sends to the AI assistant go to Google.
+- **Crash logs and Diagnostics (added 2026-11-11):** the app's own error reports (our server, kept 30 days, with the username) and Firebase Crashlytics (Google, not linked to the user). Always on, so Required. Firebase is Google acting for us, so not "Shared".
 - **Not collected:** location, contacts, calendar, SMS, browsing history, health, and ads or analytics data.
 
 ## Other Play Console items

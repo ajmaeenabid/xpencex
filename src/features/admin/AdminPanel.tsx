@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import AdminLogList from './AdminLogList';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { format } from 'date-fns';
-import { ShieldCheck, X, Search, Smartphone, Ban, RotateCcw, Trash2, Check, AlertTriangle, ShieldAlert, Lock, Users, History, LogOut, MessageSquareText, ChevronRight } from 'lucide-react';
+import { ShieldCheck, X, Search, Smartphone, Ban, RotateCcw, Trash2, Check, AlertTriangle, ShieldAlert, Lock, Users, History, LogOut, MessageSquareText, ChevronRight, Bug } from 'lucide-react';
 import { cn } from '../../shared/lib/utils';
 import { WorkerError } from '../../shared/lib/workerApi';
 import { useI18n, TKey } from '../../shared/i18n';
@@ -11,16 +12,8 @@ import { AdminAction, AdminHealth, AdminLogEntry, AdminUser, UserFilter, UserSta
 import { approveDevice, confirmWithGoogle, deleteUser, getHealth, listLog, listUsers, refuseDevice, removeDevice, setSuspended } from './adminService';
 import HealthBox from './HealthBox';
 import CommentsWindow from './CommentsWindow';
+import ErrorsWindow from './ErrorsWindow';
 import { confirmDialog } from '../../shared/components/Dialog';
-
-const LOG_TEXT: Record<AdminAction, TKey> = {
-  suspended: 'admin.logSuspended',
-  restored: 'admin.logRestored',
-  delete: 'admin.logDelete',
-  deviceApproved: 'admin.logDeviceApproved',
-  deviceRefused: 'admin.logDeviceRefused',
-  deviceRemoved: 'admin.logDeviceRemoved',
-};
 
 // The server refuses admin changes 10 minutes after confirming with Google
 const needsConfirm = (err: unknown) => err instanceof WorkerError && err.status === 401;
@@ -57,6 +50,7 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
   const [log, setLog] = useState<AdminLogEntry[]>([]);
   const [health, setHealth] = useState<AdminHealth | null>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [errorsOpen, setErrorsOpen] = useState(false);
 
   const lock = () => setUnlocked(false);
 
@@ -98,7 +92,7 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
   // Everything resets on close, so the next open starts on the lock step with a clean screen
   const closePopup = () => {
     onClose(); setExpanded(null); setDeleting(null); setTyped(''); setActionError(''); setSearch('');
-    setDone(''); setFilter('all'); setLockError(''); setView('users'); setCommentsOpen(false);
+    setDone(''); setFilter('all'); setLockError(''); setView('users'); setCommentsOpen(false); setErrorsOpen(false);
     lock();
   };
 
@@ -106,12 +100,12 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
   useEffect(() => {
     if (!open) return;
     // While Comments is open, Escape belongs to it
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !commentsOpen) closePopup(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !commentsOpen && !errorsOpen) closePopup(); };
     window.addEventListener('keydown', onKey);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
-  }, [open, commentsOpen]);
+  }, [open, commentsOpen, errorsOpen]);
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
@@ -202,17 +196,17 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-foreground truncate">
               {u.username ? `@${u.username}` : t('admin.noUsername')}
-              {u.isAdmin && <span className="ml-2 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">{t('admin.you')}</span>}
+              {u.isAdmin && <span className="ml-2 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">{t('admin.you')}</span>}
             </p>
             <p className="text-xs text-muted font-medium truncate">{u.email}</p>
-            <p className="text-[11px] text-muted font-medium truncate">
+            <p className="text-[12px] text-muted font-medium truncate">
               {[u.createdAt && t('admin.joined', { date: when(u.createdAt) }), u.lastLoginAt ? t('admin.lastSeen', { date: when(u.lastLoginAt) }) : t('admin.neverSeen')].filter(Boolean).join(' · ')}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
-            <span className={cn('px-2 py-1 rounded-lg text-[10px] font-bold', status.className)}>{t(status.key)}</span>
+            <span className={cn('px-2 py-1 rounded-lg text-[11px] font-bold', status.className)}>{t(status.key)}</span>
             {u.deviceRequest && (
-              <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-indigo-600 text-white">{t('admin.requested')}</span>
+              <span className="px-2 py-1 rounded-lg text-[11px] font-bold bg-indigo-600 text-white">{t('admin.requested')}</span>
             )}
           </div>
         </button>
@@ -224,7 +218,7 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
                 <p className="text-xs font-bold text-foreground">
                   {t('admin.requestBody', { device: u.deviceRequest.label, date: format(new Date(u.deviceRequest.at), 'd MMM, h:mm a', { locale: dateLocale }) })}
                 </p>
-                {u.devices.length > 0 && <p className="text-[11px] text-muted font-medium">{t('admin.replaceHint')}</p>}
+                {u.devices.length > 0 && <p className="text-[12px] text-muted font-medium">{t('admin.replaceHint')}</p>}
                 {u.devices.map(d => (
                   <label key={d.id} className="flex items-center gap-2 text-xs font-medium text-foreground">
                     <input
@@ -242,20 +236,20 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
               </div>
             )}
 
-            <p className="text-[11px] font-bold text-muted">{t('admin.devices')}</p>
-            {u.devices.length === 0 && <p className="text-[11px] text-muted font-medium">{t('admin.noDevices')}</p>}
+            <p className="text-[12px] font-bold text-muted">{t('admin.devices')}</p>
+            {u.devices.length === 0 && <p className="text-[12px] text-muted font-medium">{t('admin.noDevices')}</p>}
             {u.devices.map(d => (
               <div key={d.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-card-border">
                 <p className="flex items-center gap-2 min-w-0 text-xs font-medium text-foreground">
                   <Smartphone size={14} className="shrink-0 text-muted" />
                   <span className="truncate">{d.label} · {format(new Date(d.at), 'd MMM yyyy', { locale: dateLocale })}</span>
                 </p>
-                <button onClick={() => handleRemoveDevice(u, d.id, d.label)} disabled={busy} className="shrink-0 text-[11px] font-bold text-rose-600 dark:text-rose-400 disabled:opacity-50">{t('admin.removeDevice')}</button>
+                <button onClick={() => handleRemoveDevice(u, d.id, d.label)} disabled={busy} className="shrink-0 text-[12px] font-bold text-rose-600 dark:text-rose-400 disabled:opacity-50">{t('admin.removeDevice')}</button>
               </div>
             ))}
 
             {u.isAdmin ? (
-              <p className="text-[11px] text-muted font-medium">{t('admin.ownAccount')}</p>
+              <p className="text-[12px] text-muted font-medium">{t('admin.ownAccount')}</p>
             ) : deleting === u.uid ? (
               <div className="space-y-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10">
                 <p className="text-xs font-bold text-rose-600 dark:text-rose-300">{t('admin.deleteWarn', { user: displayName(u) })}</p>
@@ -363,7 +357,7 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
               <div className="flex-1 overflow-y-auto">
                 <div className="max-w-2xl mx-auto">
                 <div className="px-5 pt-4 space-y-3">
-                  <p className="flex items-start gap-2 text-[11px] text-muted font-medium">
+                  <p className="flex items-start gap-2 text-[12px] text-muted font-medium">
                     <ShieldAlert size={14} className="shrink-0 mt-px text-indigo-600 dark:text-indigo-400" /> {t('admin.privacyNote')}
                   </p>
                   {health && <HealthBox health={health} />}
@@ -375,6 +369,17 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
                     <span className="flex-1 min-w-0">
                       <span className="block text-sm font-bold text-foreground">{t('comments.title')}</span>
                       <span className="block text-xs text-muted font-medium">{t('comments.hint')}</span>
+                    </span>
+                    <ChevronRight size={18} className="shrink-0 text-muted" />
+                  </button>
+                  <button
+                    onClick={() => setErrorsOpen(true)}
+                    className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-card-border text-left transition-colors hover:border-indigo-500/40"
+                  >
+                    <span className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-rose-50 text-rose-500 dark:bg-rose-500/10 dark:text-rose-300"><Bug size={20} /></span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-bold text-foreground">{t('errors.title')}</span>
+                      <span className="block text-xs text-muted font-medium">{t('errors.hint')}</span>
                     </span>
                     <ChevronRight size={18} className="shrink-0 text-muted" />
                   </button>
@@ -449,14 +454,7 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
                       <button onClick={load} className="text-indigo-600 dark:text-indigo-400 font-bold text-sm">{t('admin.retry')}</button>
                     </div>
                   ) : view === 'log' ? (
-                    log.length === 0 ? (
-                      <p className="text-center py-10 text-sm text-muted font-medium">{t('admin.logEmpty')}</p>
-                    ) : log.filter(entry => LOG_TEXT[entry.action]).map((entry, i) => (
-                      <div key={`${entry.at}-${i}`} className="flex items-center justify-between gap-3 p-3 bg-background/50 rounded-xl border border-card-border">
-                        <p className="text-sm font-bold text-foreground truncate">{t(LOG_TEXT[entry.action], { user: entry.username || t('admin.deletedUser') })}</p>
-                        <p className="text-[11px] text-muted font-medium shrink-0">{entry.at && format(new Date(entry.at), 'd MMM, h:mm a', { locale: dateLocale })}</p>
-                      </div>
-                    ))
+                    <AdminLogList log={log} />
                   ) : shown.length === 0 ? (
                     <p className="text-center py-10 text-sm text-muted font-medium">{t(filter === 'requests' && !search.trim() ? 'admin.noRequests' : 'admin.none')}</p>
                   ) : (
@@ -471,6 +469,7 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
         document.body
       )}
       <CommentsWindow open={open && unlocked && commentsOpen} onClose={() => setCommentsOpen(false)} onLocked={lock} />
+      <ErrorsWindow open={open && unlocked && errorsOpen} onClose={() => setErrorsOpen(false)} onLocked={lock} />
     </>
   );
 }

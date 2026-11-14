@@ -1,4 +1,5 @@
 import { Component, ReactNode } from 'react';
+import { reportError } from '../lib/errorReports';
 import { useI18n } from '../i18n';
 
 interface Props {
@@ -20,6 +21,7 @@ export default class ErrorBoundary extends Component<Props, { failed: boolean }>
 
   componentDidCatch(error: unknown) {
     console.error('Display error:', error);
+    reportError(error);
   }
 
   render() {

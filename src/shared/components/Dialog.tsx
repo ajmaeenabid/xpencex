@@ -11,16 +11,27 @@ type Request = {
   message: string;
   kind: 'confirm' | 'alert';
   danger: boolean;
-  resolve: (answer: boolean) => void;
+  tick?: string; // an extra tick box under the question
+  ticked?: boolean; // whether that tick starts on
+  okLabel?: string; // instead of "Confirm"
+  resolve: (answer: boolean, ticked?: boolean) => void;
 };
 
 let enqueue: ((request: Request) => void) | null = null;
 
-/** Asks a yes or no question. `danger` is for something that can't be undone. */
-export function confirmDialog(message: string, { danger = false } = {}): Promise<boolean> {
+/** Asks a yes or no question. `danger` is for something that can't be undone. `okLabel` renames the yes button. */
+export function confirmDialog(message: string, { danger = false, okLabel }: { danger?: boolean; okLabel?: string } = {}): Promise<boolean> {
   return new Promise(resolve => {
-    if (enqueue) enqueue({ message, kind: 'confirm', danger, resolve });
+    if (enqueue) enqueue({ message, kind: 'confirm', danger, okLabel, resolve });
     else resolve(window.confirm(message));
+  });
+}
+
+/** A yes or no question with one extra tick box (unticked unless `ticked`), e.g. "Also delete its receipt" */
+export function confirmWithTick(message: string, tick: string, { danger = false, ticked = false } = {}): Promise<{ ok: boolean; ticked: boolean }> {
+  return new Promise(resolve => {
+    if (enqueue) enqueue({ message, kind: 'confirm', danger, tick, ticked, resolve: (ok, on) => resolve({ ok, ticked: ok && !!on }) });
+    else resolve({ ok: window.confirm(message), ticked: false });
   });
 }
 
@@ -41,6 +52,7 @@ export function DialogHost() {
   const [queue, setQueue] = useState<Request[]>([]);
   const answerRef = useRef<HTMLButtonElement>(null);
   const current = queue[0];
+  const [ticked, setTicked] = useState(false);
 
   useEffect(() => {
     enqueue = (request) => setQueue(q => [...q, request]);
@@ -48,9 +60,12 @@ export function DialogHost() {
   }, []);
 
   const answer = (value: boolean) => {
-    current?.resolve(value);
+    current?.resolve(value, ticked);
+    setTicked(false);
     setQueue(q => q.slice(1));
   };
+
+  useEffect(() => { setTicked(!!current?.ticked); }, [current]);
 
   useEffect(() => {
     if (!current) return;
@@ -89,6 +104,12 @@ export function DialogHost() {
             className="relative w-full max-w-sm p-6 rounded-[2rem] bg-[var(--card-solid)] text-foreground border border-card-border shadow-2xl space-y-5"
           >
             <p className="text-sm font-semibold leading-relaxed whitespace-pre-line">{current.message}</p>
+            {current.tick && (
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" className="w-4 h-4 shrink-0 accent-indigo-600" checked={ticked} onChange={e => setTicked(e.target.checked)} />
+                <span className="text-sm font-medium text-foreground">{current.tick}</span>
+              </label>
+            )}
             <div className={cn('grid gap-3', current.kind === 'confirm' ? 'grid-cols-2' : 'grid-cols-1')}>
               {current.kind === 'confirm' && (
                 <button
@@ -108,7 +129,7 @@ export function DialogHost() {
                   current.danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-700',
                 )}
               >
-                {t(current.kind === 'alert' ? 'dialog.ok' : 'dialog.confirm')}
+                {current.okLabel || t(current.kind === 'alert' ? 'dialog.ok' : 'dialog.confirm')}
               </button>
             </div>
           </motion.div>

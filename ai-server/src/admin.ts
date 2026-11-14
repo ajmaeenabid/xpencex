@@ -1,4 +1,5 @@
 import { google, AuthUser, encodeFields } from './google';
+import { deleteErrorReports, listErrorReports } from './errorReports';
 import { isFreshGoogleSignIn } from './deviceRules';
 import { healthView } from './health';
 
@@ -97,6 +98,15 @@ export async function handleAdmin(path: string, callerUid: string, claims: Recor
     return json({ health: healthView(health?.data ?? null) });
   }
 
+  // Error reports from people's phones (src/errorReports.ts), newest first, with the username only
+  if (path === '/admin/errors') return json({ reports: await listErrorReports(g) });
+  if (path === '/admin/errors/delete') {
+    if (body.all === true) return json({ removed: await deleteErrorReports(g) });
+    if (typeof body.id !== 'string' || !/^[a-f0-9]{32}$/.test(body.id)) return json({ error: 'Bad request.' }, 400);
+    await g.deleteDoc('errorReports', body.id);
+    return json({ removed: 1 });
+  }
+
   if (path === '/admin/log') {
     const entries = await g.latest('adminLog', 50);
     return json({ entries: entries.map(({ action, username, at }) => ({ action, username, at })) });
@@ -163,6 +173,8 @@ export async function handleAdmin(path: string, callerUid: string, claims: Recor
     if (replace.some((id) => !mine.has(id) || id === claims.deviceId)) return json({ error: 'Bad request.' }, 400);
     await g.commit([
       { update: { name: g.docName('devices', requestId), fields: encodeFields({ id: requestId, uid, label: request.label, at: new Date().toISOString() }) } },
+      // From now on this account's new devices always need approval (see mayAutoApprove in deviceRules.ts)
+      { update: { name: g.docName('deviceHistory', uid), fields: encodeFields({ uid, firstDeviceAt: new Date().toISOString() }) } },
       { delete: g.docName('deviceRequests', requestId) },
       ...replace.map((id) => ({ delete: g.docName('devices', id) })),
     ]);

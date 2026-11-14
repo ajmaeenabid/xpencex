@@ -46,7 +46,7 @@ export default function TapCard({ Icon, iconTone, label, headline, headlineTone,
         <p className={CARD_TITLE}>{label}</p>
         <p className={cn(CARD_SUB, headlineTone === 'bad' && 'text-rose-500')}>{headline}</p>
         {chip && (
-          <span className={cn('inline-flex items-center gap-1 max-w-full px-2.5 py-1 rounded-full text-[11px] font-bold', TONE_CLASS[chipTone])}>
+          <span className={cn('inline-flex items-center gap-1 max-w-full px-2.5 py-1 rounded-full text-[12px] font-bold', TONE_CLASS[chipTone])}>
             {ChipIcon && <ChipIcon size={12} className="shrink-0" />}
             <span className="truncate">{chip}</span>
           </span>

@@ -8,6 +8,8 @@ import { DialogHost } from '../shared/components/Dialog';
 import { ToastHost } from '../shared/components/Toast';
 import OpeningAnimation from './OpeningAnimation';
 import { isNative, openOutsideLinksInBrowser } from '../shared/lib/nativeApp';
+import { installErrorReports } from '../shared/lib/errorReports';
+import { startCrashlytics } from '../shared/lib/crashlytics';
 
 // Xpences is used only as the installed phone app. The website (a built copy opened in a browser)
 // shows the download page instead. During development (`npm run dev`) the app runs in the browser.
@@ -15,6 +17,8 @@ const DownloadPage = lazy(() => import('../features/download/DownloadPage'));
 const showApp = isNative() || import.meta.env.DEV;
 
 openOutsideLinksInBrowser();
+installErrorReports();
+startCrashlytics();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -99,7 +99,7 @@ export default function MoneyToolPanel({ tool, values, onChange, symbol, onSave 
       </section>
 
       <p role={result.note?.kind === 'error' ? 'alert' : undefined} className={cn(
-        'shrink-0 h-4 px-1 text-[11px] leading-4 font-bold truncate',
+        'shrink-0 h-4 px-1 text-[12px] leading-4 font-bold truncate',
         result.note?.kind === 'good' ? 'text-teal-700 dark:text-teal-300' : 'text-rose-600 dark:text-rose-400',
       )}>
         {result.note ? t(result.note.text) : ''}

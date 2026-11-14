@@ -10,6 +10,8 @@ import { recordRun } from './health';
 import { handleRestoreLoans } from './restore';
 import { forgetGoogleLink, handleGoogleApps } from './googleApps';
 import { bdDay } from './loanDates';
+import { deleteUserReceipts, handleReceipts } from './receipts';
+import { cutoffFor, deleteErrorReports, handleErrorReport } from './errorReports';
 import { LIMIT_KINDS, LimitKind, MAX_BODY_BYTES, classifyParts, dailyLimits, firstBlocked, limitsView } from './usage';
 
 interface Env {
@@ -30,6 +32,8 @@ interface Env {
   GOOGLE_CLIENT_SECRET?: string;
   GOOGLE_TOKEN_KEY?: string;
   LIMITER: DurableObjectNamespace<UsageLimiter>;
+  // Receipt photos and PDFs (src/receipts.ts). Missing until the bucket is made: receipts then say they are off.
+  RECEIPTS?: R2Bucket;
 }
 
 const MODEL = 'gemini-3.1-flash-lite'; // Google lists its earliest shutdown as May 7, 2027
@@ -77,6 +81,31 @@ export class UsageLimiter extends DurableObject<Env> {
       const count = await this.read(kind, day);
       if (count > 0) await this.ctx.storage.put(`usage:${kind}`, { day, count: count - 1 });
     }
+  }
+
+  // How many receipts this person keeps (src/receipts.ts). Not reset daily.
+  // Storage reads and writes here can't interleave with another request, so two uploads can't both take the last slot.
+  async reserveReceipt(max: number): Promise<{ ok: boolean; used: number }> {
+    const used = (await this.ctx.storage.get<number>('receipts')) ?? 0;
+    if (used >= max) return { ok: false, used };
+    await this.ctx.storage.put('receipts', used + 1);
+    return { ok: true, used: used + 1 };
+  }
+
+  async releaseReceipt(): Promise<void> {
+    const used = (await this.ctx.storage.get<number>('receipts')) ?? 0;
+    await this.ctx.storage.put('receipts', Math.max(0, used - 1));
+  }
+
+  // Error reports (src/errorReports.ts): a few different ones per person per day; the same one again is a repeat
+  async takeErrorSlot(fingerprint: string, max: number): Promise<'new' | 'repeat' | 'full'> {
+    const day = bdDay();
+    const stored = await this.ctx.storage.get<{ day: string; prints: string[] }>('errors');
+    const prints = stored?.day === day ? stored.prints : [];
+    if (prints.includes(fingerprint)) return 'repeat';
+    if (prints.length >= max) return 'full';
+    await this.ctx.storage.put('errors', { day, prints: [...prints, fingerprint] });
+    return 'new';
   }
 
   // Called when the admin deletes the user
@@ -138,7 +167,7 @@ export default {
     const { uid, claims } = verified;
 
     // The routes for accounts and devices, as opposed to the AI and loan routes below
-    const isAccountRoute = path.startsWith('/device/') || path.startsWith('/admin/') || path.startsWith('/google/') || path === '/account/username' || path === '/account/delete' || path === '/account/restore-loans';
+    const isAccountRoute = path.startsWith('/device/') || path.startsWith('/admin/') || path.startsWith('/google/') || path === '/account/username' || path === '/account/delete' || path === '/account/restore-loans' || path === '/errors/report';
     let body: Record<string, unknown> = {};
     if (isAccountRoute) {
       try {
@@ -152,12 +181,18 @@ export default {
       // A device that isn't approved can only do these two things
       if (path.startsWith('/device/')) return await handleDevice(path, uid, body, request.headers.get('User-Agent') || '', env, json);
       if (path === '/account/username') return await handleUsername(uid, claims, body, env, json);
+      // Errors can happen before a device is approved (sign-in and waiting screens), so a Google sign-in is enough
+      if (path === '/errors/report') {
+        if (!env.FIREBASE_SERVICE_ACCOUNT) return json({ ok: true });
+        return await handleErrorReport(uid, body, google(env.FIREBASE_SERVICE_ACCOUNT, env.FIREBASE_PROJECT_ID), limiterFor(uid), bdDay(), json);
+      }
 
       if (!(await deviceIsApproved(uid, claims, env))) return json({ error: 'This device is not approved.', device: true }, 403);
 
       // Runs when an account is deleted: forget its daily counts and its linked Google apps
       const clearLimiter = async (id: string) => {
         await forgetGoogleLink(env, id).catch((err) => console.error('Could not remove the Google link', err));
+        await deleteUserReceipts(env.RECEIPTS, id);
         await env.LIMITER.get(env.LIMITER.idFromName(id)).clear();
       };
       // A separate, fresh Google sign-in that proves the person is here right now. It must be this same user.
@@ -168,6 +203,7 @@ export default {
       if (path === '/account/delete') return await handleDeleteAccount(uid, body, env, json, clearLimiter, verifyGoogle);
       if (path === '/account/restore-loans') return await handleRestoreLoans(uid, body, env, json);
       if (path.startsWith('/google/')) return await handleGoogleApps(path, uid, body, env, json);
+      if (path.startsWith('/receipts/')) return await handleReceipts(path, new URL(request.url), uid, request, env, json, cors, limiterFor(uid));
       if (path.startsWith('/admin/')) return await handleAdmin(path, uid, claims, body, env, json, clearLimiter, verifyGoogle);
     } catch (err) {
       console.error('Account route failed', path, err);
@@ -284,6 +320,12 @@ export default {
       processDueLoans(g)
         .then((taken) => { if (taken) console.log(`Took ${taken} loan installments`); return noted('loans'); })
         .catch((err) => { console.error('Scheduled loan processing failed', err); return noted('loans', err); }),
+    );
+    // Error reports are kept 30 days
+    ctx.waitUntil(
+      deleteErrorReports(g, cutoffFor(new Date()))
+        .then((n) => { if (n) console.log(`Removed ${n} old error reports`); })
+        .catch((err) => console.error('Could not remove old error reports', err)),
     );
     ctx.waitUntil(
       refreshRates(g)

@@ -34,7 +34,7 @@ export default function LoanCard({ loan, symbol, onEdit }: { loan: Loan; symbol:
           {loan.lender && <p className="text-xs text-muted font-medium truncate">{loan.lender}</p>}
         </div>
         <span className={cn(
-          'shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold',
+          'shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[12px] font-bold',
           active ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300' : 'bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-300'
         )}>
           {!active && <CheckCircle2 size={12} />}
@@ -45,7 +45,7 @@ export default function LoanCard({ loan, symbol, onEdit }: { loan: Loan; symbol:
       <div className="space-y-2">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="text-[11px] text-muted font-semibold">{t('loans.remainingLabel')}</p>
+            <p className="text-[12px] text-muted font-semibold">{t('loans.remainingLabel')}</p>
             <p className="text-xl font-bold text-foreground tabular-nums">
               {money(loan.remaining)} <span className="text-xs text-muted font-semibold">{t('loans.ofTotal', { total: money(loan.total) })}</span>
             </p>
@@ -71,7 +71,7 @@ export default function LoanCard({ loan, symbol, onEdit }: { loan: Loan; symbol:
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
         {facts.map(f => (
           <div key={f.label} className="min-w-0">
-            <dt className="text-[11px] text-muted font-semibold">{f.label}</dt>
+            <dt className="text-[12px] text-muted font-semibold">{f.label}</dt>
             <dd className="text-sm font-bold text-foreground tabular-nums truncate">{f.value}</dd>
           </div>
         ))}

@@ -21,8 +21,9 @@ ALLOWED_ORIGINS = "https://localhost,http://localhost:3000,http://localhost:5173
 # Separate several with commas. The admin key itself is the FIREBASE_SERVICE_ACCOUNT secret.
 ADMIN_UIDS = "vNQuoT4KGBTItv1tLZkAO255xuv1"
 # "true": a brand new account's first device also waits for the admin (used during testing).
-# Change to "false" to let a person's first device in straight away. Extra devices always need approval.
-REQUIRE_FIRST_DEVICE_APPROVAL = "true"
+# "false": a brand-new account's very first device comes in straight away (chosen 2026-11-11). Extra devices,
+# and any device on an account that ever had one, always need approval (mayAutoApprove in src/deviceRules.ts).
+REQUIRE_FIRST_DEVICE_APPROVAL = "false"
 # Linked Google apps (Drive backups, Sheets exports). The client ID is public, so it can sit here
 # (the same value as VITE_GOOGLE_CLIENT_ID in the app). Two secrets go in .dev.vars and in Cloudflare:
 #   GOOGLE_CLIENT_SECRET  the OAuth client's secret from Google Cloud
@@ -41,3 +42,9 @@ class_name = "UsageLimiter"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["UsageLimiter"]
+
+# Receipt photos and PDFs (src/receipts.ts). Make the bucket once with:
+#   npx wrangler r2 bucket create xpences-receipts
+[[r2_buckets]]
+binding = "RECEIPTS"
+bucket_name = "xpences-receipts"

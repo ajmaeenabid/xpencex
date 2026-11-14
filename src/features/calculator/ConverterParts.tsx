@@ -73,7 +73,7 @@ export function NumberField({ id, label, value, active, onTap, compact }: {
         active ? 'border-indigo-500 ring-2 ring-indigo-600/20' : 'border-card-border',
       )}
     >
-      <span className={cn('font-semibold text-muted truncate', compact ? 'text-[11px]' : 'text-xs')}>{label}</span>
+      <span className={cn('font-semibold text-muted truncate', compact ? 'text-[12px]' : 'text-xs')}>{label}</span>
       <span className={cn('flex items-center font-bold tabular-nums truncate', compact ? 'text-sm' : 'text-base', active ? 'text-indigo-700 dark:text-indigo-300' : 'text-foreground')}>
         {formatTyped(value) || <span className="text-muted/60">0</span>}
         {active && <span aria-hidden="true" className="ml-0.5 w-0.5 h-4 bg-indigo-500 animate-pulse" />}

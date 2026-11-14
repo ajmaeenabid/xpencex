@@ -1,4 +1,8 @@
 import { useState, useEffect } from 'react';
+import WidgetCard from '../widget/WidgetCard';
+import { widgetSettingsChanged } from '../widget/widgetSignal';
+import RemindersCard from '../reminders/RemindersCard';
+import RecurringCard from './RecurringCard';
 import { db } from '../../shared/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, deleteField, FieldPath } from 'firebase/firestore';
 import { useAuth } from '../../app/App';
@@ -23,7 +27,7 @@ import { useUsernameForm } from '../auth/AccessScreens';
 import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/components/Rearrange';
 
 // Movable cards, in their default order
-const PROFILE_SECTIONS = ['accounts', 'admin', 'notices', 'pin', 'language', 'currency', 'budget', 'categoryBudgets', 'recurring', 'categories', 'connectedApps', 'backup', 'feedback'];
+const PROFILE_SECTIONS = ['accounts', 'admin', 'notices', 'reminders', 'widget', 'pin', 'language', 'currency', 'budget', 'categoryBudgets', 'recurring', 'categories', 'connectedApps', 'backup', 'feedback'];
 import Select from '../../shared/components/Select';
 import LanguageToggle from '../../shared/components/LanguageToggle';
 import { useI18n, categoryLabel } from '../../shared/i18n';
@@ -39,7 +43,6 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
   const [budget, setBudget] = useState(profile?.monthlyBudget?.toString() || '5000');
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [isEditingCurrency, setIsEditingCurrency] = useState(false);
-  const [recurring, setRecurring] = useState<RecurringExpense[]>([]);
   const [catBudgetName, setCatBudgetName] = useState(DEFAULT_CATEGORIES[0].name);
   const [catBudgetAmount, setCatBudgetAmount] = useState('');
   const accounts = useAccounts(user?.uid);
@@ -53,14 +56,6 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
 
   const currencySymbol = MAJOR_CURRENCIES.find(c => c.code === profile?.currency)?.symbol || '৳';
   const allCategoryNames = [...DEFAULT_CATEGORIES.map(c => c.name), ...categories.map(c => c.name)];
-
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, 'recurring'), where('uid', '==', user.uid));
-    return onSnapshot(q, (snapshot) => {
-      setRecurring(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as RecurringExpense)));
-    });
-  }, [user]);
 
   // FieldPath, not a dotted string, because category names may contain spaces or dots
   const handleSetCategoryBudget = async (e: React.FormEvent) => {
@@ -83,12 +78,6 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
       await refreshProfile();
     } catch (err) {
       console.error("Error removing category budget:", err);
-    }
-  };
-
-  const handleDeleteRecurring = async (id: string) => {
-    if (await confirmDialog(t('profile.confirmStopRecurring'), { danger: true })) {
-      await saved(deleteDoc(doc(db, 'recurring', id)));
     }
   };
 
@@ -365,42 +354,10 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
       </div>
       ) },
 
-      { id: 'recurring', node: (
-      <div className="bg-card p-6 rounded-3xl shadow-sm border border-card-border space-y-4 transition-colors">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-teal-50 dark:bg-teal-900/30 rounded-xl flex items-center justify-center text-teal-600 dark:text-teal-400">
-            <Repeat size={20} />
-          </div>
-          <div>
-            <h3 className="font-bold text-foreground">{t('profile.recurring')}</h3>
-            <p className="text-xs text-muted font-medium">{t('profile.recurringHint')}</p>
-          </div>
-        </div>
-        <div className="space-y-2">
-          {recurring.map(rule => (
-            <div key={rule.id} className="flex items-center justify-between p-3 bg-background/50 rounded-xl border border-card-border">
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-foreground truncate">{rule.title}</p>
-                <p className="text-[11px] text-muted font-medium">
-                  {currencySymbol}{rule.amount.toLocaleString()} · {rule.frequency === 'weekly' ? t('add.repeat.weekly') : t('add.repeat.monthly')} · {t('profile.next', { date: format(new Date(rule.nextDate), 'd MMM', { locale: dateLocale }) })}
-                </p>
-              </div>
-              <button
-                onClick={() => handleDeleteRecurring(rule.id)}
-                aria-label={t('profile.stop', { title: rule.title })}
-                className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg transition-colors"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
-          {recurring.length === 0 && (
-            <p className="text-center py-2 text-slate-400 dark:text-slate-500 text-sm font-medium italic">{t('profile.noRecurring')}</p>
-          )}
-        </div>
-      </div>
-      ) },
+      { id: 'recurring', node: <RecurringCard /> },
 
+      { id: 'reminders', node: <RemindersCard /> },
+      { id: 'widget', node: <WidgetCard onHiddenChange={widgetSettingsChanged} /> },
       { id: 'connectedApps', node: user && <ConnectedAppsCard uid={user.uid} /> },
 
       { id: 'backup', node: user && <BackupCard uid={user.uid} /> },

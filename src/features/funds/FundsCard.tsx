@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { CalendarClock, CheckCircle2, PartyPopper } from 'lucide-react';
+import { CalendarClock, CheckCircle2, PiggyBank } from 'lucide-react';
 import { useI18n } from '../../shared/i18n';
 import TapCard, { ChipTone } from '../home/TapCard';
 import { fundPlan, sortFunds } from './funds';
 import { useFunds } from './fundService';
 import FundsWindow from './FundsWindow';
 
-/** Home row for festival funds: the nearest goal at a glance. Tap to open the Festival fund window. */
+/** Home row for savings goals: the nearest goal at a glance. Tap to open the Savings goals window. */
 export default function FundsCard({ uid, symbol }: { uid: string; symbol: string }) {
   const { t } = useI18n();
   const funds = sortFunds(useFunds(uid));
@@ -25,7 +25,7 @@ export default function FundsCard({ uid, symbol }: { uid: string; symbol: string
   return (
     <>
       <TapCard
-        Icon={PartyPopper}
+        Icon={PiggyBank}
         iconTone="warning"
         label={t('funds.title')}
         headline={nearest ? t('funds.progress', { name: nearest.name, saved: money(nearest.saved), target: money(nearest.target) }) : t('funds.empty')}

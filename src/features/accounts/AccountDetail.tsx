@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { AccountIncomeSection } from '../income/IncomeCards';
 import { Eye, EyeOff, HandCoins, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Account, Loan } from '../../shared/types';
 import { cn } from '../../shared/lib/utils';
@@ -48,6 +49,7 @@ export default function AccountDetail({ account, loans, symbol, shown, onToggleB
 
   return (
     <div className="space-y-8">
+      <AccountIncomeSection account={account} symbol={symbol} />
       <section className={cn(card, 'p-5 space-y-5')}>
         <div className="flex items-center gap-4">
           <AccountIcon type={account.type} size="lg" />
@@ -59,7 +61,7 @@ export default function AccountDetail({ account, loans, symbol, shown, onToggleB
 
         <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-background/60 border border-card-border">
           <div>
-            <p className="text-[11px] text-muted font-semibold">{t('accounts.balanceLabel')}</p>
+            <p className="text-[12px] text-muted font-semibold">{t('accounts.balanceLabel')}</p>
             <p className={cn('text-2xl font-bold tabular-nums', shown && account.balance < 0 ? 'text-rose-500' : 'text-foreground')}>
               {symbol}{shown ? account.balance.toLocaleString() : HIDDEN}
             </p>
@@ -77,7 +79,7 @@ export default function AccountDetail({ account, loans, symbol, shown, onToggleB
         <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-4">
           {details.map(d => (
             <div key={d.label} className="min-w-0">
-              <dt className="text-[11px] text-muted font-semibold">{d.label}</dt>
+              <dt className="text-[12px] text-muted font-semibold">{d.label}</dt>
               <dd className="text-sm font-bold text-foreground truncate">{d.value}</dd>
             </div>
           ))}

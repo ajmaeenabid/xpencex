@@ -5,6 +5,9 @@ import { WorkerError, callWorker } from '../../shared/lib/workerApi';
 import { DeviceProof, proofMessage } from '../../../ai-server/src/deviceRules';
 import { savedLoginClaims } from './savedLogin';
 import { forgetNativeGoogle } from './googleSignIn';
+import { forgetAllReceiptCopies } from '../receipts/receiptService';
+import { clearReminders } from '../reminders/reminderService';
+import { clearWidget } from '../widget/widget';
 
 // How this device gets permission to use the account. The rules are on the server (ai-server/src/devices.ts).
 
@@ -102,6 +105,9 @@ export async function signOutAndForget({ removed = false } = {}) {
     // storage can be blocked; signing out still works
   }
   await signOut(auth);
+  await forgetAllReceiptCopies();
+  await clearReminders();
+  await clearWidget();
   // In the phone app, let Google's account picker show again next time
   await forgetNativeGoogle();
   try {

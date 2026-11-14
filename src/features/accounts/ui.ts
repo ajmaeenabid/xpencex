@@ -5,7 +5,7 @@ export const inputClass = 'w-full h-12 px-4 bg-background/60 rounded-xl border b
 // Passed to <Select> so dropdowns line up with the text fields
 export const selectClass = 'h-12 py-0 bg-background/60 border-card-border';
 export const labelClass = 'block text-xs font-semibold text-muted mb-1.5';
-export const hintClass = 'text-[11px] text-muted font-medium mt-1.5';
+export const hintClass = 'text-[12px] text-muted font-medium mt-1.5';
 
 const button = 'inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 export const btnPrimary = `${button} bg-indigo-600 text-white hover:bg-indigo-700`;

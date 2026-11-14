@@ -129,7 +129,7 @@ export default function SpendingCharts({ expenses, symbol, budget = 0 }: Props) 
               {data.category.map((item, i) => (
                 <div key={item.name} className="flex items-center gap-2 bg-background/50 p-2 rounded-xl border border-card-border">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                  <span className="text-[11px] text-slate-600 dark:text-slate-400 font-bold truncate">{item.name}</span>
+                  <span className="text-[12px] text-slate-600 dark:text-slate-400 font-bold truncate">{item.name}</span>
                 </div>
               ))}
             </div>

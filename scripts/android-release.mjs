@@ -1,5 +1,5 @@
 // One-step Android release: `npm run android:release`
-// 1. checks the version numbers in android/app/build.gradle and public/download/version.json match
+// 1. checks the version numbers in android/app/build.gradle, public/download/version.json and package.json match
 // 2. builds the app and the signed app file (with Java 21, which Capacitor needs)
 // 3. copies it to public/download/xpencex.apk and writes its size into version.json
 // Then publish the download page with `npm run release:site`.
@@ -30,6 +30,14 @@ if (info.versionCode !== code || info.versionName !== name) {
       `  android/app/build.gradle:     versionCode ${code}, versionName "${name}"\n` +
       `  public/download/version.json: versionCode ${info.versionCode}, versionName "${info.versionName}"\n` +
       `Put the same two values in both files, then run this again.`,
+  );
+}
+// package.json carries the same version name, so it never drifts from the app's
+const pkgVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+if (pkgVersion !== name) {
+  stop(
+    `package.json says version "${pkgVersion}", but the app is "${name}".\n` +
+      `Set "version": "${name}" in package.json, then run this again.`,
   );
 }
 if (!existsSync(join(root, 'android', 'keystore.properties'))) {

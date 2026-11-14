@@ -36,6 +36,13 @@ export async function shareFile(filename: string, content: string, title: string
   await Share.share({ title, files: [uri] });
 }
 
+/** Like shareFile, for a file that isn't text (a receipt PDF). `base64` is the file's bytes. */
+export async function shareBinaryFile(filename: string, base64: string, title: string) {
+  const [{ Filesystem, Directory }, { Share }] = await Promise.all([import('@capacitor/filesystem'), import('@capacitor/share')]);
+  const { uri } = await Filesystem.writeFile({ path: filename, data: base64, directory: Directory.Cache });
+  await Share.share({ title, files: [uri] });
+}
+
 /**
  * In the phone app, a tap on a link to another site (Google Sheets, Calendar, the privacy policy,
  * an update) opens it in the phone's browser. Installed once, for the whole app.

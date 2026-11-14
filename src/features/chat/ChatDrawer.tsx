@@ -4,6 +4,8 @@ import { isToday, isYesterday, differenceInCalendarDays } from 'date-fns';
 import { Chat } from '../../shared/types';
 import { cn } from '../../shared/lib/utils';
 import { useI18n, TFunction, TKey } from '../../shared/i18n';
+import type { Expense, Receipt } from '../../shared/types';
+import ReceiptsGallery from '../receipts/ReceiptsGallery';
 
 // Sidebar sections, newest first, like the Claude app
 function groupChats(chats: Chat[], t: TFunction) {
@@ -27,7 +29,7 @@ function groupChats(chats: Chat[], t: TFunction) {
 /** The chat history drawer: pinned chats first, then chats by day, each with pin, rename and delete */
 export default function ChatDrawer({
   sidebarOpen, setSidebarOpen, chats, activeId, busy, pinFullNote, startNewChat, openChat, togglePin, deleteChat,
-  renamingId, setRenamingId, renameValue, setRenameValue, commitRename,
+  renamingId, setRenamingId, renameValue, setRenameValue, commitRename, receipts, onOpenExpense, tab, setTab,
 }: {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
@@ -44,6 +46,10 @@ export default function ChatDrawer({
   renameValue: string;
   setRenameValue: (value: string) => void;
   commitRename: () => void;
+  receipts: Receipt[] | null; // for the Receipts tab
+  onOpenExpense: (expense: Expense) => void;
+  tab: 'chats' | 'receipts';
+  setTab: (tab: 'chats' | 'receipts') => void;
 }) {
   const { t } = useI18n();
   const groups = groupChats(chats, t);
@@ -140,12 +146,30 @@ export default function ChatDrawer({
             aria-label={t('chat.history')}
             className="absolute inset-y-0 left-0 z-30 w-[82%] max-w-xs flex flex-col bg-card border-r border-card-border rounded-r-[2rem] shadow-2xl"
           >
-            <div className="flex items-center justify-between px-4 pt-4 pb-3">
-              <h2 className="font-bold text-foreground tracking-tight">{t('chat.chats')}</h2>
+            <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-3">
+              {/* Chats and Receipts tabs */}
+              <div role="tablist" className="flex-1 grid grid-cols-2 p-1 rounded-xl bg-background/60">
+                {([['chats', t('chat.chats')], ['receipts', receipts ? t('receipts.tabCount', { count: receipts.length }) : t('receipts.tab')]] as const).map(([id, label]) => (
+                  <button
+                    key={id}
+                    role="tab"
+                    aria-selected={tab === id}
+                    onClick={() => setTab(id)}
+                    className={cn('py-1.5 rounded-lg text-sm font-bold transition-colors', tab === id ? 'bg-card text-foreground shadow-soft' : 'text-muted')}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <button onClick={() => setSidebarOpen(false)} aria-label={t('chat.closeHistory')} className="p-2 rounded-xl text-muted hover:text-foreground">
                 <PanelLeftClose size={18} />
               </button>
             </div>
+            {tab === 'receipts' ? (
+              <div className="flex-1 overflow-y-auto px-4 pb-24 no-scrollbar">
+                <ReceiptsGallery receipts={receipts} onOpenExpense={(e) => { setSidebarOpen(false); onOpenExpense(e); }} />
+              </div>
+            ) : (<>
             <div className="px-3 pb-3">
               <button
                 onClick={startNewChat}
@@ -155,8 +179,8 @@ export default function ChatDrawer({
                 <Plus size={16} /> {t('chat.newChat')}
               </button>
             </div>
-            <p className="px-4 pb-3 text-[11px] leading-relaxed font-medium text-muted">{t('chat.pinTip')}</p>
-            {pinFullNote && <p role="status" className="px-4 pb-3 text-[11px] leading-relaxed font-bold text-rose-500">{t('chat.pinFull')}</p>}
+            <p className="px-4 pb-3 text-[12px] leading-relaxed font-medium text-muted">{t('chat.pinTip')}</p>
+            {pinFullNote && <p role="status" className="px-4 pb-3 text-[12px] leading-relaxed font-bold text-rose-500">{t('chat.pinFull')}</p>}
             <div className="flex-1 overflow-y-auto px-2 pb-24 no-scrollbar">
               {chats.length === 0 ? (
                 <p className="text-xs text-muted font-medium text-center px-6 pt-8 leading-relaxed">
@@ -171,6 +195,7 @@ export default function ChatDrawer({
                 ))
               )}
             </div>
+            </>)}
           </motion.aside>
         </>
       )}

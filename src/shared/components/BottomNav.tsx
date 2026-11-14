@@ -86,7 +86,7 @@ export default function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
               <Icon size={20} />
             </motion.span>
             <span className={cn(
-              "relative text-[10px] mt-1 font-semibold transition-all duration-300 truncate w-full text-center",
+              "relative text-[11px] mt-1 font-semibold transition-all duration-300 truncate w-full text-center",
               isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
             )}>
               {tab.label}

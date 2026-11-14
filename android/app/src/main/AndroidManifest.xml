@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="false"
@@ -31,6 +32,14 @@
 
         </activity>
 
+        <!-- Home screen widget (XpencesWidget.java) -->
+        <receiver android:name=".XpencesWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_xpences_info" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -52,4 +61,10 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <!-- Reminders (src/features/reminders): notifications, shown at about the chosen time. Exact alarms are not
+         needed for reminders, and Google Play limits them, so the plugin's request for them is removed. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
+    <!-- Fingerprint or face unlock for the PIN lock (src/features/pin/fingerprint.ts). The app never sees the fingerprint. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 </manifest>

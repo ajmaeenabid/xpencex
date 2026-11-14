@@ -87,11 +87,11 @@ export default function CommentsWindow({ open, onClose, onLocked }: {
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-bold text-foreground truncate">{g.name}</p>
-                    <span className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-600 text-white">{g.comments.length}</span>
+                    <span className="shrink-0 px-2 py-0.5 rounded-full text-[12px] font-bold bg-indigo-600 text-white">{g.comments.length}</span>
                   </div>
-                  {g.email && g.name !== g.email && <p className="text-[11px] text-muted font-medium truncate">{g.email}</p>}
+                  {g.email && g.name !== g.email && <p className="text-[12px] text-muted font-medium truncate">{g.email}</p>}
                   <p className="text-sm text-foreground/80 line-clamp-2 break-words">{g.comments[0].text}</p>
-                  <p className="text-[11px] text-muted font-semibold">{when(g.latest)}</p>
+                  <p className="text-[12px] text-muted font-semibold">{when(g.latest)}</p>
                 </div>
                 <ChevronRight size={18} className="text-muted shrink-0 mt-2.5" />
               </button>
@@ -114,7 +114,7 @@ export default function CommentsWindow({ open, onClose, onLocked }: {
           {g.comments.map(c => (
             <div key={c.id} className={cn(card, 'p-4 space-y-2')}>
               <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">{c.text}</p>
-              <p className="text-[11px] text-muted font-semibold">{when(c.at)}</p>
+              <p className="text-[12px] text-muted font-semibold">{when(c.at)}</p>
             </div>
           ))}
         </div>

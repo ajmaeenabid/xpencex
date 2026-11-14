@@ -20,8 +20,6 @@ coverage/
 ai-server/node_modules/
 ai-server/.wrangler/
 
-# Old code kept for reference, from before Google sign-in
-backup-before-google-signin/
 
 # Firebase VS Code extension working files
 .firebase/
@@ -35,3 +33,7 @@ android/keystore.properties
 public/download/*.apk
 # Android Studio build output (the app file is made with npm run android:release)
 android/app/release/
+
+# Playwright test output
+test-results/
+playwright-report/

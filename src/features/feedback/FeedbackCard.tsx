@@ -83,7 +83,7 @@ export default function FeedbackCard({ uid }: { uid: string }) {
             aria-label={t('feedback.title')}
             className="w-full p-3 rounded-xl bg-background/60 border border-card-border text-sm text-foreground outline-none focus:border-indigo-500 resize-none"
           />
-          <p className="text-right text-[11px] text-muted font-semibold tabular-nums">{text.length}/{MAX_FEEDBACK}</p>
+          <p className="text-right text-[12px] text-muted font-semibold tabular-nums">{text.length}/{MAX_FEEDBACK}</p>
         </div>
         {error && <p role="alert" className="text-sm font-semibold text-rose-500">{error}</p>}
         {thanks && <p role="status" className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{thanks}</p>}
@@ -94,7 +94,7 @@ export default function FeedbackCard({ uid }: { uid: string }) {
             {mine.map(m => (
               <div key={m.id} className="p-3 rounded-xl bg-background/50 border border-card-border space-y-1.5">
                 <p className="text-sm text-foreground whitespace-pre-wrap break-words">{m.text}</p>
-                <p className={cn('flex items-center gap-1.5 text-[11px] font-bold', m.pending ? 'text-amber-600 dark:text-amber-400' : 'text-muted')}>
+                <p className={cn('flex items-center gap-1.5 text-[12px] font-bold', m.pending ? 'text-amber-600 dark:text-amber-400' : 'text-muted')}>
                   {m.pending ? <Clock size={12} /> : <CheckCheck size={12} />}
                   {m.pending ? t('feedback.waiting') : t('feedback.sentOn', { date: format(new Date(m.createdAt), 'd MMM yyyy, h:mm a', { locale: dateLocale }) })}
                 </p>

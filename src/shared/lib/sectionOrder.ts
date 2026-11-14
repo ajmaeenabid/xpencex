@@ -24,3 +24,22 @@ export function placeVisible(full: string[], visibleInNewOrder: string[]): strin
   const queue = [...visibleInNewOrder];
   return full.map(id => (visible.has(id) ? queue.shift()! : id));
 }
+
+/**
+ * While a card is dragged: where it would land. `centers` are the middles of the cards on screen
+ * (top to bottom, before the drag), `from` is the dragged card's place, `center` its middle now.
+ * It lands after every other card whose middle it has passed.
+ */
+export function dropIndex(centers: number[], from: number, center: number): number {
+  let to = 0;
+  centers.forEach((c, i) => { if (i !== from && c < center) to++; });
+  return to;
+}
+
+/** The list with one item moved from one place to another */
+export function moveTo<T>(list: T[], from: number, to: number): T[] {
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}

@@ -8,7 +8,8 @@ import { cn } from '../../shared/lib/utils';
 import { useI18n } from '../../shared/i18n';
 import { copyText } from '../../shared/lib/clipboard';
 import { showToast } from '../../shared/lib/toast';
-import { alertDialog, confirmDialog } from '../../shared/components/Dialog';
+import { alertDialog, confirmDialog, confirmWithTick } from '../../shared/components/Dialog';
+import { deleteReceipt, ReceiptError, receiptOfExpense } from '../receipts/receiptService';
 import { btnPrimary, btnSecondary, btnSmall, card, iconButton } from '../accounts/ui';
 import { Debt, DebtKind, Person, debtTotals, owedChange, people, settleEntry } from './debts';
 import { deleteDebt } from './debtService';
@@ -69,9 +70,22 @@ export default function DebtsWindow({ open, onClose, uid, accounts, debts, symbo
   };
 
   const remove = async (d: Debt) => {
-    if (!(await confirmDialog(t('debts.confirmDelete', { kind: t(KIND_TEXT[d.kind]), amount: money(d.amount), name: d.person }), { danger: true }))) return;
+    const question = t('debts.confirmDelete', { kind: t(KIND_TEXT[d.kind]), amount: money(d.amount), name: d.person });
+    // Its expense may have a receipt: then the same box asks about it too
+    const receiptId = await receiptOfExpense(d.expenseId);
+    let alsoReceipt = false;
+    if (receiptId) {
+      const answer = await confirmWithTick(question, t('receipt.alsoDelete'), { danger: true });
+      if (!answer.ok) return;
+      alsoReceipt = answer.ticked;
+    } else if (!(await confirmDialog(question, { danger: true }))) return;
     try {
       await deleteDebt(d, accounts);
+      if (receiptId && alsoReceipt) {
+        deleteReceipt(receiptId)
+          .then(() => showToast('receipt.deleted'))
+          .catch(err => showToast(err instanceof ReceiptError && err.code === 'offline' ? 'receipt.deleteLater' : 'receipt.problem.delete'));
+      }
     } catch (err) {
       console.error('Error deleting lend or borrow entry:', err);
       alertDialog(t('debts.errorDelete'));
@@ -90,11 +104,11 @@ export default function DebtsWindow({ open, onClose, uid, accounts, debts, symbo
       <div className="space-y-6">
         <div className="grid grid-cols-2 gap-3">
           <div className={cn(card, 'p-4')}>
-            <p className="text-[11px] text-muted font-semibold">{t('debts.toGet')}</p>
+            <p className="text-[12px] text-muted font-semibold">{t('debts.toGet')}</p>
             <p className="text-xl font-bold text-teal-600 dark:text-teal-400 tabular-nums">{money(totals.toGet)}</p>
           </div>
           <div className={cn(card, 'p-4')}>
-            <p className="text-[11px] text-muted font-semibold">{t('debts.toGive')}</p>
+            <p className="text-[12px] text-muted font-semibold">{t('debts.toGive')}</p>
             <p className="text-xl font-bold text-rose-500 tabular-nums">{money(totals.toGive)}</p>
           </div>
         </div>
@@ -143,7 +157,7 @@ export default function DebtsWindow({ open, onClose, uid, accounts, debts, symbo
               <li key={d.id} className="flex items-start gap-3 p-4">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-foreground">{t(KIND_TEXT[d.kind])}</p>
-                  <p className="text-[11px] text-muted font-medium">
+                  <p className="text-[12px] text-muted font-medium">
                     {format(new Date(d.date), 'd MMM yyyy', { locale: dateLocale })}
                     {d.accountName && ` · ${d.accountName}`}
                     {d.expenseId && ` · ${t('debts.inSpending')}`}

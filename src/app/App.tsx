@@ -7,7 +7,7 @@ import { useState, useEffect, useLayoutEffect, useRef, createContext, useContext
 import { onAuthStateChanged, onIdTokenChanged, User } from 'firebase/auth';
 import { auth, db } from '../shared/firebase';
 import { doc, getDoc, getDocFromCache, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
-import { Expense, UserProfile } from '../shared/types';
+import { Expense, UserProfile, Deposit } from '../shared/types';
 import { processDueRecurring } from '../features/expenses/recurringService';
 import { processDueDeposits } from '../features/accounts/accountService';
 import { processDueLoansNow } from '../features/accounts/loanService';
@@ -23,7 +23,7 @@ import ExpensesPage from '../features/expenses/ExpensesPage';
 import AddExpensePage from '../features/expenses/AddExpensePage';
 import { ButtonTour, ChatPage, ReportsPage, WelcomeSlides, warmUp } from './lazyParts';
 import LazyPart from '../shared/components/LazyPart';
-import ChatButton from '../features/chat/ChatButton';
+import { revealSection } from '../features/search/revealSection';
 import ProfilePage from '../features/profile/ProfilePage';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAutoDriveBackup } from '../features/connect/useAutoDriveBackup';
@@ -31,6 +31,11 @@ import { isNative } from '../shared/lib/nativeApp';
 import { useKeyboardOpen } from '../shared/lib/keyboard';
 import { SystemBars, SystemBarsStyle } from '@capacitor/core';
 import UpdateNotice from '../features/download/UpdateNotice';
+import { appStartup } from './startup';
+import ReminderAsk, { markAsked, wasAsked } from '../features/reminders/ReminderAsk';
+import { onReminderTap, remindersAllowed } from '../features/reminders/reminderService';
+import { processDueIncome } from '../features/income/incomeService';
+import { setErrorScreen } from '../shared/lib/errorReports';
 
 const lightTheme = {
   background: '#FFF8F2',
@@ -52,6 +57,7 @@ interface AuthContextType {
   isDarkMode: boolean;
   toggleDarkMode: () => void;
   theme: typeof lightTheme;
+  editIncome: (income: Deposit) => void; // opens an income on the Add screen (from Transactions or an account)
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -62,6 +68,7 @@ const AuthContext = createContext<AuthContextType>({
   isDarkMode: false,
   toggleDarkMode: () => {},
   theme: lightTheme,
+  editIncome: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -88,6 +95,8 @@ export default function App() {
   const [prefillAmount, setPrefillAmount] = useState<number | null>(null);
   const [prefillPeople, setPrefillPeople] = useState<number | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editingIncome, setEditingIncome] = useState<Deposit | null>(null);
+  const editIncome = (income: Deposit) => { setEditingExpense(null); setEditingIncome(income); setActiveTab('add'); };
   // The chat is created on first visit and then kept alive, so a conversation (and a reply still on its way)
   // survives switching tabs. It only starts fresh on "New chat" or when the app is reopened.
   const [chatMounted, setChatMounted] = useState(false);
@@ -95,6 +104,8 @@ export default function App() {
   // The bottom bar and the chat button step aside while the keyboard is open, so they never cover what is typed
   const keyboardOpen = useKeyboardOpen();
   // Text shared to the app from another app (Android: long-press an SMS > Share > Xpences)
+  // Typed in Home's search, then Ask: waits in the chat's message box (not sent)
+  const [chatDraft, setChatDraft] = useState<string | null>(null);
   const [sharedText, setSharedText] = useState<string | null>(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -127,6 +138,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    setErrorScreen(activeTab); // so an error report says which screen it happened on
     if (activeTab === 'chat') setChatMounted(true);
     setChatVisible(activeTab === 'chat');
   }, [activeTab]);
@@ -202,6 +214,7 @@ export default function App() {
     await fetchProfile(uid).catch(err => console.error('Could not load the profile:', err));
     processDueRecurring(uid).catch(err => console.error('Recurring expenses failed:', err));
     processDueDeposits(uid).catch(err => console.error('Monthly deposits failed:', err));
+    processDueIncome(uid).catch(err => console.error('Monthly income failed:', err));
     // The server also does this every hour; asking now means a missed hour shows up straight away
     processDueLoansNow().catch(err => console.error('Loan installments failed:', err));
   };
@@ -302,8 +315,38 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [access]);
 
+  // Reminders: a new person is asked right after the button tour; people who had the app before get
+  // Android's question on their next open (both once per phone)
+  const [askReminders, setAskReminders] = useState(false);
+  useEffect(() => {
+    if (access !== 'approved' || !user || !profile || profile.welcome === 'slides' || profile.welcome === 'tour' || askReminders) return;
+    if (wasAsked(user.uid)) return;
+    markAsked(user.uid);
+    remindersAllowed(true);
+  }, [access, user, profile?.welcome]);
+  useEffect(() => {
+    let stop = () => {};
+    onReminderTap(tab => setActiveTab(tab)).then(s => { stop = s; });
+    return () => stop();
+  }, []);
+  // The home screen widget opens the app with xpences://add or xpences://home
+  useEffect(() => {
+    if (!isNative()) return;
+    const openLink = (url?: string) => {
+      const tab = url?.match(/^xpences:\/\/(add|home)/)?.[1];
+      if (tab) { setEditingExpense(null); setEditingIncome(null); setActiveTab(tab); }
+    };
+    let handle: { remove: () => Promise<void> } | null = null;
+    import('@capacitor/app').then(async ({ App: CapApp }) => {
+      openLink((await CapApp.getLaunchUrl())?.url);
+      handle = await CapApp.addListener('appUrlOpen', e => openLink(e.url));
+    }).catch(err => console.error('Widget link listener failed:', err));
+    return () => { handle?.remove(); };
+  }, []);
+
   /** Moves a new account on from the welcome slides to the tour, and from the tour to done */
   const finishWelcome = (next: 'tour' | 'done') => {
+    if (next === 'done' && user && !wasAsked(user.uid)) setAskReminders(true);
     setProfile(p => (p ? { ...p, welcome: next } : p));
     if (user) updateDoc(doc(db, 'users', user.uid), { welcome: next }).catch(err => console.error('Could not save the welcome step:', err));
   };
@@ -311,6 +354,9 @@ export default function App() {
   const refreshProfile = async () => {
     if (user) await fetchProfile(user.uid);
   };
+
+  // The opening animation stays on screen until this, so a slow sign-in check never shows a spinner
+  useEffect(() => { if (!loading) appStartup.markReady(); }, [loading]);
 
   // Backs up to Google Drive by itself when the person turned that on (Profile > Connected apps)
   useAutoDriveBackup(access === 'approved' ? user?.uid : undefined, profile?.driveBackup, refreshProfile);
@@ -345,16 +391,23 @@ export default function App() {
           onViewAll={() => setActiveTab('expenses')}
           onManageAccounts={() => { setActiveTab('profile'); setOpenAccountsSignal(n => n + 1); }}
           onSaveExpense={(amount, people) => { setEditingExpense(null); setPrefillAmount(amount); setPrefillPeople(people ?? null); setActiveTab('add'); }}
+          onGoTo={place => {
+            setEditingExpense(null); setEditingIncome(null); setPrefillAmount(null); setPrefillPeople(null);
+            setActiveTab(place.tab);
+            if (place.section) revealSection(`${place.tab}:${place.section}`, !!place.open);
+          }}
+          onAskAi={text => { setChatDraft(text); setActiveTab('chat'); }}
         />
       );
       case 'expenses': return <ExpensesPage onEdit={(exp) => { setEditingExpense(exp); setActiveTab('add'); }} />;
       case 'add': return (
         <AddExpensePage
-          key={editingExpense?.id || `new-${prefillAmount ?? ''}-${prefillPeople ?? ''}`}
+          key={editingExpense?.id || editingIncome?.id || `new-${prefillAmount ?? ''}-${prefillPeople ?? ''}`}
           expense={editingExpense}
+          income={editingIncome}
           prefillAmount={prefillAmount}
           prefillPeople={prefillPeople}
-          onComplete={() => { setEditingExpense(null); setPrefillAmount(null); setPrefillPeople(null); setActiveTab('expenses'); }}
+          onComplete={() => { setEditingExpense(null); setEditingIncome(null); setPrefillAmount(null); setPrefillPeople(null); setActiveTab('expenses'); }}
         />
       );
       case 'reports': return <LazyPart><ReportsPage /></LazyPart>;
@@ -365,7 +418,7 @@ export default function App() {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, refreshProfile, isDarkMode, toggleDarkMode, theme }}>
+    <AuthContext.Provider value={{ user, profile, loading, refreshProfile, isDarkMode, toggleDarkMode, theme, editIncome }}>
       {pinLocked && <PinLock uid={user.uid} onUnlocked={onPinUnlocked} />}
       {/* Brand-new accounts: the welcome slides once, then the button tour on Home */}
       {!pinLocked && profile?.welcome === 'slides' && (
@@ -373,12 +426,13 @@ export default function App() {
           <WelcomeSlides onDone={() => { setActiveTab('home'); finishWelcome('tour'); }} />
         </LazyPart>
       )}
+      {askReminders && user && <ReminderAsk uid={user.uid} onDone={() => setAskReminders(false)} />}
       {!pinLocked && profile?.welcome === 'tour' && activeTab === 'home' && !keyboardOpen && (
         <LazyPart fallback={null}>
           <ButtonTour onDone={() => finishWelcome('done')} />
         </LazyPart>
       )}
-      <div key={sessionKey} inert={pinLocked} className={`min-h-screen bg-background text-foreground font-sans ${activeTab === 'home' ? 'pb-44' : 'pb-24'} transition-colors duration-300 relative overflow-x-clip`}>
+      <div key={sessionKey} inert={pinLocked} className={`min-h-screen bg-background text-foreground font-sans pb-24 transition-colors duration-300 relative overflow-x-clip`}>
         {/* The soft colour glows behind everything are drawn by body::before in index.css */}
         <div className="relative z-10">
           {/* Opened pages stay ready and are only shown or hidden, with a quick fade (see KEPT_PAGES) */}
@@ -411,15 +465,15 @@ export default function App() {
                   active={activeTab === 'chat' && chatVisible}
                   incomingText={sharedText}
                   onIncomingHandled={() => setSharedText(null)}
+                  draftText={chatDraft}
+                  onDraftHandled={() => setChatDraft(null)}
+                  onOpenExpense={(exp) => { setEditingExpense(exp); setActiveTab('add'); }}
                 />
               </LazyPart>
             </motion.div>
           )}
         </div>
-        <AnimatePresence>
-          {activeTab === 'home' && !keyboardOpen && <ChatButton key="chat-fab" onOpen={() => setActiveTab('chat')} />}
-        </AnimatePresence>
-        {!keyboardOpen && <BottomNav activeTab={activeTab} setActiveTab={(tab) => { setEditingExpense(null); setPrefillAmount(null); setPrefillPeople(null); setOpenAccountsSignal(0); setActiveTab(tab); }} />}
+        {!keyboardOpen && <BottomNav activeTab={activeTab} setActiveTab={(tab) => { setEditingExpense(null); setEditingIncome(null); setPrefillAmount(null); setPrefillPeople(null); setOpenAccountsSignal(0); setActiveTab(tab); }} />}
         <UpdateNotice />
       </div>
     </AuthContext.Provider>

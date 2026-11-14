@@ -12,6 +12,8 @@ export interface UserProfile {
   // Brand-new accounts only: 'slides' (welcome slides next), then 'tour' (button tour on Home), then 'done'.
   // Accounts made before this existed have no value and never see them.
   welcome?: 'slides' | 'tour' | 'done';
+  // Phone reminders (src/features/reminders): which kinds are on, and the daily time. Missing means all on, 9 PM.
+  reminders?: { on?: Partial<Record<string, boolean>>; time?: string };
 }
 
 export interface DriveBackupSettings {
@@ -19,6 +21,7 @@ export interface DriveBackupSettings {
   every?: number; // 1 to 72
   unit?: 'hours' | 'days';
   lastAt?: string; // ISO date of the last backup to Drive
+  receipts?: boolean; // also back up receipt photos and PDFs (off unless turned on)
 }
 
 export interface Expense {
@@ -38,6 +41,7 @@ export interface Expense {
   debtId?: string; // made by a lend and borrow entry, which moves the account itself
   createdAt?: string;
   feeling?: 'worth' | 'regret'; // tagged in Transactions: worth it, or a regret
+  receiptId?: string; // its receipt photo or PDF, set by the AI server (ai-server/src/receipts.ts)
 }
 
 export type AccountType = 'bank' | 'bkash' | 'nagad' | 'rocket' | 'cash';
@@ -57,16 +61,21 @@ export interface Account {
   countedAt?: string; // Cash wallet only: when you last confirmed or counted your cash
 }
 
+/** Money in. Real income (see src/features/income/income.ts) or loan money and transfers between your accounts. */
 export interface Deposit {
   id: string;
   uid: string;
-  accountId: string;
-  accountName: string;
+  accountId?: string; // income can be recorded without an account (then no balance changes)
+  accountName?: string;
   amount: number;
   date: string;
   title?: string; // e.g. "Bank deposit", "bKash Received Money"; monthly deposits have none
-  source?: 'monthly' | 'sms' | 'chat' | 'loan';
+  source?: 'monthly' | 'sms' | 'chat' | 'loan' | 'manual';
   smsRef?: string;
+  category?: string; // income category (Salary, Business... or the person's own)
+  notes?: string;
+  ruleId?: string; // made by, or repeating with, an incomeRules rule
+  transfer?: boolean; // money moved between your own accounts (e.g. Cash Out to the Cash wallet): not income
 }
 
 // A loan taken against one bank or mobile banking account. The AI server takes each monthly
@@ -156,4 +165,15 @@ export interface Chat {
   createdAt: number;
   updatedAt: number;
   pinned?: boolean; // kept when the history is full, and listed first
+}
+
+/** A receipt's record (receipts/{id}). The file is in R2; only the AI server writes these. */
+export interface Receipt {
+  id: string;
+  uid: string;
+  type: 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf';
+  size: number;
+  source: 'add' | 'chat';
+  createdAt: string;
+  expenseId?: string;
 }

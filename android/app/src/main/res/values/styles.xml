@@ -13,10 +13,16 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Shown for a moment before the app draws: cream, not white -->
+        <item name="android:windowBackground">@color/launch_cream</item>
     </style>
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <!-- Android 12 and later draw their own start screen from these; without them it is white -->
+        <item name="windowSplashScreenBackground">@color/launch_cream</item>
+        <item name="android:windowBackground">@color/launch_cream</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>

@@ -35,6 +35,11 @@ const REASON_TEXT: Record<BalanceReason, TKey> = {
   samityPaid: 'balance.reason.samityPaid',
   samityPayout: 'balance.reason.samityPayout',
   samityUndo: 'balance.reason.samityUndo',
+  income: 'balance.reason.income',
+  incomeEdit: 'balance.reason.incomeEdit',
+  incomeDelete: 'balance.reason.incomeDelete',
+  goalIn: 'balance.reason.goalIn',
+  goalOut: 'balance.reason.goalOut',
 };
 
 type Line = BalanceLine & { id: string };
@@ -124,7 +129,7 @@ export default function BalanceHistory({ account, symbol, shown }: { account: Ac
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-foreground">{t(REASON_TEXT[line.reason] ?? 'balance.reason.expense')}</p>
                   {line.title && <p className="text-xs text-muted font-medium truncate">{line.title}</p>}
-                  <p className="text-[11px] text-muted font-medium">{format(new Date(line.at), 'd MMM yyyy, h:mm a', { locale: dateLocale })}</p>
+                  <p className="text-[12px] text-muted font-medium">{format(new Date(line.at), 'd MMM yyyy, h:mm a', { locale: dateLocale })}</p>
                 </div>
                 <div className="shrink-0 text-right">
                   {line.kind === 'change' ? (
@@ -134,7 +139,7 @@ export default function BalanceHistory({ account, symbol, shown }: { account: Ac
                   ) : (
                     <>
                       <p className="text-sm font-bold tabular-nums text-foreground">{t('balance.setTo', { amount: balance(line.amount) })}</p>
-                      {line.previous !== undefined && <p className="text-[11px] text-muted font-medium tabular-nums">{t('balance.was', { amount: balance(line.previous) })}</p>}
+                      {line.previous !== undefined && <p className="text-[12px] text-muted font-medium tabular-nums">{t('balance.was', { amount: balance(line.previous) })}</p>}
                     </>
                   )}
                 </div>

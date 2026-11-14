@@ -4,4 +4,5 @@
     <string name="title_activity_main">Xpences</string>
     <string name="package_name">com.xpence.app</string>
     <string name="custom_url_scheme">com.xpence.app</string>
+    <string name="widget_description">Today\'s spending, this month against your budget, and a quick Add button</string>
 </resources>

@@ -10,13 +10,16 @@ import { cn } from '../../shared/lib/utils';
 import { isOnline, saved } from '../../shared/lib/offlineSave';
 import { CARD_SUB, CARD_TITLE } from '../../shared/lib/cardText';
 import DetailSheet from '../../shared/components/DetailSheet';
-import { alertDialog, confirmDialog } from '../../shared/components/Dialog';
+import { alertDialog, confirmDialog, confirmWithTick } from '../../shared/components/Dialog';
 import { GoogleAppsCancelled, WrongGoogleAccountError, preloadGoogleApps } from '../auth/googleSignIn';
 import { BackupError, isLocked } from '../profile/backup';
 import { collectBackup, restoreBackup } from '../profile/backupService';
 import { GoogleApp, MAX_EVERY, backupSettings, everythingTabs } from './googleApps';
 import { GoogleNoPermissionError, GoogleNotLinkedError, linkGoogleApp, unlinkGoogleApp, useGoogleApps } from './googleAppsService';
-import { DriveBackup, backUpToDrive, listDriveBackups, readDriveBackup } from './drive';
+import { DriveBackup, backUpToDrive, listDriveBackups, listDriveReceipts, readDriveBackup, restoreReceiptsFromDrive } from './drive';
+import ReceiptsBackupSwitch from '../receipts/ReceiptsBackupSwitch';
+import { readBackup } from '../profile/backup';
+import { receiptLinks } from '../receipts/receiptDrive';
 import SheetsExportButton from './SheetsExportButton';
 
 const field = 'w-full h-11 px-3 rounded-xl bg-background/60 border border-card-border text-sm text-foreground outline-none focus:border-indigo-500';
@@ -114,7 +117,7 @@ export default function ConnectedAppsCard({ uid }: { uid: string }) {
                   <p className="font-bold text-foreground">{t(name)}</p>
                   <p className="text-xs text-muted font-medium leading-relaxed">{t(about)}</p>
                 </div>
-                <span className={cn('shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold', on ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' : 'bg-background text-muted border border-card-border')}>
+                <span className={cn('shrink-0 px-2.5 py-1 rounded-full text-[12px] font-bold', on ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' : 'bg-background text-muted border border-card-border')}>
                   {t(on ? 'google.linked' : 'google.notLinked')}
                 </span>
               </div>
@@ -145,7 +148,7 @@ export default function ConnectedAppsCard({ uid }: { uid: string }) {
           );
         })}
 
-        <p className="text-[11px] text-muted font-medium leading-relaxed">{t('google.onlyOwnFiles')} {t('google.removeInGoogle')}</p>
+        <p className="text-[12px] text-muted font-medium leading-relaxed">{t('google.onlyOwnFiles')} {t('google.removeInGoogle')}</p>
       </DetailSheet>
     </>
   );
@@ -161,6 +164,9 @@ function DriveSection({ uid, busy, act }: { uid: string; busy: string; act: (key
   const [backups, setBackups] = useState<DriveBackup[] | null>(null);
   const [pending, setPending] = useState<string | null>(null); // a locked backup's text, waiting for its password
   const [restorePassword, setRestorePassword] = useState('');
+  // Locked backup: "Also restore receipts" next to its password, when Drive has receipts
+  const [pendingHasReceipts, setPendingHasReceipts] = useState(false);
+  const [restoreReceipts, setRestoreReceipts] = useState(true);
   const [note, setNote] = useState('');
   // 0 to 100 while backing up; stays at 100 with "Backed up successfully" until the next action
   const [progress, setProgress] = useState<number | null>(null);
@@ -180,7 +186,8 @@ function DriveSection({ uid, busy, act }: { uid: string; busy: string; act: (key
     setProgress(0);
     try {
       // Never goes back: each step only moves the bar forward
-      await backUpToDrive(uid, password || undefined, p => setProgress(old => Math.max(old ?? 0, p)));
+      const { receiptsFailed } = await backUpToDrive(uid, password || undefined, p => setProgress(old => Math.max(old ?? 0, p)));
+      if (receiptsFailed) setNote(receiptsFailed > 0 ? t('drive.receiptsFailed', { count: receiptsFailed }) : t('drive.receiptsNotChecked'));
     } catch (err) {
       setProgress(null);
       throw err;
@@ -190,12 +197,25 @@ function DriveSection({ uid, busy, act }: { uid: string; busy: string; act: (key
     if (backups) setBackups(await listDriveBackups());
   });
 
-  const restore = async (text: string, withPassword?: string) => act('restore', async () => {
+  const restore = async (text: string, withPassword?: string, withReceipts = false) => act('restore', async () => {
     try {
       const r = await restoreBackup(uid, text, withPassword);
       setPending(null);
       setRestorePassword('');
-      alertDialog(t('backup.restored', { added: r.added, skipped: r.skipped }) + (r.failed ? ' ' + t('backup.restoredFailed', { failed: r.failed }) : ''));
+      let summary = t('backup.restored', { added: r.added, skipped: r.skipped }) + (r.failed ? ' ' + t('backup.restoredFailed', { failed: r.failed }) : '');
+      if (withReceipts) {
+        try {
+          const rr = await restoreReceiptsFromDrive(uid, r.receiptLinks, withPassword);
+          summary += ' ' + t('drive.receiptsRestored', { count: rr.restored });
+          if (rr.full) summary += ' ' + t('drive.receiptsFull', { count: rr.full });
+          if (rr.wrongPassword) summary += ' ' + t('drive.receiptsWrongPassword', { count: rr.wrongPassword });
+          if (rr.failed) summary += ' ' + t('drive.receiptsRestoreFailed', { count: rr.failed });
+        } catch (err) {
+          console.error('Could not restore receipts:', err);
+          summary += ' ' + t('drive.receiptsRestoreError');
+        }
+      }
+      alertDialog(summary);
     } catch (err) {
       const reason = err instanceof BackupError ? err.reason : null;
       if (reason === 'needsPassword') return setPending(text);
@@ -207,8 +227,19 @@ function DriveSection({ uid, busy, act }: { uid: string; busy: string; act: (key
   const pick = (b: DriveBackup) => act(`pick-${b.id}`, async () => {
     setNote('');
     const text = await readDriveBackup(b.id);
-    if (isLocked(text)) setPending(text);
-    else await restore(text);
+    const inDrive = await listDriveReceipts().catch(() => []);
+    if (isLocked(text)) {
+      // How many are linked is only known once it is unlocked, so the tick shows without a number
+      setPendingHasReceipts(inDrive.length > 0);
+      setRestoreReceipts(true);
+      setPending(text);
+      return;
+    }
+    const ids = new Set(inDrive.map(f => f.receiptId));
+    const found = receiptLinks((await readBackup(text)).data.expenses as Record<string, unknown>[]).filter(l => ids.has(l.receiptId)).length;
+    if (found === 0) return restore(text);
+    const answer = await confirmWithTick(t('drive.restoreAsk'), t('drive.alsoReceiptsCount', { count: found }), { ticked: true });
+    if (answer.ok) await restore(text, undefined, answer.ticked);
   });
 
   const when = (iso: string) => format(new Date(iso), 'd MMM yyyy, h:mm a', { locale: dateLocale });
@@ -220,7 +251,7 @@ function DriveSection({ uid, busy, act }: { uid: string; busy: string; act: (key
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-bold text-foreground">{t('drive.auto')}</p>
-            <p className="text-[11px] text-muted font-medium leading-relaxed">{t('drive.autoHint')}</p>
+            <p className="text-[12px] text-muted font-medium leading-relaxed">{t('drive.autoHint')}</p>
           </div>
           <button
             role="switch"
@@ -266,6 +297,8 @@ function DriveSection({ uid, busy, act }: { uid: string; busy: string; act: (key
         </p>
       </div>
 
+      <ReceiptsBackupSwitch uid={uid} />
+
       {/* Back up now */}
       <div className="space-y-2">
         <input
@@ -277,7 +310,7 @@ function DriveSection({ uid, busy, act }: { uid: string; busy: string; act: (key
           value={password}
           onChange={e => setPassword(e.target.value)}
         />
-        {password && <p className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">{t('backup.passwordWarn')}</p>}
+        {password && <p className="text-[12px] text-amber-700 dark:text-amber-300 font-semibold">{t('backup.passwordWarn')}</p>}
         <div className="grid grid-cols-2 gap-2">
           <button onClick={backUp} disabled={!!busy} className={cn(btn, 'bg-indigo-600 text-white')}>
             <CloudUpload size={16} /> {busy === 'backup' ? t('common.pleaseWait') : t('drive.backUpNow')}
@@ -352,9 +385,15 @@ function DriveSection({ uid, busy, act }: { uid: string; busy: string; act: (key
                 value={restorePassword}
                 onChange={e => setRestorePassword(e.target.value)}
               />
+              {pendingHasReceipts && (
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 accent-indigo-600" checked={restoreReceipts} onChange={e => setRestoreReceipts(e.target.checked)} />
+                  <span className="text-xs font-semibold text-foreground">{t('drive.alsoReceipts')}</span>
+                </label>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => { setPending(null); setRestorePassword(''); }} className={cn(btn, 'bg-card text-muted border border-card-border')}>{t('common.cancel')}</button>
-                <button onClick={() => restore(pending, restorePassword)} disabled={!restorePassword || !!busy} className={cn(btn, 'bg-indigo-600 text-white')}>
+                <button onClick={() => restore(pending, restorePassword, pendingHasReceipts && restoreReceipts)} disabled={!restorePassword || !!busy} className={cn(btn, 'bg-indigo-600 text-white')}>
                   {busy === 'restore' ? t('common.pleaseWait') : t('drive.restoreThis')}
                 </button>
               </div>

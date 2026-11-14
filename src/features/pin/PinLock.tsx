@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Lock } from 'lucide-react';
+import { Fingerprint, Lock } from 'lucide-react';
+import { fingerprintAvailable, fingerprintOn, verifyFingerprint } from './fingerprint';
 import { useI18n } from '../../shared/i18n';
 import { signOutAndForget } from '../auth/deviceService';
 import { PIN_LENGTH, awayTooLong, checkPin, cleanPin, isValidPin, lockPin, markUnlocked, removePin, triesLeft } from './pin';
@@ -34,6 +35,24 @@ export default function PinLock({ uid, onUnlocked }: { uid: string; onUnlocked: 
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
+  const [canFinger, setCanFinger] = useState(false);
+
+  const tryFingerprint = async () => {
+    const ok = await verifyFingerprint({ title: t('pin.fingerTitle'), subtitle: t('pin.fingerSubtitle'), cancel: t('pin.usePin') });
+    if (ok) {
+      markUnlocked(uid);
+      onUnlocked();
+    }
+  };
+
+  // With fingerprint on, the phone's prompt opens by itself; cancelling it leaves the PIN box
+  useEffect(() => {
+    if (!fingerprintOn(uid)) return;
+    fingerprintAvailable().then(available => {
+      setCanFinger(available);
+      if (available) tryFingerprint();
+    });
+  }, [uid]);
 
   const change = async (input: string) => {
     const next = cleanPin(input);
@@ -80,6 +99,11 @@ export default function PinLock({ uid, onUnlocked }: { uid: string; onUnlocked: 
           onChange={e => change(e.target.value)}
         />
         {error && <p role="alert" className="text-rose-500 text-xs font-bold">{error}</p>}
+        {canFinger && (
+          <button onClick={tryFingerprint} className="mx-auto flex items-center gap-2 h-11 px-4 rounded-2xl bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 text-sm font-bold">
+            <Fingerprint size={18} /> {t('pin.useFinger')}
+          </button>
+        )}
         <button onClick={forgot} className="text-sm font-bold text-muted hover:text-foreground">{t('pin.forgot')}</button>
       </div>
     </div>,

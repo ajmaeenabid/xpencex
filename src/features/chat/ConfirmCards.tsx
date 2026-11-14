@@ -1,5 +1,7 @@
 import { motion } from 'motion/react';
-import { Check, Info, Loader2, Plus } from 'lucide-react';
+import { Check, FileText, Info, Loader2, Plus, Receipt as ReceiptIcon } from 'lucide-react';
+import { cn } from '../../shared/lib/utils';
+import type { ChatReceipt } from '../receipts/useChatReceipts';
 import { Account, ChatMessage, Expense } from '../../shared/types';
 import { useState } from 'react';
 import { TFunction, categoryLabel, useI18n } from '../../shared/i18n';
@@ -34,6 +36,45 @@ export interface CardActions {
   markResolved: (id: string, saved?: boolean) => void;
   addMessage: (role: 'user' | 'assistant', content: string) => string;
   tIn: (language?: ReplyLanguage) => TFunction;
+  // "Keep this receipt" for a card made from a photo or PDF (src/features/receipts/useChatReceipts.ts)
+  receiptFor: (cardId: string) => ChatReceipt | undefined;
+  toggleReceipt: (cardId: string) => void;
+  openReceipts: () => void;
+}
+
+/** The "Keep this receipt" tick, greyed with the reason when the file can't be kept */
+function ReceiptTick({ msg, cards }: { msg: ChatMessage; cards: CardActions }) {
+  const { t } = useI18n();
+  const offer = cards.receiptFor(msg.id);
+  if (!offer || msg.resolved) return null;
+  const preview = offer.status !== 'tooBig' ? offer.receipt.previewUrl : undefined;
+  const isPdf = offer.status !== 'tooBig' ? offer.receipt.kind === 'pdf' : true;
+  return (
+    <div className="bg-background/50 p-3 rounded-xl space-y-2">
+      <label className={cn('flex items-center gap-3', offer.status === 'ready' ? 'cursor-pointer' : 'opacity-60')}>
+        {preview
+          ? <img src={preview} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+          : <span className="w-10 h-10 rounded-lg bg-card border border-card-border flex items-center justify-center text-muted shrink-0">{isPdf ? <FileText size={18} /> : <ReceiptIcon size={18} />}</span>}
+        <input
+          type="checkbox"
+          className="w-4 h-4 shrink-0 accent-indigo-600"
+          checked={offer.status === 'ready' && offer.keep}
+          disabled={offer.status !== 'ready'}
+          onChange={() => cards.toggleReceipt(msg.id)}
+        />
+        <span className="text-xs font-semibold text-foreground">{t('receipt.keep')}</span>
+      </label>
+      {offer.status === 'tooBig' && <p className="text-[12px] font-medium text-muted leading-relaxed">{t('receipt.keepTooBig')}</p>}
+      {offer.status === 'full' && (
+        <div className="flex items-center gap-2">
+          <p className="flex-1 text-[12px] font-medium text-muted leading-relaxed">{t('receipt.keepFull')}</p>
+          <button type="button" onClick={cards.openReceipts} className="shrink-0 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+            {t('receipt.openReceipts')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function balanceSyncFor({ syncChoices, setSyncChoices, currencySymbol }: CardActions, t: TFunction) {
@@ -162,6 +203,7 @@ export function ExpenseCard({ msg, cards }: { msg: WithExpense; cards: CardActio
             <WrongSendSheet provider={helpFor} onClose={() => setHelpFor(null)} />
           </>
         )}
+        <ReceiptTick msg={msg} cards={cards} />
         {savedInAnotherVersion(messages, msg.id) && duplicateWarning}
       </div>
 

@@ -30,11 +30,11 @@ export default function RegretCard({ uid, expenses, symbol }: { uid: string; exp
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="p-3 rounded-xl bg-background/50">
-          <p className="flex items-center gap-1.5 text-[11px] text-muted font-semibold"><ThumbsUp size={12} className="text-teal-600 dark:text-teal-400" /> {t('regret.worth')}</p>
+          <p className="flex items-center gap-1.5 text-[12px] text-muted font-semibold"><ThumbsUp size={12} className="text-teal-600 dark:text-teal-400" /> {t('regret.worth')}</p>
           <p className="text-lg font-bold text-foreground tabular-nums">{money(s.worth)}</p>
         </div>
         <div className="p-3 rounded-xl bg-background/50">
-          <p className="flex items-center gap-1.5 text-[11px] text-muted font-semibold"><ThumbsDown size={12} className="text-rose-500" /> {t('regret.regret')}</p>
+          <p className="flex items-center gap-1.5 text-[12px] text-muted font-semibold"><ThumbsDown size={12} className="text-rose-500" /> {t('regret.regret')}</p>
           <p className="text-lg font-bold text-foreground tabular-nums">{money(s.regret)}</p>
         </div>
       </div>

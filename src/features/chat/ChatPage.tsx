@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ChatHeader from './ChatHeader';
 import { useAuth } from '../../app/App';
 import { ChatMessage, Expense, AccountType } from '../../shared/types';
 import { processInput, processAudioInput, processAttachment, ChatTurn } from './aiService';
@@ -21,6 +22,8 @@ import { useLiveChat } from './useLiveChat';
 import { useConfirmActions } from './useConfirmActions';
 import { useChatHistory } from './useChatHistory';
 import ChatDrawer from './ChatDrawer';
+import { useReceipts } from '../receipts/useReceipts';
+import { useChatReceipts } from '../receipts/useChatReceipts';
 import ChatWelcome from './ChatWelcome';
 import MessageItem from './MessageItem';
 import ChatNotices from './ChatNotices';
@@ -35,10 +38,13 @@ import { useKeyboardOpen } from '../../shared/lib/keyboard';
 const MONEY_QUESTION = /spen|expens|budget|report|total|sav|cost|money|taka|tk|৳|balance|month|week|afford|plan/i;
 
 /** `active` is false while another tab is showing: the chat stays mounted so the conversation and any pending reply survive */
-export default function ChatPage({ active = true, incomingText, onIncomingHandled }: {
+export default function ChatPage({ active = true, incomingText, onIncomingHandled, draftText, onDraftHandled, onOpenExpense }: {
+  onOpenExpense: (expense: Expense) => void; // from a receipt in the drawer's Receipts tab
   active?: boolean;
   incomingText?: string | null; // an SMS shared into the app; read once, in a fresh chat
   onIncomingHandled?: () => void;
+  draftText?: string | null; // typed in Home's search, then Ask: put in the message box, not sent
+  onDraftHandled?: () => void;
 }) {
   const { user, profile } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -102,7 +108,8 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   const tIn = (language?: ReplyLanguage): TFunction => (key, vars) => translate(language || lang, key, vars);
 
   // Shows an AI reply: a confirm card for money, or the written answer
-  const showResult = (result: Awaited<ReturnType<typeof processInput>>, askKey: TKey) => {
+  /** Shows the AI's answer. Returns the id of the expense card it made, if it made one. */
+  const showResult = (result: Awaited<ReturnType<typeof processInput>>, askKey: TKey): string | null => {
     const replyLang = result.language || lang;
     const say = tIn(replyLang);
     if (result.type === 'income' && result.expense?.amount) {
@@ -113,11 +120,12 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
       if (result.expense.category === 'INVALID') {
         addMessage('assistant', say('chat.noCategory'), 'error', undefined, { backupModel: result.backup, replyLang });
       } else {
-        addMessage('assistant', say(askKey), 'expense_confirmation', result.expense, { backupModel: result.backup, replyLang });
+        return addMessage('assistant', say(askKey), 'expense_confirmation', result.expense, { backupModel: result.backup, replyLang });
       }
     } else {
       addMessage('assistant', result.content, 'text', undefined, { steps: result.steps, backupModel: result.backup, replyLang });
     }
+    return null;
   };
 
   const {
@@ -134,8 +142,10 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
     recentHistory: () => recentHistory(), addMessage, setMessages, setSecretWarning, currencySymbol, tIn, t,
   });
 
+  // "Keep this receipt" on expense cards made from a photo or PDF
+  const chatReceipts = useChatReceipts(user?.uid, t);
   const { isConfirming, accountChoices, setAccountChoices, syncChoices, setSyncChoices, debtChoices, setDebtChoices, confirmIncome, confirmExpense } = useConfirmActions({
-    user, messages, accounts, currencySymbol, tIn, t, addMessage, markResolved,
+    user, messages, accounts, currencySymbol, tIn, t, addMessage, markResolved, afterExpenseSaved: chatReceipts.afterSaved,
   });
 
   // Per-chat messages and anything only meant for the chat being left
@@ -157,6 +167,13 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   } = useChatHistory({
     user, t, messages, setMessages, setInput, setLimitNote, setLimitNoteVars, resetChatExtras, loading, isRecording, liveState,
   });
+
+  // Read only while the drawer is open, for its Receipts tab
+  const receipts = useReceipts(user?.uid, sidebarOpen);
+  const [drawerTab, setDrawerTab] = useState<'chats' | 'receipts'>('chats');
+  const openReceipts = () => { setDrawerTab('receipts'); setSidebarOpen(true); };
+  // Coming back from the drawer: a card that was full may have room now
+  useEffect(() => { if (!sidebarOpen) chatReceipts.recheckFull(); }, [sidebarOpen]);
 
   // Grow the message box with its content, up to a limit. A hidden chat measures 0, so skip
   // measuring until it's visible (and re-measure when it becomes visible).
@@ -313,6 +330,19 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
     setTimeout(() => handleSend(text), 0);
   }, [incomingText, active, user, categories.length, attachment]);
 
+  // From Home's search: the typed text waits in the message box, ready to edit or send
+  useEffect(() => {
+    if (!draftText || !active) return;
+    setInput(draftText);
+    onDraftHandled?.();
+    window.setTimeout(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(draftText.length, draftText.length);
+    }, 50);
+  }, [draftText, active]);
+
   const sendAttachment = async (text: string) => {
     if (!attachment || loading) return;
     if (containsSecret(text)) {
@@ -330,7 +360,8 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
     setLoading(true);
     setStatus('chat.status.file');
     try {
-      showResult(await processAttachment(file, message, categories, spendingContext, history, lang), 'chat.receiptAsk');
+      const cardId = showResult(await processAttachment(file, message, categories, spendingContext, history, lang), 'chat.receiptAsk');
+      if (cardId) chatReceipts.offerFor(cardId, file).catch(err => console.error('Could not get the receipt ready', err));
     } catch (error) {
       addMessage('assistant', t('chat.genericError'), 'error');
     } finally {
@@ -348,12 +379,13 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
 
   const memoryStart = memoryBoundary(messages, Date.now());
   const memoryLine = (
-    <p className="basis-full mb-4 text-center text-[11px] font-medium text-muted">{t('chat.memoryNote')}</p>
+    <p className="basis-full mb-4 text-center text-[12px] font-medium text-muted">{t('chat.memoryNote')}</p>
   );
 
   const cards: CardActions = {
     messages, currencySymbol, accounts, accountChoices, setAccountChoices, syncChoices, setSyncChoices, debtChoices, setDebtChoices,
     isConfirming, confirmExpense, confirmIncome, markResolved, addMessage, tIn,
+    receiptFor: chatReceipts.receiptFor, toggleReceipt: chatReceipts.toggle, openReceipts,
   };
 
   return (
@@ -377,37 +409,20 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
         renameValue={renameValue}
         setRenameValue={setRenameValue}
         commitRename={commitRename}
+        receipts={receipts}
+        onOpenExpense={onOpenExpense}
+        tab={drawerTab}
+        setTab={setDrawerTab}
       />
 
-      <header className="flex items-center gap-2 pb-2 shrink-0">
-        <button
-          onClick={() => setSidebarOpen(true)}
-          aria-label={t('chat.openHistory')}
-          className="p-2.5 rounded-xl text-muted hover:text-foreground hover:bg-card transition-colors"
-        >
-          <PanelLeft size={20} />
-        </button>
-        <h2 className="flex-1 min-w-0 truncate text-center text-sm font-bold text-foreground">{headerTitle}</h2>
-        <button
-          onClick={startNewChat}
-          disabled={busy || messages.length === 0}
-          aria-label={t('chat.newChat')}
-          title={t('chat.newChat')}
-          className="p-2.5 rounded-xl text-muted hover:text-foreground hover:bg-card transition-colors disabled:opacity-40"
-        >
-          <SquarePen size={20} />
-        </button>
-      </header>
-
-      {chatsLoaded && !activeIsSaved && !newChatPlan.canSave && notSavedClosedFor !== activeId && (
-        <div role="alert" className="self-center max-w-full mb-2 flex items-start gap-2 pl-3 pr-2 py-2 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300">
-          <ShieldAlert size={15} className="shrink-0 mt-px" />
-          <p className="text-xs font-semibold leading-relaxed text-center">{t('chat.notSaved')}</p>
-          <button onClick={() => setNotSavedClosedFor(activeId)} aria-label={t('common.dismiss')} className="p-0.5 opacity-70 hover:opacity-100">
-            <X size={14} />
-          </button>
-        </div>
-      )}
+      <ChatHeader
+        title={headerTitle}
+        canStartNew={!busy && messages.length > 0}
+        onOpenHistory={() => setSidebarOpen(true)}
+        onNewChat={startNewChat}
+        showNotSaved={chatsLoaded && !activeIsSaved && !newChatPlan.canSave && notSavedClosedFor !== activeId}
+        onDismissNotSaved={() => setNotSavedClosedFor(activeId)}
+      />
 
       {saveError && (
         <div role="alert" className="mb-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-semibold">

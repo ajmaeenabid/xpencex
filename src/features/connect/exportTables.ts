@@ -91,7 +91,7 @@ export function fundsTabs(funds: Fund[], currency: string, t: T, now = new Date(
       t('sheet.daysLeft'), t('sheet.perWeek', { currency }), t('sheet.perMonth', { currency }), t('sheet.reached')],
     ...funds.map(f => {
       const p = fundPlan(f, now);
-      return [f.name, day(f.dueDate), round2(f.target), round2(f.saved), round2(p.left), Math.max(0, p.daysLeft), round2(p.perWeek), round2(p.perMonth), yesNo(t, p.reached)];
+      return [f.name, f.dueDate ? day(f.dueDate) : '', round2(f.target), round2(f.saved), round2(p.left), Math.max(0, p.daysLeft), round2(p.perWeek), round2(p.perMonth), yesNo(t, p.reached)];
     }),
   ];
   return [{ title: tabTitle(t('sheet.kind.funds')), rows }];

@@ -83,7 +83,7 @@ export default function AccountsReport({ expenses, accounts, symbol }: Props) {
           <div key={r.name} className="flex items-center justify-between gap-3 p-3 bg-background/50 rounded-xl">
             <div className="min-w-0">
               <p className="text-sm font-bold text-foreground truncate">{r.name}</p>
-              <p className="text-[11px] text-muted font-medium">
+              <p className="text-[12px] text-muted font-medium">
                 <span className="text-teal-600 dark:text-teal-400">+{fmt(r.moneyIn)}</span>
                 {' · '}
                 <span className="text-orange-600 dark:text-orange-400">-{fmt(r.moneyOut)}</span>
@@ -93,7 +93,7 @@ export default function AccountsReport({ expenses, accounts, symbol }: Props) {
           </div>
         ))}
       </div>
-      <p className="text-[11px] text-muted font-medium">{t('accountsReport.note')}</p>
+      <p className="text-[12px] text-muted font-medium">{t('accountsReport.note')}</p>
     </div>
   );
 }

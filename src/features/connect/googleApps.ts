@@ -16,7 +16,7 @@ export const GOOGLE_APPS: GoogleApp[] = ['drive', 'sheets'];
 /** How many backups stay in Drive. The oldest go once there are more. */
 export const KEEP_BACKUPS = 10;
 export const MAX_EVERY = { hours: 72, days: 30 } as const;
-export const DEFAULT_BACKUP: Required<Omit<DriveBackupSettings, 'lastAt'>> = { auto: true, every: 1, unit: 'days' };
+export const DEFAULT_BACKUP: Required<Omit<DriveBackupSettings, 'lastAt'>> = { auto: true, every: 1, unit: 'days', receipts: false };
 
 const HOUR = 60 * 60 * 1000;
 
@@ -25,7 +25,7 @@ export function backupSettings(s: DriveBackupSettings | undefined) {
   const unit = s?.unit === 'hours' ? 'hours' : 'days';
   const raw = Math.round(Number(s?.every));
   const every = Number.isFinite(raw) && raw >= 1 ? Math.min(raw, MAX_EVERY[unit]) : DEFAULT_BACKUP.every;
-  return { auto: s?.auto ?? DEFAULT_BACKUP.auto, every, unit, lastAt: s?.lastAt } as const;
+  return { auto: s?.auto ?? DEFAULT_BACKUP.auto, every, unit, lastAt: s?.lastAt, receipts: s?.receipts === true } as const;
 }
 
 export const intervalMs = (every: number, unit: 'hours' | 'days') => every * (unit === 'hours' ? HOUR : 24 * HOUR);

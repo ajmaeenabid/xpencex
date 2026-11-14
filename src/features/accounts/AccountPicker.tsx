@@ -49,9 +49,9 @@ export default function AccountPicker({ accounts, value, onChange, symbol, compa
           >
             <Icon size={compact ? 14 : 16} className={selected ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'} />
             <span className="flex flex-col">
-              <span className={cn('font-bold whitespace-nowrap', compact ? 'text-[11px]' : 'text-xs')}>{title}</span>
+              <span className={cn('font-bold whitespace-nowrap', compact ? 'text-[12px]' : 'text-xs')}>{title}</span>
               {balance !== null && (
-                <span className={cn('text-[10px] font-semibold tabular-nums', selected ? 'text-white/80' : balance < 0 ? 'text-rose-500' : 'text-muted')}>
+                <span className={cn('text-[11px] font-semibold tabular-nums', selected ? 'text-white/80' : balance < 0 ? 'text-rose-500' : 'text-muted')}>
                   {symbol}{balance.toLocaleString()}
                 </span>
               )}

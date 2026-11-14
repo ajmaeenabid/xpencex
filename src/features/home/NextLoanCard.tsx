@@ -63,14 +63,14 @@ export default function NextLoanCard({ loans, symbol, onManage }: {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-bold text-sm text-foreground truncate">{loan.name}</p>
-                  {loan.lender && <p className="text-[11px] text-muted font-medium truncate">{loan.lender}</p>}
+                  {loan.lender && <p className="text-[12px] text-muted font-medium truncate">{loan.lender}</p>}
                 </div>
                 <p className="font-bold text-lg text-foreground tabular-nums shrink-0">{money(nextAmount(loan))}</p>
               </div>
               <p className="text-xs text-muted font-medium">{t('loans.homeWhen', { date: day(loan.nextDueDate), account: loan.accountName })}</p>
               <div className="flex flex-wrap gap-2">
-                <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${TONE_CLASS[toneFor(days)]}`}>{whenText(days)}</span>
-                <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-background text-muted border border-card-border">
+                <span className={`px-2.5 py-1 rounded-full text-[12px] font-bold ${TONE_CLASS[toneFor(days)]}`}>{whenText(days)}</span>
+                <span className="px-2.5 py-1 rounded-full text-[12px] font-bold bg-background text-muted border border-card-border">
                   {t('loans.homeLeft', { amount: money(loan.remaining) })}
                 </span>
               </div>

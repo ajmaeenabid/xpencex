@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '../../shared/firebase';
 import { collection, doc, query, where, onSnapshot, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../../app/App';
-import { Expense, RecurringFrequency } from '../../shared/types';
+import { Deposit, Expense, RecurringFrequency } from '../../shared/types';
+import IncomeForm from '../income/IncomeForm';
 import { motion } from 'motion/react';
 import { Tag, FileText, Check, ArrowLeft, Edit2, Loader2, Users, Repeat, Minus, Plus, Wallet } from 'lucide-react';
 import { format } from 'date-fns';
@@ -17,15 +18,56 @@ import DateField from '../../shared/components/DateField';
 import { confirmDialog } from '../../shared/components/Dialog';
 import { shareOf } from './expense';
 import { saved } from '../../shared/lib/offlineSave';
+import ReceiptField from '../receipts/ReceiptField';
+import { PreparedReceipt } from '../receipts/receiptFile';
+import { attachWhenSaved } from '../receipts/receiptService';
+import { writeDebt } from '../debts/debtService';
+import { cleanPerson } from '../debts/debts';
 
 interface AddExpensePageProps {
   onComplete: () => void;
   expense?: Expense | null;
+  income?: Deposit | null; // editing an income: the income form instead
   prefillPeople?: number | null; // from the calculator's Split the bill: the amount is then the bill total
   prefillAmount?: number | null; // from the calculator's "Save as expense"
 }
 
-export default function AddExpensePage({ onComplete, expense, prefillAmount, prefillPeople }: AddExpensePageProps) {
+export default function AddExpensePage(props: AddExpensePageProps) {
+  const { t } = useI18n();
+  // New entries get an "Expense | Income" switch; editing keeps the form of what is being edited
+  const [mode, setMode] = useState<'expense' | 'income'>(props.income ? 'income' : 'expense');
+  const editing = !!props.expense || !!props.income;
+  if (mode === 'expense') return <ExpenseForm {...props} modeSwitch={editing ? null : <ModeSwitch mode={mode} setMode={setMode} />} />;
+  return (
+    <div className="space-y-8 pb-6">
+      <header className="flex items-center gap-4">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={props.onComplete} aria-label={t('common.back')}
+          className="p-3 bg-card rounded-2xl shadow-soft border border-card-border text-slate-500 dark:text-slate-400">
+          <ArrowLeft size={20} />
+        </motion.button>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">{t(props.income ? 'income.editTitle' : 'income.title')}</h1>
+      </header>
+      {!editing && <ModeSwitch mode={mode} setMode={setMode} />}
+      <IncomeForm income={props.income} onComplete={props.onComplete} />
+    </div>
+  );
+}
+
+function ModeSwitch({ mode, setMode }: { mode: 'expense' | 'income'; setMode: (m: 'expense' | 'income') => void }) {
+  const { t } = useI18n();
+  return (
+    <div role="tablist" className="grid grid-cols-2 p-1 rounded-2xl bg-card border border-card-border shadow-soft">
+      {(['expense', 'income'] as const).map(m => (
+        <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
+          className={`py-2.5 rounded-xl text-sm font-bold transition-colors ${mode === m ? (m === 'income' ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white') : 'text-muted'}`}>
+          {t(m === 'income' ? 'income.tab' : 'expense.tab')}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSwitch }: AddExpensePageProps & { modeSwitch: React.ReactNode }) {
   const { user, profile } = useAuth();
   const isEditing = !!expense;
   const [title, setTitle] = useState(expense?.title || '');
@@ -35,6 +77,9 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
   const [notes, setNotes] = useState(expense?.notes || '');
   const [isSplit, setIsSplit] = useState(!!prefillPeople);
   const [people, setPeople] = useState(prefillPeople || 2);
+  // Split bill: who else was there. Each named person's share goes to Lend and borrow as "owes you".
+  const [splitNames, setSplitNames] = useState<string[]>([]);
+  const others = Array.from({ length: Math.max(0, people - 1) }, (_, i) => splitNames[i] || '');
   const [repeat, setRepeat] = useState<RecurringFrequency | 'none'>('none');
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,6 +87,12 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
   const [accountId, setAccountId] = useState(expense?.accountId || CASH_ID);
   const accounts = useAccounts(user?.uid);
   const { t } = useI18n();
+  // A receipt picked here is sent after the expense is saved; one already on the expense can be deleted here
+  const [pendingReceipt, setPendingReceipt] = useState<PreparedReceipt | null>(null);
+  const [savedReceiptId, setSavedReceiptId] = useState(expense?.receiptId);
+  const previewRef = useRef<string | undefined>(undefined);
+  previewRef.current = pendingReceipt?.previewUrl;
+  useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current); }, []);
 
   const currencySymbol = MAJOR_CURRENCIES.find(c => c.code === profile?.currency)?.symbol || '৳';
 
@@ -66,6 +117,11 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
     e.preventDefault();
     const parsedAmount = parseFloat(amount);
     if (!user || !title.trim() || !category) return;
+    if (isSplit && others.some(n => containsSecret(n))) {
+      setSplitNames([]);
+      setError(t('secret.warning'));
+      return;
+    }
     if (containsSecret(title) || containsSecret(notes)) {
       if (containsSecret(title)) setTitle('');
       if (containsSecret(notes)) setNotes('');
@@ -120,7 +176,9 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
           adjustBalance(batch, accounts, expense!.accountId, expense!.amount, 'expenseEdit', title.trim());
           adjustBalance(batch, accounts, payment.accountId, -parsedAmount, 'expenseEdit', title.trim());
         }
-        await saved(batch.commit());
+        const write = batch.commit();
+        await saved(write);
+        if (pendingReceipt) attachWhenSaved(write, pendingReceipt.blob, expense!.id);
       } else {
         // The expense and its repeat rule are saved together, so one can't exist without the other
         const batch = writeBatch(db);
@@ -140,7 +198,8 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
           });
           recurringId = rule.id;
         }
-        batch.set(doc(collection(db, 'expenses')), {
+        const expenseRef = doc(collection(db, 'expenses'));
+        batch.set(expenseRef, {
           uid: user.uid,
           title: title.trim(),
           amount: share,
@@ -153,7 +212,19 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
           createdAt: new Date().toISOString(),
         });
         adjustBalance(batch, accounts, payment.accountId, -share, 'expense', title.trim());
-        await saved(batch.commit());
+        // Everyone named owes you their share; that money left your account too (like lending)
+        if (isSplit) {
+          const paidFrom = accounts.find(a => a.id === payment.accountId);
+          for (const name of others.map(cleanPerson).filter(Boolean)) {
+            writeDebt(batch, {
+              uid: user.uid, person: name, kind: 'lent', amount: share, date: isoDate,
+              note: t('add.splitDebtNote', { title: title.trim() }), account: paidFrom,
+            });
+          }
+        }
+        const write = batch.commit();
+        await saved(write);
+        if (pendingReceipt) attachWhenSaved(write, pendingReceipt.blob, expenseRef.id);
       }
       onComplete();
     } catch (err) {
@@ -177,6 +248,7 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
         </motion.button>
         <h1 className="text-2xl font-bold text-foreground tracking-tight">{isEditing ? t('add.editTitle') : t('add.title')}</h1>
       </header>
+      {modeSwitch}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="bg-card p-7 rounded-[2.5rem] shadow-soft border border-card-border space-y-6 transition-all">
@@ -232,7 +304,7 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
                     whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setCategory(cat.name)}
-                    className={`p-4 rounded-[1.5rem] text-[10px] font-bold border-2 transition-all flex flex-col items-center gap-3 ${
+                    className={`p-4 rounded-[1.5rem] text-[11px] font-bold border-2 transition-all flex flex-col items-center gap-3 ${
                       isSelected
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-vibrant'
                         : 'bg-background/50 text-muted border-transparent hover:border-card-border'
@@ -254,7 +326,7 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
             </label>
             <AccountPicker accounts={accounts} value={accountId} onChange={setAccountId} symbol={currencySymbol} />
             {accounts.length === 0 && (
-              <p className="text-[11px] text-muted font-medium px-1">{t('add.noAccountsHint')}</p>
+              <p className="text-[12px] text-muted font-medium px-1">{t('add.noAccountsHint')}</p>
             )}
           </div>
 
@@ -285,6 +357,16 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
             </div>
           </div>
 
+          {user && (
+            <ReceiptField
+              uid={user.uid}
+              savedReceiptId={savedReceiptId}
+              onSavedReceiptDeleted={() => setSavedReceiptId(undefined)}
+              pending={pendingReceipt}
+              setPending={setPendingReceipt}
+            />
+          )}
+
           {!isEditing && (
             <div className="space-y-4 pt-2">
               <div className="flex items-center justify-between bg-background/50 p-4 rounded-2xl">
@@ -294,7 +376,7 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
                   </div>
                   <div>
                     <p className="font-bold text-sm text-foreground">{t('add.splitBill')}</p>
-                    <p className="text-[11px] text-muted font-medium">
+                    <p className="text-[12px] text-muted font-medium">
                       {isSplit && parseFloat(amount) > 0
                         ? t('add.yourShare', { amount: `${currencySymbol}${shareOf(parseFloat(amount), people).toLocaleString()}` })
                         : t('add.shareHint')}
@@ -311,6 +393,24 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
                   <button type="button" onClick={() => setIsSplit(true)} className="text-indigo-600 dark:text-indigo-400 font-bold text-sm">{t('add.split')}</button>
                 )}
               </div>
+              {isSplit && (
+                <div className="bg-background/50 p-4 rounded-2xl space-y-2">
+                  <p className="text-xs font-semibold text-muted">{t('add.splitWho')}</p>
+                  {others.map((name, i) => (
+                    <input
+                      key={i}
+                      type="text"
+                      maxLength={60}
+                      placeholder={t('add.splitPerson', { n: i + 2 })}
+                      aria-label={t('add.splitPerson', { n: i + 2 })}
+                      className="w-full px-4 py-3 bg-card rounded-xl border border-card-border outline-none focus:border-indigo-500 text-sm text-foreground"
+                      value={name}
+                      onChange={e => setSplitNames(prev => { const next = [...prev]; next[i] = e.target.value; return next; })}
+                    />
+                  ))}
+                  <p className="text-[12px] text-muted font-medium">{t('add.splitWhoHint')}</p>
+                </div>
+              )}
 
               <div className="bg-background/50 p-4 rounded-2xl space-y-3">
                 <div className="flex items-center gap-3">
@@ -319,7 +419,7 @@ export default function AddExpensePage({ onComplete, expense, prefillAmount, pre
                   </div>
                   <div>
                     <p className="font-bold text-sm text-foreground">{t('add.repeat')}</p>
-                    <p className="text-[11px] text-muted font-medium">{t('add.repeatHint')}</p>
+                    <p className="text-[12px] text-muted font-medium">{t('add.repeatHint')}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">

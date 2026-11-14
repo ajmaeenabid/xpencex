@@ -186,7 +186,7 @@ export default function AccountForm({ uid, accounts, symbol, account, onSaved, o
               </span>
               <span>
                 <span className="block text-sm font-bold text-foreground">{t('accounts.deposit')}</span>
-                <span className="block text-[11px] text-muted font-medium">{t('accounts.depositHint')}</span>
+                <span className="block text-[12px] text-muted font-medium">{t('accounts.depositHint')}</span>
               </span>
             </span>
             <input type="checkbox" className="w-5 h-5 shrink-0 accent-indigo-600" checked={form.hasDeposit} onChange={(e) => set({ hasDeposit: e.target.checked })} />

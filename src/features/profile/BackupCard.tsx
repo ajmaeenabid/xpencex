@@ -80,7 +80,7 @@ export default function BackupCard({ uid }: { uid: string }) {
 
       <div className="space-y-2">
         <input type="password" autoComplete="new-password" className={field} placeholder={t('backup.passwordOptional')} aria-label={t('backup.passwordOptional')} value={password} onChange={(e) => setPassword(e.target.value)} />
-        {password && <p className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">{t('backup.passwordWarn')}</p>}
+        {password && <p className="text-[12px] text-amber-700 dark:text-amber-300 font-semibold">{t('backup.passwordWarn')}</p>}
         <div className="flex gap-2">
           <button onClick={download} disabled={!!busy} className={`${btn} bg-indigo-600 text-white`}><Download size={16} /> {busy === 'download' ? t('backup.working') : t('backup.download')}</button>
           <button onClick={() => fileRef.current?.click()} disabled={!!busy} className={`${btn} bg-card text-foreground border border-card-border`}><Upload size={16} /> {busy === 'restore' ? t('backup.working') : t('backup.restore')}</button>
@@ -99,7 +99,7 @@ export default function BackupCard({ uid }: { uid: string }) {
         </div>
       )}
 
-      <p className="text-[11px] text-muted font-medium leading-relaxed">{t('backup.restoreHint')}</p>
+      <p className="text-[12px] text-muted font-medium leading-relaxed">{t('backup.restoreHint')}</p>
       {message && <p role="status" className="text-xs font-semibold text-foreground">{message}</p>}
     </div>
   );

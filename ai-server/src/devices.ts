@@ -1,7 +1,7 @@
 import { google, encodeFields } from './google';
 import { adminUids } from './admin';
 import type { AdminEnv } from './admin';
-import { OPEN_REQUESTS_LIMIT, canAskAgain, cleanUsername, deviceLabelFrom, firstDeviceNeedsApproval, isValidUsername, usernameKey, verifyDeviceProof } from './deviceRules';
+import { OPEN_REQUESTS_LIMIT, canAskAgain, cleanUsername, deviceLabelFrom, mayAutoApprove, isValidUsername, usernameKey, verifyDeviceProof } from './deviceRules';
 
 // ---------------------------------------------------------------------------
 // Which devices may use an account.
@@ -41,7 +41,11 @@ export async function handleDevice(path: string, uid: string, body: Record<strin
   const names = await g.listByUid('usernames', uid);
   if (names.length === 0) return json({ status: 'needsUsername' });
 
-  if ((await g.getDoc('devices', deviceId))?.uid === uid) return approved();
+  if ((await g.getDoc('devices', deviceId))?.uid === uid) {
+    // Accounts approved before the history existed get it now (see mayAutoApprove)
+    if (path === '/device/open') await rememberFirstDevice(g, uid).catch((err) => console.error('Could not save device history', err));
+    return approved();
+  }
 
   const label = deviceLabelFrom(userAgent);
   const request = await g.getDoc('deviceRequests', deviceId);
@@ -50,8 +54,10 @@ export async function handleDevice(path: string, uid: string, body: Record<strin
     // Nobody could approve the admin's first device, so it never waits. This is also how the admin
     // recovers a lost phone: delete their devices documents in Firebase Console and sign in again.
     const devices = await g.listByUid('devices', uid);
-    if (devices.length === 0 && (adminUids(env).includes(uid) || !firstDeviceNeedsApproval(env.REQUIRE_FIRST_DEVICE_APPROVAL))) {
+    const everHadDevice = !!(await g.getDoc('deviceHistory', uid));
+    if (mayAutoApprove({ deviceCount: devices.length, everHadDevice, isAdmin: adminUids(env).includes(uid), setting: env.REQUIRE_FIRST_DEVICE_APPROVAL })) {
       await g.setDoc('devices', deviceId, { id: deviceId, uid, label, at: new Date().toISOString() });
+      await rememberFirstDevice(g, uid);
       if (request) await g.deleteDoc('deviceRequests', deviceId);
       return approved();
     }
@@ -68,6 +74,21 @@ export async function handleDevice(path: string, uid: string, body: Record<strin
   }
 
   return json({ error: 'Not found.' }, 404);
+}
+
+/**
+ * What the username step writes to users/{uid}. A new user picks a username before their phone is approved,
+ * so this is usually where their profile is first made. A new profile gets `welcome: 'slides'` so the app
+ * shows the welcome slides and the button tour, the same as when the app makes the profile itself.
+ * `newProfile` is null when the profile already exists: then only the name changes.
+ */
+export function usernameProfileFields(uid: string, username: string, newProfile: { email: string; now: string } | null) {
+  return {
+    uid, username, name: username,
+    ...(newProfile && {
+      email: newProfile.email, currency: 'BDT', monthlyBudget: 5000, createdAt: newProfile.now, welcome: 'slides',
+    }),
+  };
 }
 
 /** Sets or changes the username. Each name has one usernames/{name} document, which keeps names unique. */
@@ -87,10 +108,7 @@ export async function handleUsername(uid: string, claims: Record<string, unknown
 
   const profile = await g.getTyped('users', uid);
   const login = profile ? null : await g.getUser(uid);
-  const fields = {
-    uid, username, name: username,
-    ...(!profile && { email: login?.email || '', currency: 'BDT', monthlyBudget: 5000, createdAt: new Date().toISOString() }),
-  };
+  const fields = usernameProfileFields(uid, username, profile ? null : { email: login?.email || '', now: new Date().toISOString() });
 
   try {
     await g.commit([
@@ -107,4 +125,13 @@ export async function handleUsername(uid: string, claims: Record<string, unknown
     throw err;
   }
   return json({ username });
+}
+
+/**
+ * Records that this account has had a device (deviceHistory/{uid}; only this server reads or writes it).
+ * From then on a new device always waits for the admin, even when the account has no devices left.
+ */
+export async function rememberFirstDevice(g: ReturnType<typeof google>, uid: string) {
+  if (await g.getDoc('deviceHistory', uid)) return;
+  await g.setDoc('deviceHistory', uid, { uid, firstDeviceAt: new Date().toISOString() });
 }

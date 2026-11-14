@@ -13,7 +13,7 @@ const STEPS: { target: string; text: TKey }[] = [
   { target: 'expenses', text: 'tour.expenses' },
   { target: 'reports', text: 'tour.reports' },
   { target: 'profile', text: 'tour.profile' },
-  { target: 'chat-bubble', text: 'tour.chatBubble' },
+  { target: 'search', text: 'tour.search' },
   { target: 'move-cards', text: 'tour.moveCards' },
   { target: 'theme', text: 'tour.theme' },
 ];

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cream, the same as backgroundColor in capacitor.config.ts and the opening animation,
+         so the phone's first frame on opening the app is not white -->
+    <color name="launch_cream">#FFF4EC</color>
+</resources>

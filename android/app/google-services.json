@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "77916812361",
+    "project_id": "xpensex-abid",
+    "storage_bucket": "xpensex-abid.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:77916812361:android:48d75edf1749d5917c7b98",
+        "android_client_info": {
+          "package_name": "com.xpence.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "77916812361-rbhs4vgr2p0cdmlu96umf52nd2agnssb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAV1VkDeGHV7SrP5EROpLUoH9Ne1C4Sz4E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "77916812361-rbhs4vgr2p0cdmlu96umf52nd2agnssb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

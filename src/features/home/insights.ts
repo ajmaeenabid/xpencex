@@ -37,6 +37,30 @@ export function splitMonths(expenses: Expense[], now: Date) {
   return { thisMonth, lastMonthToDate };
 }
 
+export interface CategoryChange {
+  category: string;
+  now: number; // this month so far
+  before: number; // the same days of last month
+  change: number | null; // e.g. 0.23 for 23% more; null when there was nothing to compare with
+}
+
+/**
+ * Each category this month so far against the same days of last month (a fair comparison early in the month).
+ * Biggest amounts first. The Reports card shows this; Home's tip uses the same numbers.
+ */
+export function compareByCategory(expenses: Expense[], now: Date = new Date()): CategoryChange[] {
+  const { thisMonth, lastMonthToDate } = splitMonths(expenses, now);
+  const thisByCat = sumByCategory(thisMonth);
+  const lastByCat = sumByCategory(lastMonthToDate);
+  return Object.keys({ ...thisByCat, ...lastByCat })
+    .map(category => {
+      const nowAmount = Math.round((thisByCat[category] || 0) * 100) / 100;
+      const before = Math.round((lastByCat[category] || 0) * 100) / 100;
+      return { category, now: nowAmount, before, change: before > 0 ? (nowAmount - before) / before : null };
+    })
+    .sort((a, b) => Math.max(b.now, b.before) - Math.max(a.now, a.before));
+}
+
 /**
  * Turns raw expenses into a short list of plain-language observations for the dashboard.
  * `expenses` should cover at least the start of last month through now.
@@ -88,7 +112,7 @@ export function buildInsights(
     .filter(c => Math.abs(c.change) >= 0.3)
     .sort((a, b) => Math.abs(b.now - b.before) - Math.abs(a.now - a.before));
 
-  for (const c of changes.slice(0, 2)) {
+  for (const c of changes.slice(0, 1)) { // the biggest change only (the full list is in Reports)
     const pct = Math.round(Math.abs(c.change) * 100);
     insights.push(c.change > 0
       ? { id: `trend-${c.cat}`, tone: 'warning', title: t('insight.up', { cat: categoryLabel(t, c.cat), pct }), detail: t('insight.trendDetail', { now: fmt(c.now), before: fmt(c.before) }) }

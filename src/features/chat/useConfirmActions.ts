@@ -16,7 +16,7 @@ import { findWallet, isCashOut } from '../accounts/cash';
 type AddMessage = (role: 'user' | 'assistant', content: string, type?: ChatMessage['type']) => string;
 
 /** Saving what a confirm card shows: an expense, or money in to an account */
-export function useConfirmActions({ user, messages, accounts, currencySymbol, tIn, t, addMessage, markResolved }: {
+export function useConfirmActions({ user, messages, accounts, currencySymbol, tIn, t, addMessage, markResolved, afterExpenseSaved }: {
   user: User | null;
   messages: ChatMessage[];
   accounts: Account[];
@@ -25,6 +25,8 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
   t: TFunction;
   addMessage: AddMessage;
   markResolved: (id: string, saved?: boolean) => void;
+  // Runs once a plain expense is saved, e.g. to send the receipt kept from this card
+  afterExpenseSaved?: (messageId: string, expenseId: string, write: Promise<unknown>) => void;
 }) {
   const [isConfirming, setIsConfirming] = useState(false);
   // "Paid from" choice for each confirmation card, by message id
@@ -146,7 +148,7 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
           // Nothing is saved as spending, so record the SMS on the wallet's side for duplicate protection
           batch.set(doc(collection(db, 'deposits')), {
             uid: user.uid, accountId: wallet.id, accountName: accountDisplayName(wallet), amount: moved, date,
-            title: expense.title?.slice(0, 100) || 'Cash Out', source: 'sms', smsRef: sms.ref,
+            title: expense.title?.slice(0, 100) || 'Cash Out', source: 'sms', smsRef: sms.ref, transfer: true,
           });
         }
         await saved(batch.commit());
@@ -181,7 +183,8 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
         addMessage('assistant', say('debts.savedLent', { name: person, amount: `${currencySymbol}${sent.toLocaleString()}` }));
         return;
       }
-      batch.set(doc(collection(db, 'expenses')), {
+      const expenseRef = doc(collection(db, 'expenses'));
+      batch.set(expenseRef, {
         uid: user.uid,
         title: expense.title,
         amount,
@@ -197,8 +200,10 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
       const syncAccount = syncTo !== undefined ? accounts.find(a => a.id === accountId) : undefined;
       if (syncAccount && syncTo !== undefined) setBalance(batch, syncAccount, syncTo, 'smsBalance');
       else adjustBalance(batch, accounts, accountId, -amount, 'expense', expense.title);
-      await saved(batch.commit());
+      const write = batch.commit();
+      await saved(write);
       markResolved(messageId, true);
+      afterExpenseSaved?.(messageId, expenseRef.id, write);
       addMessage('assistant', payment.accountName
         ? say('chat.expenseSavedFrom', { title: expense.title || '', amount: `${currencySymbol}${amount}`, account: payment.accountId === CASH_ID ? say('accounts.cash') : payment.accountName })
         : say('chat.expenseSaved', { title: expense.title || '', amount: `${currencySymbol}${amount}` }));

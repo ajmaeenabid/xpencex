@@ -119,7 +119,7 @@ export default function SamityWindow({ open, onClose, uid, list, accounts, symbo
             <ProgressRing value={st.paidCount / s.members} size={96} stroke={9} colorClass={st.finished ? 'text-emerald-500' : 'text-indigo-600'} label={t('samity.paidOf', { paid: st.paidCount, members: s.members, amount: money(s.amount) })}>
               <div className="text-center">
                 <p className="text-xl font-bold tabular-nums leading-none">{st.paidCount}/{s.members}</p>
-                <p className="text-[10px] text-muted font-bold mt-1">{t('samity.roundsWord')}</p>
+                <p className="text-[11px] text-muted font-bold mt-1">{t('samity.roundsWord')}</p>
               </div>
             </ProgressRing>
             <div className="min-w-0 space-y-1">
@@ -211,7 +211,7 @@ export default function SamityWindow({ open, onClose, uid, list, accounts, symbo
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-foreground">
                         {t('samity.roundN', { n: r.n })}
-                        {r.mine && <span className="ml-2 text-[11px] font-bold text-amber-600 dark:text-amber-400">{t('samity.yourTurnLabel')}</span>}
+                        {r.mine && <span className="ml-2 text-[12px] font-bold text-amber-600 dark:text-amber-400">{t('samity.yourTurnLabel')}</span>}
                       </p>
                       <p className="text-xs text-muted font-medium">{day(r.date)} · {t(`samity.status.${status}` as TKey)}</p>
                     </div>
@@ -274,7 +274,7 @@ export default function SamityWindow({ open, onClose, uid, list, accounts, symbo
 function Chip({ tone, children }: { tone: 'danger' | 'info' | 'good'; children: React.ReactNode }) {
   return (
     <span className={cn(
-      'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold',
+      'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[12px] font-bold',
       tone === 'danger' ? 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'
         : tone === 'good' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
           : 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',

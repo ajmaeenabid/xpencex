@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { db } from '../../shared/firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, writeBatch, updateDoc, deleteField } from 'firebase/firestore';
 import { useAuth } from '../../app/App';
-import { Expense } from '../../shared/types';
+import { Deposit, Expense } from '../../shared/types';
+import { useIncome } from '../income/incomeService';
+import { IncomeRow } from '../income/IncomeRow';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trash2, Edit2, Search, Download, Calendar, Tag, Loader2, Repeat, Users, Wallet, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Trash2, Edit2, Search, Download, Calendar, Tag, Loader2, Repeat, Users, Wallet, ThumbsUp, ThumbsDown, Receipt as ReceiptIcon, SlidersHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
 import { MAJOR_CURRENCIES, DEFAULT_CATEGORIES } from '../../shared/constants';
 import { toCSV, downloadFile } from '../reports/reportExport';
@@ -12,20 +14,73 @@ import SheetsExportButton from '../connect/SheetsExportButton';
 import { expenseRows, tabTitle } from '../connect/googleApps';
 import { useAccounts, adjustBalance } from '../accounts/accountService';
 import { useI18n, categoryLabel } from '../../shared/i18n';
-import { alertDialog } from '../../shared/components/Dialog';
 import { saved } from '../../shared/lib/offlineSave';
+import { TRANSACTIONS_MONTHS, fetchAllExpenses, oldestExpenseDate, windowStart } from './expenseQueries';
+import { NO_FILTERS, TransactionFilters, activeCount, dateBounds, expenseMatches, incomeMatches } from './transactionFilters';
+import FilterSheet from './FilterSheet';
+import FilterChips from './FilterChips';
+import FullWindow from '../../shared/components/FullWindow';
+import ReceiptsGallery from '../receipts/ReceiptsGallery';
+import ReceiptViewer from '../receipts/ReceiptViewer';
+import { useReceipts } from '../receipts/useReceipts';
+import { deleteReceipt, ReceiptError } from '../receipts/receiptService';
+import { receiptProblemKey } from '../receipts/receiptFile';
+import { showToast } from '../../shared/lib/toast';
+import { alertDialog, confirmDialog } from '../../shared/components/Dialog';
+
+// The category chip that shows only income (not a real category name)
+const INCOME_CHIP = '__income';
 
 export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) => void }) {
-  const { user, profile } = useAuth();
+  const { user, profile, editIncome } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [alsoReceipt, setAlsoReceipt] = useState(false); // "Also delete its receipt" in the delete box
   const [isDeleting, setIsDeleting] = useState(false);
   const accounts = useAccounts(user?.uid);
   const { t, dateLocale } = useI18n();
+  // Receipts: the window from the header button, and one receipt opened from its icon on a row
+  const [receiptsOpen, setReceiptsOpen] = useState(false);
+  const receipts = useReceipts(user?.uid, receiptsOpen);
+  const [viewing, setViewing] = useState<Expense | null>(null);
+
+  // The expense is already gone (on the phone at least); the receipt needs the server
+  const deleteReceiptAfter = (receiptId: string) => {
+    deleteReceipt(receiptId)
+      .then(() => showToast('receipt.deleted'))
+      .catch(err => showToast(err instanceof ReceiptError && err.code === 'offline' ? 'receipt.deleteLater' : 'receipt.problem.delete'));
+  };
+
+  const deleteRowReceipt = async (exp: Expense) => {
+    if (!exp.receiptId || !(await confirmDialog(t('receipt.deleteConfirm'), { danger: true }))) return;
+    try {
+      await deleteReceipt(exp.receiptId);
+      setViewing(null);
+      showToast('receipt.deleted');
+    } catch (err) {
+      showToast(receiptProblemKey(err instanceof ReceiptError ? err.code : undefined));
+    }
+  };
 
   const currencySymbol = MAJOR_CURRENCIES.find(c => c.code === profile?.currency)?.symbol || '৳';
+
+  // Only the last few months are read (Firestore counts every read); "Show older" adds 3 more months each time
+  const [months, setMonths] = useState(TRANSACTIONS_MONTHS);
+  const [oldest, setOldest] = useState<string | null>(null);
+  // The filter sheet. A date filter reads exactly those dates instead of the recent months.
+  const [filters, setFilters] = useState<TransactionFilters>(NO_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const bounds = filters.date ? dateBounds(filters.date) : null;
+  const since = bounds?.from ?? windowStart(months);
+  const until = bounds?.to ?? null;
+  const hasOlder = !bounds && !!oldest && oldest < since;
+
+  useEffect(() => {
+    if (!user) return;
+    oldestExpenseDate(user.uid).then(setOldest).catch(() => setOldest(null));
+  }, [user, expenses.length]);
 
   useEffect(() => {
     if (!user) return;
@@ -33,6 +88,8 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
     const q = query(
       collection(db, 'expenses'),
       where('uid', '==', user.uid),
+      where('date', '>=', since),
+      ...(until ? [where('date', '<', until)] : []),
       orderBy('date', 'desc')
     );
 
@@ -41,7 +98,10 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
     });
 
     return unsubscribe;
-  }, [user]);
+  }, [user, since, until]);
+
+  // Exports cover every expense that matches the search and category, not just the months on screen
+  const allMatching = async () => (await fetchAllExpenses(user!.uid)).filter(matches);
 
   // Worth it or regret: one tap sets it, tapping the same one again clears it
   const setFeeling = async (exp: Expense, feeling: 'worth' | 'regret') => {
@@ -64,6 +124,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
       if (expense && !expense.debtId) adjustBalance(batch, accounts, expense.accountId, expense.amount, 'expenseDelete', expense.title);
       await saved(batch.commit());
       setDeletingId(null);
+      if (expense?.receiptId && alsoReceipt) deleteReceiptAfter(expense.receiptId);
     } catch (error) {
       console.error("Error deleting expense:", error);
       alertDialog(t('expenses.deleteFailed'));
@@ -72,14 +133,29 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
     }
   };
 
-  const filteredExpenses = expenses.filter(exp => {
+  function matches(exp: Expense) {
     const matchesSearch = exp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          exp.category.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'All' || exp.category === filterCategory;
-    return matchesSearch && matchesCategory;
-  });
+    return matchesSearch && matchesCategory && expenseMatches(exp, filters, bounds);
+  }
+  const filteredExpenses = expenses.filter(matches);
+  const nothingToExport = filteredExpenses.length === 0 && !hasOlder;
 
-  const categories = ['All', ...Array.from(new Set(expenses.map(e => e.category)))];
+  // Income in the same months, shown in green; the Income chip shows only income
+  const incomes = useIncome(user?.uid, since);
+  const term = searchTerm.toLowerCase();
+  const shownIncomes = filterCategory === 'All' || filterCategory === INCOME_CHIP
+    ? incomes.filter(d => (!term || (d.title || '').toLowerCase().includes(term) || (d.category || '').toLowerCase().includes(term)) && incomeMatches(d, filters, bounds))
+    : [];
+  const shownExpenses = filterCategory === INCOME_CHIP ? [] : filteredExpenses;
+  type Row = { kind: 'expense'; exp: Expense; date: string } | { kind: 'income'; inc: Deposit; date: string };
+  const rows: Row[] = [
+    ...shownExpenses.map(exp => ({ kind: 'expense' as const, exp, date: exp.date })),
+    ...shownIncomes.map(inc => ({ kind: 'income' as const, inc, date: inc.date })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+
+  const categories = ['All', INCOME_CHIP, ...Array.from(new Set(expenses.map(e => e.category)))];
 
   return (
     <div className="space-y-8 pb-6">
@@ -90,8 +166,23 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
         </div>
         <div className="flex items-center gap-2">
         <button
-          onClick={() => downloadFile(`xpences-transactions-${format(new Date(), 'yyyy-MM-dd')}.csv`, toCSV(filteredExpenses, profile?.currency || 'BDT'), 'text/csv;charset=utf-8')}
-          disabled={filteredExpenses.length === 0}
+          onClick={() => setReceiptsOpen(true)}
+          title={t('receipts.title')}
+          aria-label={t('receipts.title')}
+          className="w-10 h-10 bg-card rounded-xl shadow-soft border border-card-border flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors"
+        >
+          <ReceiptIcon size={18} />
+        </button>
+        <button
+          onClick={async () => {
+            try {
+              downloadFile(`xpences-transactions-${format(new Date(), 'yyyy-MM-dd')}.csv`, toCSV(await allMatching(), profile?.currency || 'BDT'), 'text/csv;charset=utf-8');
+            } catch (err) {
+              console.error('Could not export transactions:', err);
+              alertDialog(t('expenses.exportFailed'));
+            }
+          }}
+          disabled={nothingToExport}
           title={t('expenses.export')}
           aria-label={t('expenses.export')}
           className="w-10 h-10 bg-card rounded-xl shadow-soft border border-card-border flex items-center justify-center text-slate-400 hover:text-indigo-600 disabled:opacity-40 transition-colors"
@@ -100,10 +191,10 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
         </button>
         <SheetsExportButton
           variant="icon"
-          disabled={filteredExpenses.length === 0}
-          build={() => ({
+          disabled={nothingToExport}
+          build={async () => ({
             title: t('sheets.titleExpenses', { date: format(new Date(), 'd MMM yyyy', { locale: dateLocale }) }),
-            tabs: [{ title: tabTitle(t('sheet.tabExpenses')), rows: expenseRows(filteredExpenses, profile?.currency || 'BDT', t, cat => categoryLabel(t, cat)) }],
+            tabs: [{ title: tabTitle(t('sheet.tabExpenses')), rows: expenseRows(await allMatching(), profile?.currency || 'BDT', t, cat => categoryLabel(t, cat)) }],
           })}
         />
         </div>
@@ -111,16 +202,30 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
 
       {/* Search & Filter */}
       <div className="space-y-5">
-        <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={20} />
-          <input
-            type="text"
-            placeholder={t('expenses.search')}
-            className="w-full pl-12 pr-4 py-4 bg-card rounded-2xl border border-card-border shadow-soft focus:ring-2 focus:ring-indigo-600 outline-none transition-all text-foreground"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative group flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={20} />
+            <input
+              type="text"
+              placeholder={t('expenses.search')}
+              className="w-full pl-12 pr-4 py-4 bg-card rounded-2xl border border-card-border shadow-soft focus:ring-2 focus:ring-indigo-600 outline-none transition-all text-foreground"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={() => setFiltersOpen(true)}
+            aria-label={t('filters.title')}
+            className="relative shrink-0 w-14 h-14 bg-card rounded-2xl border border-card-border shadow-soft flex items-center justify-center text-slate-500 hover:text-indigo-600"
+          >
+            <SlidersHorizontal size={20} />
+            {activeCount(filters) > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-indigo-600 text-white text-[11px] font-bold flex items-center justify-center">{activeCount(filters)}</span>
+            )}
+          </button>
         </div>
+        <FilterChips filters={filters} setFilters={setFilters} accounts={accounts} symbol={currencySymbol} />
+        <FilterSheet open={filtersOpen} onClose={() => setFiltersOpen(false)} value={filters} onApply={setFilters} accounts={accounts} />
 
         <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar px-1">
           {categories.map(cat => (
@@ -133,7 +238,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
                   : 'bg-card text-muted border border-card-border'
               }`}
             >
-              {cat === 'All' ? t('expenses.all') : categoryLabel(t, cat)}
+              {cat === 'All' ? t('expenses.all') : cat === INCOME_CHIP ? t('income.chip') : categoryLabel(t, cat)}
             </button>
           ))}
         </div>
@@ -161,6 +266,12 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
                   <h3 className="font-bold text-xl text-foreground">{t('expenses.deleteTitle')}</h3>
                   <p className="text-sm text-muted">{t('expenses.deleteBody')}</p>
                 </div>
+                {expenses.find(e => e.id === deletingId)?.receiptId && (
+                  <label className="flex items-center justify-center gap-2.5 cursor-pointer">
+                    <input type="checkbox" className="w-4 h-4 accent-indigo-600" checked={alsoReceipt} onChange={e => setAlsoReceipt(e.target.checked)} />
+                    <span className="text-sm font-medium text-foreground">{t('receipt.alsoDelete')}</span>
+                  </label>
+                )}
                 <div className="flex gap-3">
                   <button
                     onClick={() => setDeletingId(null)}
@@ -183,7 +294,9 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
         </AnimatePresence>
 
         <AnimatePresence mode="popLayout">
-          {filteredExpenses.map((exp, index) => {
+          {rows.map((row, index) => {
+            if (row.kind === 'income') return <IncomeRow key={`inc-${row.inc.id}`} income={row.inc} symbol={currencySymbol} onOpen={() => editIncome(row.inc)} />;
+            const exp = row.exp;
             const categoryConfig = DEFAULT_CATEGORIES.find(c => c.name === exp.category);
             const Icon = categoryConfig?.icon || Tag;
             return (
@@ -217,14 +330,25 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
                         {exp.split && <Users size={10} className="text-amber-500" aria-label={t('expenses.split')} />}
                       </div>
                       {exp.accountName && (
-                        <p className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-muted">
+                        <p className="flex items-center gap-1 mt-1 text-[11px] font-semibold text-muted">
                           <Wallet size={10} /> {exp.accountName === 'Cash' ? t('accounts.cash') : exp.accountName}
                         </p>
                       )}
                     </div>
                   </div>
                     <div className="text-right">
-                      <p className="font-bold text-foreground text-lg">-{currencySymbol}{exp.amount.toLocaleString()}</p>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {exp.receiptId && (
+                          <button
+                            onClick={() => setViewing(exp)}
+                            aria-label={t('receipt.view')}
+                            className="p-1 rounded-lg text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+                          >
+                            <ReceiptIcon size={15} />
+                          </button>
+                        )}
+                        <p className="font-bold text-foreground text-lg">-{currencySymbol}{exp.amount.toLocaleString()}</p>
+                      </div>
                       <div className="flex items-center justify-end gap-2 mt-1 sm:opacity-0 sm:group-hover:opacity-100 transition-all transform sm:translate-y-2 sm:group-hover:translate-y-0">
                         <button
                           onClick={() => onEdit(exp)}
@@ -234,7 +358,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
                           <Edit2 size={16} />
                         </button>
                         <button
-                          onClick={() => setDeletingId(exp.id)}
+                          onClick={() => { setAlsoReceipt(false); setDeletingId(exp.id); }}
                           aria-label={t('expenses.delete')}
                           className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors"
                         >
@@ -277,6 +401,44 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
           </div>
         )}
       </div>
+
+      {hasOlder && (
+        <div className="space-y-2 text-center">
+          {(searchTerm.trim() || filterCategory !== 'All' || activeCount(filters) > 0) && (
+            <p className="text-xs text-muted font-medium">{t('expenses.searchWindow', { months })}</p>
+          )}
+          <button
+            onClick={() => setMonths(m => m + TRANSACTIONS_MONTHS)}
+            className="w-full py-3 bg-card text-indigo-600 dark:text-indigo-400 border border-card-border rounded-2xl text-sm font-bold"
+          >
+            {t('expenses.showOlder')}
+          </button>
+        </div>
+      )}
+
+      <FullWindow
+        open={receiptsOpen}
+        atRoot
+        onClose={() => setReceiptsOpen(false)}
+        onBack={() => setReceiptsOpen(false)}
+        pageKey="receipts"
+        icon={<ReceiptIcon size={20} className="text-indigo-600 dark:text-indigo-400" />}
+        title={t('receipts.title')}
+      >
+        <ReceiptsGallery
+          receipts={receipts}
+          expenses={expenses}
+          onOpenExpense={(exp) => { setReceiptsOpen(false); onEdit(exp); }}
+        />
+      </FullWindow>
+
+      {viewing?.receiptId && (
+        <ReceiptViewer
+          receiptId={viewing.receiptId}
+          onClose={() => setViewing(null)}
+          onDelete={() => deleteRowReceipt(viewing)}
+        />
+      )}
     </div>
   );
 }

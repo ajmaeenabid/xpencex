@@ -37,7 +37,7 @@ export default function FeesCard({ expenses, symbol }: { expenses: Expense[]; sy
       ) : (
         <>
           <div>
-            <p className="text-[11px] text-muted font-semibold">{t('fees.thisMonth')}</p>
+            <p className="text-[12px] text-muted font-semibold">{t('fees.thisMonth')}</p>
             <p className="text-2xl font-bold text-foreground tabular-nums">{money(summary.thisMonth)}</p>
           </div>
 
@@ -53,7 +53,7 @@ export default function FeesCard({ expenses, symbol }: { expenses: Expense[]; sy
           )}
 
           <div>
-            <p className="text-[11px] text-muted font-semibold mb-2">{t('fees.lastMonths')}</p>
+            <p className="text-[12px] text-muted font-semibold mb-2">{t('fees.lastMonths')}</p>
             <div className="flex items-end gap-2 h-24" role="list">
               {summary.months.map(m => (
                 <div key={m.month} role="listitem" className="flex-1 flex flex-col items-center gap-1 h-full justify-end" aria-label={`${format(new Date(`${m.month}-01T00:00:00`), 'MMMM', { locale: dateLocale })}: ${money(m.total)}`}>
@@ -61,7 +61,7 @@ export default function FeesCard({ expenses, symbol }: { expenses: Expense[]; sy
                     className="w-full rounded-md bg-indigo-500/80 dark:bg-indigo-400/80"
                     style={{ height: `${highest > 0 ? Math.max(m.total > 0 ? 6 : 2, (m.total / highest) * 100) : 2}%` }}
                   />
-                  <span className="text-[10px] font-semibold text-muted">{format(new Date(`${m.month}-01T00:00:00`), 'MMM', { locale: dateLocale })}</span>
+                  <span className="text-[11px] font-semibold text-muted">{format(new Date(`${m.month}-01T00:00:00`), 'MMM', { locale: dateLocale })}</span>
                 </div>
               ))}
             </div>

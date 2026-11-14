@@ -163,7 +163,11 @@ service cloud.firestore {
              (!('categoryBudgets' in data) || (data.categoryBudgets is map && data.categoryBudgets.size() <= 50)) &&
              (!('layout' in data) || isValidLayout(data.layout)) &&
              (!('driveBackup' in data) || isValidDriveBackup(data.driveBackup)) &&
-             (!('welcome' in data) || data.welcome in ['slides', 'tour', 'done']);
+             (!('welcome' in data) || data.welcome in ['slides', 'tour', 'done']) &&
+             // Phone reminders: which kinds are on, and the daily time (src/features/reminders)
+             (!('reminders' in data) || (data.reminders is map && data.reminders.keys().hasOnly(['on', 'time']) &&
+               (!('on' in data.reminders) || (data.reminders.on is map && data.reminders.on.size() <= 12)) &&
+               (!('time' in data.reminders) || (data.reminders.time is string && data.reminders.time.matches('^[0-2][0-9]:[0-5][0-9]$')))));
     }
 
     // A comment about the app (src/features/feedback/feedback.ts). Checked and masked before saving.
@@ -177,7 +181,8 @@ service cloud.firestore {
 
     // Google Drive backup settings (src/features/connect/googleApps.ts)
     function isValidDriveBackup(b) {
-      return b is map && b.keys().hasOnly(['auto', 'every', 'unit', 'lastAt']) &&
+      return b is map && b.keys().hasOnly(['auto', 'every', 'unit', 'lastAt', 'receipts']) &&
+             (!('receipts' in b) || b.receipts is bool) &&
              (!('auto' in b) || b.auto is bool) &&
              (!('every' in b) || (b.every is int && b.every >= 1 && b.every <= 72)) &&
              (!('unit' in b) || b.unit in ['hours', 'days']) &&
@@ -197,18 +202,22 @@ service cloud.firestore {
              (!('smsRef' in data) || (data.smsRef is string && data.smsRef.size() <= 100)) &&
              (!('fee' in data) || (data.fee is number && data.fee >= 0 && data.fee <= 1000000)) &&
              (!('debtId' in data) || (data.debtId is string && data.debtId.size() <= 100)) &&
-             (!('feeling' in data) || data.feeling in ['worth', 'regret']);
+             (!('feeling' in data) || data.feeling in ['worth', 'regret']) &&
+             // Set by the AI server when a receipt is added (ai-server/src/receipts.ts); kept when the expense is edited
+             (!('receiptId' in data) || (data.receiptId is string && data.receiptId.size() <= 100));
     }
 
     // Festival funds: a savings goal for an occasion (src/features/funds/funds.ts)
+    // A savings goal (src/features/funds). The end date is optional; fromAccounts counts money moved in per account.
     function isValidFund(data) {
-      return data.keys().hasAll(['uid', 'name', 'target', 'dueDate', 'saved', 'createdAt']) &&
-             data.keys().hasOnly(['uid', 'name', 'target', 'dueDate', 'saved', 'createdAt']) &&
+      return data.keys().hasAll(['uid', 'name', 'target', 'saved', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'name', 'target', 'dueDate', 'saved', 'createdAt', 'fromAccounts']) &&
              data.uid == request.auth.uid &&
              data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
              isPositive(data.target) &&
-             isValidDateString(data.dueDate) &&
+             (!('dueDate' in data) || isValidDateString(data.dueDate)) &&
              data.saved is number && data.saved >= 0 &&
+             (!('fromAccounts' in data) || (data.fromAccounts is map && data.fromAccounts.size() <= 50)) &&
              isValidDateString(data.createdAt);
     }
 
@@ -271,22 +280,42 @@ service cloud.firestore {
              data.accountId is string && data.accountId.size() >= 1 && data.accountId.size() <= 100 &&
              data.kind in ['set', 'change'] &&
              data.amount is number &&
-             data.reason in ['start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete', 'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment', 'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted', 'cashOut', 'cashIn', 'samityPaid', 'samityPayout', 'samityUndo'] &&
+             data.reason in ['start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete', 'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment', 'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted', 'cashOut', 'cashIn', 'samityPaid', 'samityPayout', 'samityUndo', 'income', 'incomeEdit', 'incomeDelete', 'goalIn', 'goalOut'] &&
              (!('previous' in data) || data.previous is number) &&
              (!('title' in data) || (data.title is string && data.title.size() <= 100)) &&
              isValidDateString(data.at);
     }
 
+    // Money in. Income can be recorded without an account (src/features/income).
     function isValidDeposit(data) {
-      return data.keys().hasAll(['uid', 'accountId', 'accountName', 'amount', 'date']) &&
+      return data.keys().hasAll(['uid', 'amount', 'date']) &&
              data.uid == request.auth.uid &&
-             data.accountId is string && data.accountId.size() <= 100 &&
-             data.accountName is string && data.accountName.size() <= 120 &&
+             (!('accountId' in data) || (data.accountId is string && data.accountId.size() <= 100)) &&
+             (!('accountName' in data) || (data.accountName is string && data.accountName.size() <= 120)) &&
              isPositive(data.amount) &&
              isValidDateString(data.date) &&
              (!('title' in data) || (data.title is string && data.title.size() <= 100)) &&
-             (!('source' in data) || data.source in ['monthly', 'sms', 'chat', 'loan']) &&
-             (!('smsRef' in data) || (data.smsRef is string && data.smsRef.size() <= 100));
+             (!('source' in data) || data.source in ['monthly', 'sms', 'chat', 'loan', 'manual']) &&
+             (!('smsRef' in data) || (data.smsRef is string && data.smsRef.size() <= 100)) &&
+             (!('category' in data) || (data.category is string && data.category.size() <= 50)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+             (!('ruleId' in data) || (data.ruleId is string && data.ruleId.size() <= 100)) &&
+             (!('transfer' in data) || data.transfer is bool);
+    }
+
+    // A monthly income (src/features/income/incomeService.ts)
+    function isValidIncomeRule(data) {
+      return data.keys().hasAll(['uid', 'title', 'amount', 'category', 'day', 'nextDate']) &&
+             data.uid == request.auth.uid &&
+             data.title is string && data.title.size() <= 100 &&
+             isPositive(data.amount) &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             data.day is int && data.day >= 1 && data.day <= 31 &&
+             isValidDateString(data.nextDate) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+             (!('accountId' in data) || (data.accountId is string && data.accountId.size() <= 100)) &&
+             (!('accountName' in data) || (data.accountName is string && data.accountName.size() <= 120)) &&
+             (!('createdAt' in data) || isValidDateString(data.createdAt));
     }
 
     function isValidRecurring(data) {
@@ -367,6 +396,20 @@ service cloud.firestore {
       allow delete: if isDocOwner();
     }
 
+    match /incomeRules/{ruleId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidIncomeRule(request.resource.data);
+      allow update: if isDocOwner() && isValidIncomeRule(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    // The person's own income categories, kept apart from expense categories
+    match /incomeCategories/{categoryId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidCategory(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
     match /recurring/{ruleId} {
       allow read: if isDocOwner();
       allow create: if isAuthenticated() && isValidRecurring(request.resource.data);
@@ -392,6 +435,8 @@ service cloud.firestore {
     match /deposits/{depositId} {
       allow read: if isDocOwner();
       allow create: if isAuthenticated() && isValidDeposit(request.resource.data);
+      // Income can be edited (amount, account, category...); the uid can't change
+      allow update: if isDocOwner() && isValidDeposit(request.resource.data) && uidNotModified();
       allow delete: if isDocOwner();
     }
 
@@ -470,6 +515,24 @@ service cloud.firestore {
       allow read: if isDocOwner();
       allow create: if isAuthenticated() && isValidFeedback(request.resource.data);
       allow update, delete: if false;
+    }
+
+    // Receipt photos and PDFs. The file is in R2; this is its record. Only the AI server adds or removes them
+    // (ai-server/src/receipts.ts), so the 100 per person limit can't be skipped.
+    match /receipts/{receiptId} {
+      allow read: if isDocOwner();
+      allow write: if false;
+    }
+
+    // Whether an account ever had a device, so only a brand-new account's first device skips approval.
+    // Only the AI server reads or writes it (ai-server/src/devices.ts).
+    match /deviceHistory/{uid} {
+      allow read, write: if false;
+    }
+
+    // Error reports from phones (ai-server/src/errorReports.ts). The admin sees them through the AI server.
+    match /errorReports/{reportId} {
+      allow read, write: if false;
     }
 
     // Linked Google apps: the locked Google token. Only the AI server reads or writes it.

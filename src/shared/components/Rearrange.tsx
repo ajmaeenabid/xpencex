@@ -1,16 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion, Reorder, useDragControls } from 'motion/react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { ArrowUpDown, Check, GripHorizontal } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../../app/App';
 import { useI18n } from '../i18n';
 import { cn } from '../lib/utils';
-import { mergeOrder, placeVisible } from '../lib/sectionOrder';
+import { dropIndex, mergeOrder, moveTo, placeVisible } from '../lib/sectionOrder';
 
 // Long-press a card this long to pick it up; moving more than this first counts as scrolling
 const HOLD_MS = 350;
 const MOVE_TOLERANCE = 10;
+// Near the top or bottom of the screen, a lifted card scrolls the page (the bottom bar covers the last part)
+const EDGE_TOP = 100;
+const EDGE_BOTTOM = 170;
+const SLIDE = 'transform 200ms ease';
 
 export type PageLayout = 'home' | 'reports' | 'profile';
 
@@ -27,14 +31,18 @@ export function useRearrange(page: PageLayout, defaultIds: string[]) {
   const orderRef = useRef(order);
   orderRef.current = order;
 
-  const save = () => {
+  /** Changes the order and saves it */
+  const commit = (change: (full: string[]) => string[]) => {
+    const next = change(orderRef.current);
+    orderRef.current = next;
+    setOrder(next);
     if (!user) return;
-    updateDoc(doc(db, 'users', user.uid), { [`layout.${page}`]: orderRef.current })
+    updateDoc(doc(db, 'users', user.uid), { [`layout.${page}`]: next })
       .then(refreshProfile)
       .catch(err => console.error('Could not save the card order:', err));
   };
 
-  return { editing, toggle: () => setEditing(e => !e), order, setOrder, save };
+  return { page, editing, toggle: () => setEditing(e => !e), order, commit };
 }
 
 export type RearrangeState = ReturnType<typeof useRearrange>;
@@ -71,23 +79,130 @@ export function RearrangeButton({ layout, size = 'md' }: { layout: RearrangeStat
   );
 }
 
+/** A card being dragged. Measured once when it is lifted; the cards only move by CSS while dragging. */
+interface Drag {
+  els: HTMLElement[]; // the cards on screen, top to bottom (cards with nothing to show are left out)
+  centers: number[]; // their middles on the page, before the drag
+  from: number;
+  to: number;
+  shift: number; // how far the others slide to make room: the lifted card's height and the gap
+  startY: number;
+  startScroll: number;
+  lastY: number;
+  raf: number;
+}
+
 /**
  * A page's movable cards. While unlocked, long-press a card to lift it and drag it up or down;
- * the others slide out of the way. A short touch still scrolls the page as usual.
+ * the others slide out of the way, and near the screen's edge the page scrolls. A short touch still
+ * scrolls the page as usual. Nothing re-renders during the drag; the new order is saved on letting go.
  */
 export function RearrangeList({ layout, sections, className }: { layout: RearrangeState; sections: Section[]; className?: string }) {
   const { t } = useI18n();
   const byId = new Map(sections.map(s => [s.id, s.node]));
   const visible = layout.order.filter(id => byId.get(id));
-  const lifted = useRef(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<Drag | null>(null);
+  const [lifted, setLifted] = useState<string | null>(null);
+  const settle = useRef<HTMLElement[] | null>(null); // cards to put back in place once the new order is drawn
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const stopListening = useRef<() => void>(() => {});
 
   // Once a card is lifted, stop the finger from also scrolling the page
   useEffect(() => {
     if (!layout.editing) return;
-    const block = (e: TouchEvent) => { if (lifted.current && e.cancelable) e.preventDefault(); };
+    const block = (e: TouchEvent) => { if (drag.current && e.cancelable) e.preventDefault(); };
     document.addEventListener('touchmove', block, { passive: false });
     return () => document.removeEventListener('touchmove', block);
   }, [layout.editing]);
+
+  // The new order is drawn: clear the slides before the screen shows it, so nothing jumps
+  useLayoutEffect(() => {
+    if (lifted || !settle.current) return;
+    for (const el of settle.current) { el.style.transition = ''; el.style.transform = ''; el.style.zIndex = ''; }
+    settle.current = null;
+  }, [lifted, layout.order]);
+
+  const follow = (clientY: number) => {
+    const d = drag.current;
+    if (!d) return;
+    d.lastY = clientY;
+    const dy = clientY - d.startY + window.scrollY - d.startScroll;
+    d.els[d.from].style.transform = `translateY(${dy}px) scale(1.03)`;
+    const to = dropIndex(d.centers, d.from, d.centers[d.from] + dy);
+    if (to === d.to) return;
+    d.to = to;
+    d.els.forEach((el, i) => {
+      if (i === d.from) return;
+      const s = d.from < to && i > d.from && i <= to ? -d.shift : to < d.from && i >= to && i < d.from ? d.shift : 0;
+      el.style.transform = s ? `translateY(${s}px)` : '';
+    });
+  };
+
+  const onMove = (e: PointerEvent) => follow(e.clientY);
+
+  const scrollNearEdge = () => {
+    const d = drag.current;
+    if (!d) return;
+    const y = d.lastY;
+    const bottom = window.innerHeight - EDGE_BOTTOM;
+    const speed = y < EDGE_TOP ? -Math.ceil((EDGE_TOP - y) / 6) : y > bottom ? Math.ceil((y - bottom) / 6) : 0;
+    if (speed) { window.scrollBy(0, speed); follow(y); }
+    d.raf = requestAnimationFrame(scrollNearEdge);
+  };
+
+  const onDrop = () => {
+    const d = drag.current;
+    if (!d) return;
+    stopListening.current();
+    drag.current = null;
+    if (d.to !== d.from) {
+      settle.current = d.els;
+      const shown = d.els.map(el => el.dataset.id!);
+      layoutRef.current.commit(full => placeVisible(full, moveTo(shown, d.from, d.to)));
+    } else {
+      // Not moved: glide back into place
+      const el = d.els[d.from];
+      el.style.transition = SLIDE;
+      el.style.transform = '';
+      window.setTimeout(() => { el.style.transition = ''; el.style.zIndex = ''; }, 220);
+      d.els.forEach(other => { if (other !== el) other.style.transition = ''; });
+    }
+    setLifted(null);
+  };
+
+  const lift = (id: string, clientY: number) => {
+    const els = Array.from(listRef.current?.children || [])
+      .filter((el): el is HTMLElement => el instanceof HTMLElement && !!el.dataset.id && el.offsetHeight > 0);
+    const from = els.findIndex(el => el.dataset.id === id);
+    if (from < 0) return;
+    const boxes = els.map(el => { const r = el.getBoundingClientRect(); return { top: r.top + window.scrollY, height: r.height }; });
+    const gap = boxes.length > 1 ? Math.max(0, boxes[1].top - (boxes[0].top + boxes[0].height)) : 0;
+    drag.current = {
+      els, centers: boxes.map(b => b.top + b.height / 2), from, to: from, shift: boxes[from].height + gap,
+      startY: clientY, startScroll: window.scrollY, lastY: clientY, raf: 0,
+    };
+    els.forEach((el, i) => { el.style.transition = i === from ? 'none' : SLIDE; });
+    els[from].style.zIndex = '30';
+    els[from].style.transform = 'scale(1.03)';
+    navigator.vibrate?.(12);
+    setLifted(id);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onDrop);
+    window.addEventListener('pointercancel', onDrop);
+    drag.current.raf = requestAnimationFrame(scrollNearEdge);
+    // These exact listeners, so letting go (or leaving the page) removes them
+    stopListening.current = () => {
+      cancelAnimationFrame(drag.current?.raf ?? 0);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onDrop);
+      window.removeEventListener('pointercancel', onDrop);
+    };
+  };
+
+  // Leaving the page mid-drag: stop listening
+  useEffect(() => () => { stopListening.current(); drag.current = null; }, []);
 
   return (
     <>
@@ -106,87 +221,65 @@ export function RearrangeList({ layout, sections, className }: { layout: Rearran
           </motion.p>
         )}
       </AnimatePresence>
-      <Reorder.Group
-        as="div"
-        axis="y"
-        values={visible}
-        onReorder={(next: string[]) => layout.setOrder(full => placeVisible(full, next))}
-        className={className}
-      >
+      <div ref={listRef} className={className}>
         {visible.map(id => (
-          <Row key={id} id={id} editing={layout.editing} lifted={lifted} onDrop={layout.save}>
+          <Row key={id} id={id} section={`${layout.page}:${id}`} editing={layout.editing} lifted={lifted === id} onLift={lift}>
             {byId.get(id)}
           </Row>
         ))}
-      </Reorder.Group>
+      </div>
     </>
   );
 }
 
-function Row({ id, editing, lifted, onDrop, children }: {
-  id: string; editing: boolean; lifted: React.MutableRefObject<boolean>; onDrop: () => void; children: React.ReactNode;
+function Row({ id, section, editing, lifted, onLift, children }: {
+  id: string; section: string; editing: boolean; lifted: boolean; onLift: (id: string, clientY: number) => void; children: React.ReactNode;
 }) {
-  const controls = useDragControls();
   const timer = useRef<number | undefined>(undefined);
   const start = useRef({ x: 0, y: 0 });
-  const [dragging, setDragging] = useState(false);
+  const latestY = useRef(0);
 
   const cancelHold = () => { window.clearTimeout(timer.current); timer.current = undefined; };
   useEffect(() => cancelHold, []);
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (!editing) return;
-    const event = e.nativeEvent;
+    if (!editing || e.button > 0) return;
     start.current = { x: e.clientX, y: e.clientY };
+    latestY.current = e.clientY;
     cancelHold();
     timer.current = window.setTimeout(() => {
       timer.current = undefined;
-      lifted.current = true;
-      setDragging(true);
-      navigator.vibrate?.(12);
-      controls.start(event);
+      onLift(id, latestY.current);
     }, HOLD_MS);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     if (timer.current === undefined) return;
+    latestY.current = e.clientY;
     if (Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > MOVE_TOLERANCE) cancelHold(); // scrolling
-  };
-  const drop = () => {
-    lifted.current = false;
-    setDragging(false);
-    onDrop();
   };
 
   return (
-    <Reorder.Item
-      as="div"
-      value={id}
-      dragListener={false}
-      dragControls={controls}
+    <div
+      data-id={id}
+      // "page:card", so search can find this card and scroll to it (goToPlace in App.tsx)
+      data-section={section}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={cancelHold}
       onPointerCancel={cancelHold}
-      onDragEnd={drop}
       onContextMenu={editing ? (e: React.MouseEvent) => e.preventDefault() : undefined}
-      // Cards slide into place only while they are being rearranged. Otherwise a card growing as its data
-      // arrives would make every card below it glide down, which looks like lag.
-      // (Reorder.Item's type only lists true, but it hands the value straight to motion, where false turns it off.)
-      layout={editing as true}
-      animate={{ scale: dragging ? 1.03 : editing ? 0.97 : 1 }}
-      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
       className={cn(
         // A card that renders nothing (for example the admin panel for other users) leaves no empty box
         'relative [&:has(>[data-card]:empty)]:hidden',
         editing && 'select-none [-webkit-touch-callout:none] cursor-grab',
-        dragging && 'cursor-grabbing z-30'
+        lifted && 'cursor-grabbing'
       )}
     >
       {editing && (
         <>
           <span aria-hidden="true" className={cn(
             'pointer-events-none absolute -inset-1.5 rounded-[2.4rem] border-2 border-dashed transition-colors',
-            dragging ? 'border-indigo-500 bg-indigo-500/5 shadow-2xl' : 'border-indigo-400/60'
+            lifted ? 'border-indigo-500 bg-indigo-500/5 shadow-2xl' : 'border-indigo-400/60'
           )} />
           <span aria-hidden="true" className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-10 h-6 rounded-full bg-indigo-600 text-white shadow-md">
             <GripHorizontal size={16} />
@@ -195,6 +288,6 @@ function Row({ id, editing, lifted, onDrop, children }: {
       )}
       {/* While moving cards, their own buttons don't react, so nothing opens by accident */}
       <div data-card="" className={cn(editing && 'pointer-events-none')}>{children}</div>
-    </Reorder.Item>
+    </div>
   );
 }

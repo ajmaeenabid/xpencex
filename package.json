@@ -1,7 +1,7 @@
 {
   "name": "xpencex",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.4",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test": "vitest run --exclude \"backup-before-google-signin/**\"",
+    "test": "vitest run --exclude \"tests/rules/**\" --exclude \"tests/e2e/**\"",
+    "test:e2e": "playwright test",
+    "test:rules": "node scripts/test-rules.mjs",
     "android:sync": "npm run build && node -e \"require('fs').rmSync('dist/download/xpencex.apk',{force:true})\" && npx cap sync android",
     "android:apk": "npm run android:sync && cd android && gradlew.bat assembleRelease",
     "android:release": "node scripts/android-release.mjs",
@@ -18,13 +20,16 @@
     "release:site": "npm run build && cd ai-server && npx wrangler deploy --config ../download-site/wrangler.jsonc"
   },
   "dependencies": {
+    "@capacitor-firebase/crashlytics": "^8.6.0",
     "@capacitor/android": "^8.6.0",
     "@capacitor/app": "^8.1.2",
     "@capacitor/app-launcher": "^8.0.1",
     "@capacitor/browser": "^8.0.5",
     "@capacitor/core": "^8.6.0",
     "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/local-notifications": "^8.3.0",
     "@capacitor/share": "^8.0.3",
+    "@capgo/capacitor-native-biometric": "^8.9.2",
     "@capgo/capacitor-share-target": "^8.0.65",
     "@capgo/capacitor-social-login": "^8.7.7",
     "@tailwindcss/vite": "^4.1.14",
@@ -45,6 +50,8 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.6.0",
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "@playwright/test": "^1.56.1",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
     "tailwindcss": "^4.1.14",

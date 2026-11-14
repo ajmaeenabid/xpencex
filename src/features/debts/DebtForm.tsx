@@ -111,7 +111,7 @@ export default function DebtForm({ uid, accounts, symbol, names, person: startPe
           <input type="checkbox" className="mt-0.5 w-4 h-4 shrink-0 accent-indigo-600" checked={moveAccount} disabled={accounts.length === 0} onChange={(e) => setMoveAccount(e.target.checked)} />
           <span className="text-sm font-semibold text-foreground">
             {t(isMoneyOut(kind) ? 'debts.takeFrom' : 'debts.addTo')}
-            <span className="block text-[11px] text-muted font-medium">{t(accounts.length ? 'debts.moveHint' : 'debts.noAccounts')}</span>
+            <span className="block text-[12px] text-muted font-medium">{t(accounts.length ? 'debts.moveHint' : 'debts.noAccounts')}</span>
           </span>
         </label>
         {moveAccount && accounts.length > 0 && (
@@ -122,7 +122,7 @@ export default function DebtForm({ uid, accounts, symbol, names, person: startPe
             <input type="checkbox" className="mt-0.5 w-4 h-4 shrink-0 accent-indigo-600" checked={spending} onChange={(e) => setSpending(e.target.checked)} />
             <span className="text-sm font-semibold text-foreground">
               {t('debts.countSpending')}
-              <span className="block text-[11px] text-muted font-medium">{t('debts.countSpendingHint')}</span>
+              <span className="block text-[12px] text-muted font-medium">{t('debts.countSpendingHint')}</span>
             </span>
           </label>
         )}

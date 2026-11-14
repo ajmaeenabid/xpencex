@@ -82,7 +82,7 @@ export default function ChatComposer({
                 ))}
               </div>
             </div>
-            <p className="text-[11px] text-muted font-medium mt-2">
+            <p className="text-[12px] text-muted font-medium mt-2">
               {isPaused ? t('chat.paused') : (
                 <>{t('chat.recordingBefore')} <span className="font-bold text-indigo-600 dark:text-indigo-400">{t('chat.send')}</span> {t('chat.recordingAfter')}</>
               )}
@@ -116,7 +116,7 @@ export default function ChatComposer({
               {liveCaption || t('chat.liveHint')}
             </p>
             {liveState !== 'connecting' && MAX_LIVE_SECONDS - liveSeconds <= TIME_WARNING_SECONDS && (
-              <p className="text-[11px] font-bold text-rose-500 mt-1">{t('chat.liveEndingSoon', { seconds: Math.max(0, MAX_LIVE_SECONDS - liveSeconds) })}</p>
+              <p className="text-[12px] font-bold text-rose-500 mt-1">{t('chat.liveEndingSoon', { seconds: Math.max(0, MAX_LIVE_SECONDS - liveSeconds) })}</p>
             )}
           </motion.div>
         ) : (

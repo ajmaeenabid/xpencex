@@ -164,12 +164,12 @@ function CurrencyTool({ state, setState, rates, ratesFailed, userCurrency, onSav
             <p className="mt-1 text-right text-3xl font-bold tabular-nums truncate leading-tight text-indigo-700 dark:text-indigo-300">
               {symbolOf(state.to)}{formatMoney(converted !== null ? round2(converted) : 0)}
             </p>
-            <p className="text-right text-[11px] text-muted font-medium">
+            <p className="text-right text-[12px] text-muted font-medium">
               {perUnit !== null && t('calc.rate', { from: state.from, rate: formatNumber(perUnit), to: state.to })}
             </p>
           </>
         ) : (
-          <p className="mt-1 h-[3.25rem] text-xs text-muted font-medium">{t(ratesFailed ? 'calc.ratesFailed' : 'calc.ratesLoading')}</p>
+          <p className="mt-1 min-h-[3.25rem] text-xs text-muted font-medium">{t(ratesFailed ? 'calc.ratesFailed' : 'calc.ratesLoading')}</p>
         )}
       </section>
 
@@ -323,7 +323,7 @@ function FinanceTool({ state, setState, userCurrency, uid, accounts, onManageAcc
         <Keypad onKey={onKey} decimals={FIELD_RULES[field].decimals > 0} />
       )}
 
-      <p role={problem ? 'alert' : undefined} className="shrink-0 h-4 px-1 text-[11px] leading-4 font-bold text-rose-600 dark:text-rose-400 truncate">
+      <p role={problem ? 'alert' : undefined} className="shrink-0 h-4 px-1 text-[12px] leading-4 font-bold text-rose-600 dark:text-rose-400 truncate">
         {problem ? t(problem) : ''}
       </p>
 
@@ -364,7 +364,7 @@ function PaymentTable({ loan, rate, symbol, onBack }: { loan: LoanResult; rate: 
   return (
     <div className="h-full flex flex-col gap-2">
       <section className="flex-1 min-h-0 overflow-y-auto no-scrollbar rounded-2xl border border-card-border bg-background/60">
-        <div className={cn(grid, 'sticky top-0 py-2 text-[11px] font-bold text-muted bg-[var(--card-solid)] border-b border-card-border')}>
+        <div className={cn(grid, 'sticky top-0 py-2 text-[12px] font-bold text-muted bg-[var(--card-solid)] border-b border-card-border')}>
           <span className="text-left">{t('fin.tableMonth')}</span>
           <span>{t('fin.tablePayment')} ({symbol})</span>
           <span>{t('fin.tableInterest')} ({symbol})</span>

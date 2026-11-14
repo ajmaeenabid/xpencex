@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Fund, fundPlan, quickAmounts, sortFunds, tidyAmount } from './funds';
+import { Fund, fundPlan, mainSource, quickAmounts, sortFunds, tidyAmount } from './funds';
 
 const now = new Date('2026-11-20T12:00:00.000Z');
 const inDays = (d: number) => new Date(now.getTime() + d * 86_400_000).toISOString();
@@ -44,5 +44,30 @@ describe('quick set-aside amounts', () => {
 
   it('never suggests tiny or repeated amounts', () => {
     expect(quickAmounts(100)).toEqual([10, 20]);
+  });
+});
+
+describe('savings goals without an end date', () => {
+  const now = new Date(2026, 10, 11);
+  const goal = (id: string, extra: Partial<Fund> = {}): Fund => ({ id, uid: 'u', name: id, target: 1000, saved: 0, createdAt: '2026-11-01T00:00:00.000Z', ...extra });
+
+  it('has no weekly plan and never passes', () => {
+    const p = fundPlan({ target: 1000, saved: 250 }, now);
+    expect(p).toMatchObject({ perWeek: 0, perMonth: 0, passed: false, reached: false, progress: 0.25, left: 750 });
+  });
+
+  it('sorts dated goals first, then undated (newest first), then passed ones', () => {
+    const sorted = sortFunds([
+      goal('passed', { dueDate: '2026-01-01T12:00:00.000Z' }),
+      goal('old-undated', { createdAt: '2026-10-01T00:00:00.000Z' }),
+      goal('soon', { dueDate: '2026-12-01T12:00:00.000Z' }),
+      goal('new-undated', { createdAt: '2026-11-05T00:00:00.000Z' }),
+    ], now);
+    expect(sorted.map(f => f.id)).toEqual(['soon', 'new-undated', 'old-undated', 'passed']);
+  });
+
+  it('suggests putting money back where most of it came from', () => {
+    expect(mainSource({ fromAccounts: { bkash: 200, bank: 500, gone: 0 } })).toBe('bank');
+    expect(mainSource({})).toBeNull();
   });
 });

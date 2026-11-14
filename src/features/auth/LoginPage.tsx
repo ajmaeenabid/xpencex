@@ -94,7 +94,7 @@ export default function LoginPage() {
         {error && (
           <div role="alert" className="px-1 space-y-0.5">
             <p className="text-rose-500 text-xs font-bold">{error}</p>
-            {errorCode && <p className="text-muted text-[10px] font-medium break-all">{errorCode}</p>}
+            {errorCode && <p className="text-muted text-[11px] font-medium break-all">{errorCode}</p>}
           </div>
         )}
 

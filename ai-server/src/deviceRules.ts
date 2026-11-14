@@ -53,6 +53,20 @@ export function deviceLabelFrom(userAgent: string) {
 /** Off only when the setting says exactly "false", so a typo keeps the safer behaviour */
 export const firstDeviceNeedsApproval = (setting: string | undefined) => setting !== 'false';
 
+/**
+ * Whether this device can come in without waiting for the admin. Only a brand-new account's very first
+ * device can (when the setting allows it); the admin's own first device always can, as nobody could approve it.
+ * An account that ever had a device needs approval again, even after the admin removed all its devices,
+ * so "Remove device" keeps working.
+ */
+export function mayAutoApprove({ deviceCount, everHadDevice, isAdmin, setting }: {
+  deviceCount: number; everHadDevice: boolean; isAdmin: boolean; setting: string | undefined;
+}) {
+  if (deviceCount > 0) return false;
+  if (isAdmin) return true;
+  return !everHadDevice && !firstDeviceNeedsApproval(setting);
+}
+
 export const canAskAgain = (decidedAt: string | undefined, now = Date.now()) =>
   !decidedAt || now - Date.parse(decidedAt) >= REQUEST_LIMIT_SECONDS * 1000;
 

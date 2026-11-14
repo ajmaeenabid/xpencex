@@ -1,6 +1,7 @@
 package com.xpence.app;
 
 import android.content.Intent;
+import android.os.Bundle;
 import android.util.Log;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.Plugin;
@@ -15,6 +16,13 @@ import ee.forgr.capacitor.social.login.SocialLoginPlugin;
  * Without it, the plugin refuses any request that asks Google for permissions ("scopes").
  */
 public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        // The app's own plugin for the home screen widget (src/features/widget/widget.ts)
+        registerPlugin(WidgetBridgePlugin.class);
+        super.onCreate(savedInstanceState);
+    }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {

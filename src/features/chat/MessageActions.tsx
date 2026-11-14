@@ -72,7 +72,7 @@ export function ShareButton({ text }: { text: string }) {
     <>
       <ActionButton label={t('chat.share')} onClick={share} disabled={busy}><Share2 size={15} /></ActionButton>
       {note && (
-        <span role="status" className="ml-1 text-[11px] font-semibold text-muted">
+        <span role="status" className="ml-1 text-[12px] font-semibold text-muted">
           {t(note === 'saved' ? 'chat.shareSaved' : note === 'copied' ? 'chat.shareCopied' : 'chat.shareFailed')}
         </span>
       )}

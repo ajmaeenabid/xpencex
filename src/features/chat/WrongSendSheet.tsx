@@ -44,7 +44,7 @@ export default function WrongSendSheet({ provider, onClose }: { provider: WrongS
               {STEPS.map(step => <li key={step} className="text-sm text-foreground leading-relaxed">{t(step)}</li>)}
             </ol>
 
-            <p className="text-[11px] text-muted font-medium leading-relaxed">
+            <p className="text-[12px] text-muted font-medium leading-relaxed">
               {t('wrongSend.checked', { date: format(new Date(`${CHECKED_ON}T12:00:00`), 'd MMM yyyy', { locale: dateLocale }) })}
             </p>
           </motion.div>

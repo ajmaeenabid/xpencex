@@ -68,7 +68,7 @@ export default function AccountList({ accounts, loans, symbol, revealed, onToggl
             { label: t('accounts.statMonthly'), value: money(monthly) },
           ].map(s => (
             <div key={s.label} className="min-w-0">
-              <dt className="text-[11px] text-muted font-semibold truncate">{s.label}</dt>
+              <dt className="text-[12px] text-muted font-semibold truncate">{s.label}</dt>
               <dd className="text-base font-bold text-foreground tabular-nums truncate">{s.value}</dd>
             </div>
           ))}

@@ -89,7 +89,7 @@ export default function DateField({ value, onChange, ariaLabel, className }: Pro
           </div>
           <div className="grid grid-cols-7" aria-hidden="true">
             {days.slice(0, 7).map(day => (
-              <span key={day.toISOString()} className="h-8 flex items-center justify-center text-[11px] font-bold text-muted">
+              <span key={day.toISOString()} className="h-8 flex items-center justify-center text-[12px] font-bold text-muted">
                 {format(day, 'EEEEE', { locale: dateLocale })}
               </span>
             ))}

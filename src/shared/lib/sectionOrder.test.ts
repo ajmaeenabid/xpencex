@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeOrder, placeVisible } from './sectionOrder';
+import { dropIndex, mergeOrder, moveTo, placeVisible } from './sectionOrder';
 
 describe('card order', () => {
   const defaults = ['budget', 'spending', 'accounts', 'calculator', 'recent'];
@@ -26,5 +26,28 @@ describe('card order', () => {
     // loan is hidden; the user drags recent above budget
     const full = ['budget', 'loan', 'spending', 'recent'];
     expect(placeVisible(full, ['recent', 'budget', 'spending'])).toEqual(['recent', 'loan', 'budget', 'spending']);
+  });
+});
+
+describe('dropIndex and moveTo', () => {
+  const centers = [100, 300, 500, 700];
+  it('stays put until it passes the middle of a neighbour', () => {
+    expect(dropIndex(centers, 1, 300)).toBe(1);
+    expect(dropIndex(centers, 1, 499)).toBe(1);
+    expect(dropIndex(centers, 1, 501)).toBe(2);
+  });
+  it('goes to the ends', () => {
+    expect(dropIndex(centers, 1, -50)).toBe(0);
+    expect(dropIndex(centers, 1, 9999)).toBe(3);
+    expect(dropIndex(centers, 3, 50)).toBe(0);
+  });
+  it('moves an item', () => {
+    expect(moveTo(['a', 'b', 'c', 'd'], 1, 3)).toEqual(['a', 'c', 'd', 'b']);
+    expect(moveTo(['a', 'b', 'c', 'd'], 3, 0)).toEqual(['d', 'a', 'b', 'c']);
+    expect(moveTo(['a', 'b'], 0, 0)).toEqual(['a', 'b']);
+  });
+  it('keeps hidden cards in their slots when the shown ones move', () => {
+    // "loan" is hidden; "a" moved below "c"
+    expect(placeVisible(['a', 'loan', 'b', 'c'], moveTo(['a', 'b', 'c'], 0, 2))).toEqual(['b', 'loan', 'c', 'a']);
   });
 });

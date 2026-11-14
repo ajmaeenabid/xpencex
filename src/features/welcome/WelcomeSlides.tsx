@@ -119,7 +119,7 @@ function Art({ index }: { index: number }) {
         </div>
         <div className="w-card s4-cal w-[230px] grid grid-cols-[auto_1fr_auto] gap-3 items-center px-3.5 py-3">
           <div className="w-10 rounded-[9px] overflow-hidden text-center border border-card-border">
-            <i className="block not-italic bg-purple-500 text-white text-[10px] font-bold py-0.5">{t('welcome.dec')}</i>
+            <i className="block not-italic bg-purple-500 text-white text-[11px] font-bold py-0.5">{t('welcome.dec')}</i>
             <b className="block text-lg py-0.5 text-foreground">10</b>
           </div>
           <span className="text-sm leading-snug"><b className="text-foreground">{t('welcome.installment')}</b><br /><small className="text-muted">{t('welcome.onTime')}</small></span>

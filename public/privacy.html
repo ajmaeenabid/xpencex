@@ -32,7 +32,7 @@
 <body>
 <main>
   <h1>Xpences privacy policy</h1>
-  <p class="date">Last updated: 8 November 2026</p>
+  <p class="date">Last updated: 12 November 2026</p>
   <p class="date"><a href="/privacy-bn.html" lang="bn">বাংলায় পড়ুন</a></p>
 
   <p>Xpences is an expense tracker with an AI assistant. This page explains what it collects, where that goes, and how you can delete it.</p>
@@ -43,7 +43,7 @@
       <li>Your money records are stored so that only you can read them. The app's admin can't see them.</li>
       <li>Using the AI assistant sends what you give it to Google, along with a list of your recent expenses.</li>
       <li>The assistant runs on Google's free Gemini service. <strong>Google may use what is sent to improve its products, and Google's human reviewers may read it.</strong> Please don't send anything you wouldn't want read.</li>
-      <li>We don't sell your data, show ads, or use analytics or tracking tools.</li>
+      <li>We don't sell your data, show ads, or use analytics or tracking tools. Error and crash reports are used only to fix problems.</li>
       <li>Xpences is for people aged 18 or over.</li>
     </ul>
   </div>
@@ -53,21 +53,23 @@
     <table>
       <tr><th>What</th><th>Details</th><th>Why</th></tr>
       <tr><td>Account</td><td>Your name, email address, profile photo link and user ID from Google sign-in, and the username you choose</td><td>To sign you in and show your account</td></tr>
-      <tr><td>Device</td><td>A device ID created by the app, a short description of your device taken from your browser (such as the phone and browser type), and the dates of your requests</td><td>To approve which devices can open your account</td></tr>
+      <tr><td>Device</td><td>A device ID created by the app, a short description of your device taken from your browser (such as the phone and browser type), the dates of your requests, and the date your account first got a device</td><td>To approve which devices can open your account. Only a brand-new account's first device opens without waiting for approval</td></tr>
       <tr><td>Money records</td><td>Expenses (with "worth it" or "regret" if you tag them), money received, accounts, balances and the history of each balance change, loans, festival savings goals, samity (savings group) rounds you record, recurring expenses, categories, budgets and your currency</td><td>To run the expense tracker</td></tr>
       <tr><td>Lend and borrow</td><td>The names you type for people you lend money to or borrow from, with the amounts, dates and any notes</td><td>To show who owes whom</td></tr>
       <tr><td>Chats</td><td>Your typed messages, the assistant's replies, written transcripts of live chats, a written version of your voice messages, and the names of files you attach</td><td>So you can return to your conversations</td></tr>
+      <tr><td>Error reports</td><td>When something goes wrong in the app: the error message (numbers, email addresses and anything that looks like a code are hidden), the screen you were on, the app version, the phone model and your username. Kept for 30 days</td><td>To find and fix problems</td></tr>
+      <tr><td>Receipts</td><td>Only if you add one: the photo or PDF of a receipt (photos are made smaller, and the hidden details a camera adds, such as where the photo was taken, are removed), with its type, size, the date it was added, where it was added (chat or Add expense) and which expense it belongs to. Up to 100</td><td>To show the receipt with its expense</td></tr>
       <tr><td>Linked Google apps</td><td>Only if you link Google Drive or Google Sheets: which ones you linked, the Google account's email address, the date you linked, and a permission key from Google, which we keep locked (encrypted). Also your Drive backup settings and the time of your last Drive backup</td><td>To back up to your Drive and export to your Sheets when you ask, or on the schedule you choose</td></tr>
       <tr><td>Comments you send</td><td>The text you write in Send feedback and when you sent it. Codes and passwords are blocked, and account, card and phone numbers are hidden before it is saved</td><td>So the app's admin can read your comments and improve Xpences</td></tr>
       <tr><td>Daily counts</td><td>How many AI messages, voice messages, live chats and files you used today</td><td>To apply the daily limits</td></tr>
     </table>
   </div>
-  <p>Some things stay only on your phone: your language, night mode, your optional PIN lock, and your calculator history, which you can clear in the calculator.</p>
+  <p>Some things stay only on your phone: your language, night mode, your optional PIN lock, your calculator history, which you can clear in the calculator, and copies of receipts you have opened, which are removed when you log out.</p>
 
   <h2>What we don't keep</h2>
   <ul>
     <li><strong>The sound of voice messages and live chats</strong> is sent to the AI and isn't saved by the app. A written version of what you said is saved in the chat, after the checks described below.</li>
-    <li><strong>Photos, PDFs and spreadsheets</strong> are sent to the AI and aren't saved by the app. Only the file's name stays in your chat.</li>
+    <li><strong>Photos, PDFs and spreadsheets</strong> are sent to the AI and aren't saved by the app, unless you choose to keep a photo or PDF as a receipt. Only the file's name stays in your chat.</li>
   </ul>
   <p>"Aren't saved by the app" describes Xpences only. See the next section for what Google may do with them.</p>
 
@@ -85,6 +87,7 @@
     <li>Typed messages and spreadsheets holding an OTP, PIN, password, NID number or recovery phrase are blocked and aren't sent.</li>
     <li>Account, card and phone numbers in typed messages and spreadsheets are hidden before they are sent or saved.</li>
     <li>Written versions of live chats and voice messages get the same checks before they are shown or saved.</li>
+    <li>Numbers inside photos and PDFs, such as a card number on a receipt, can't be hidden automatically, so avoid photos that show a full card number.</li>
   </ul>
   <div class="box">
     <p><strong>These checks can't cover sound or pictures.</strong> Voice recordings, live chat sound, photos and PDFs reach the AI exactly as they are, including anything stored inside the file. Please don't say or show codes, passwords or full account numbers, and cover them on a receipt or statement before you photograph it.</p>
@@ -93,6 +96,9 @@
   <h2>Your phone's permissions and SMS</h2>
   <ul>
     <li><strong>Microphone:</strong> used only after you tap the voice message or live chat button.</li>
+    <li><strong>Notifications:</strong> used only for the reminders you keep on in Profile. They are planned on your phone, and nothing about them is sent to us.</li>
+    <li><strong>Fingerprint or face unlock:</strong> only if you turn it on for the PIN lock. Your phone checks it, and Xpences never sees or stores your fingerprint or face.</li>
+    <li><strong>Home screen widget:</strong> shows today's and this month's spending on your home screen. You can hide the amounts in Profile.</li>
     <li><strong>Camera and files:</strong> used only when you choose Camera, Gallery or Files, and only for the item you pick.</li>
     <li><strong>SMS:</strong> Xpences never reads your SMS inbox. It only sees a message you paste or share into it yourself. Wallet and bank messages it recognises are read on your phone and aren't sent to the AI. Other messages you paste are treated like any typed message.</li>
   </ul>
@@ -103,26 +109,28 @@
     <li><strong>What Xpences can reach:</strong> only the files it creates in your Drive (your Xpences backups and exported sheets). It can't see, open or change any of your other files.</li>
     <li><strong>What is sent:</strong> a backup holds all your money records and chats, the same as a downloaded backup file. An export holds the records you chose to export. They go straight from the app to your Google account and are stored there, under Google's terms.</li>
     <li><strong>Automatic backups</strong> run only while the app is open, at the time you choose, and you can turn them off.</li>
+    <li><strong>Receipts in backups:</strong> only if you turn on Include receipts in Drive backup (it is off unless you do). Each receipt is added once, to a Receipts folder in your Xpences backups folder. If you back up with a password, the receipts are locked with it too. Receipts you delete in the app stay in your Drive until you delete them there.</li>
     <li><strong>Add to Google Calendar</strong> needs no linking. It opens Google Calendar with the event filled in (for example the loan name, amount and date), and nothing is saved there until you tap Save.</li>
     <li><strong>Unlinking</strong> both apps removes our permission key and asks Google to cancel the permission. Backups and sheets already in your Drive stay there until you delete them. You can also remove access in your Google account settings.</li>
   </ul>
 
   <h2>Who handles your data</h2>
   <ul>
-    <li><strong>Google:</strong> sign-in, database and app hosting (Firebase), the AI (Gemini), and, if you link them, Google Drive and Google Sheets</li>
-    <li><strong>Cloudflare:</strong> runs our server, which passes your AI requests to Google and keeps the daily counts. It doesn't store your messages, recordings or files. Our server's technical logs may include error details.</li>
+    <li><strong>Google:</strong> sign-in, database and app hosting (Firebase), the AI (Gemini), crash reports from the phone app (Firebase Crashlytics), which hold the error, the phone model and Android version and are not linked to your name or username, and, if you link them, Google Drive and Google Sheets</li>
+    <li><strong>Cloudflare:</strong> runs our server, which passes your AI requests to Google and keeps the daily counts. It also stores the receipts you choose to keep. It doesn't store your messages, recordings or other files. Our server's technical logs may include error details.</li>
   </ul>
   <p>The app also downloads currency exchange rates from open.er-api.com. That request is made by our server and contains nothing about you.</p>
 
   <h2>What the admin can see</h2>
-  <p>The app's admin can see login details only: your email address, username, when you joined and last signed in, whether your account is suspended, and your devices and device requests. The admin can approve or remove devices, suspend an account, or delete an account. The admin also reads the comments you send in Send feedback, shown with your username and email address. The admin has no access to your expenses, accounts, loans, chats or settings.</p>
+  <p>The app's admin can see login details only: your email address, username, when you joined and last signed in, whether your account is suspended, and your devices and device requests. The admin can approve or remove devices, suspend an account, or delete an account. The admin also reads the comments you send in Send feedback, shown with your username and email address, and error reports, shown with your username. The admin has no access to your expenses, accounts, loans, chats or settings.</p>
   <p>Each admin action is recorded in a log with your user ID, your username, the action and the time.</p>
 
   <h2>Keeping and deleting your data</h2>
   <p>We keep your data until you delete it or delete your account. The one exception is chat history, which keeps 20 chats. When it is full, starting a new chat permanently removes your oldest unpinned chat, and tells you when it does. Pinned chats are never removed this way. If all 20 are pinned, new chats aren't saved until you make room.</p>
   <ul>
-    <li><strong>To delete everything:</strong> open Profile, choose Delete my account, and confirm with Google. This permanently removes your account, money records, chats, devices, daily counts and any Google link from our systems. Backups and sheets in your own Google Drive are yours, and stay there until you delete them.</li>
+    <li><strong>To delete everything:</strong> open Profile, choose Delete my account, and confirm with Google. This permanently removes your account, money records, chats, receipts, devices, daily counts, error reports and any Google link from our systems. Backups and sheets in your own Google Drive are yours, and stay there until you delete them.</li>
     <li><strong>To delete one chat:</strong> open the chat list and tap the delete button beside it.</li>
+    <li><strong>To delete a receipt:</strong> open Receipts (in the chat list or on Transactions), open the receipt and tap Delete, or select several and delete them together.</li>
     <li><strong>To ask for help:</strong> write to the address below.</li>
   </ul>
   <p>Deleting doesn't remove anything already sent to Google's AI, as explained above. It also doesn't remove entries in the admin action log, which stay as a record of what the admin did.</p>

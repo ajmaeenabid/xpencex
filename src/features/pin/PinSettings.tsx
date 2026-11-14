@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { Lock } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { cn } from '../../shared/lib/utils';
+import { fingerprintAvailable, fingerprintOn, setFingerprintOn, verifyFingerprint } from './fingerprint';
+import { Fingerprint, Lock } from 'lucide-react';
 import { useI18n } from '../../shared/i18n';
 import { PIN_LENGTH, checkPin, cleanPin, hasPin, isValidPin, removePin, savePin, triesLeft } from './pin';
 import { signOutAndForget } from '../auth/deviceService';
@@ -18,6 +20,18 @@ export default function PinSettings({ uid }: { uid: string }) {
   const [again, setAgain] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [fingerReady, setFingerReady] = useState(false);
+  const [finger, setFinger] = useState(() => fingerprintOn(uid));
+  useEffect(() => { fingerprintAvailable().then(setFingerReady); }, []);
+
+  const toggleFinger = async () => {
+    if (finger) { setFingerprintOn(uid, false); setFinger(false); return; }
+    // Turning it on checks the finger once, so it is known to work
+    if (await verifyFingerprint({ title: t('pin.fingerTitle'), subtitle: t('pin.fingerConfirm'), cancel: t('common.cancel') })) {
+      setFingerprintOn(uid, true);
+      setFinger(true);
+    }
+  };
 
   const close = () => { setMode(null); setCurrent(''); setNext(''); setAgain(''); setError(''); };
 
@@ -38,7 +52,7 @@ export default function PinSettings({ uid }: { uid: string }) {
           return setError(t('pin.wrong', { count: triesLeft(uid) }));
         }
       }
-      if (mode === 'remove') removePin(uid);
+      if (mode === 'remove') { removePin(uid); setFingerprintOn(uid, false); setFinger(false); }
       else await savePin(uid, next);
       setEnabled(mode !== 'remove');
       close();
@@ -88,9 +102,25 @@ export default function PinSettings({ uid }: { uid: string }) {
           </div>
         </form>
       ) : enabled ? (
+        <div className="space-y-3">
+        {fingerReady && (
+          <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-background/50 border border-card-border">
+            <span className="flex items-center gap-2 text-sm font-semibold text-foreground"><Fingerprint size={18} className="text-indigo-600 dark:text-indigo-400" /> {t('pin.fingerSwitch')}</span>
+            <button
+              role="switch"
+              aria-checked={finger}
+              aria-label={t('pin.fingerSwitch')}
+              onClick={toggleFinger}
+              className={cn('relative shrink-0 w-12 h-7 rounded-full transition-colors', finger ? 'bg-indigo-600' : 'bg-background border border-card-border')}
+            >
+              <span className={cn('absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all', finger ? 'left-6' : 'left-1')} />
+            </button>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <button onClick={() => setMode('change')} className="py-2.5 rounded-xl text-sm font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">{t('pin.change')}</button>
           <button onClick={() => setMode('remove')} className="py-2.5 rounded-xl text-sm font-bold bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">{t('pin.turnOff')}</button>
+        </div>
         </div>
       ) : (
         <button onClick={() => setMode('set')} className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white">{t('pin.turnOn')}</button>

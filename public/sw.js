@@ -16,7 +16,8 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    // Old app files go; receipts kept on the phone (src/features/receipts/receiptService.ts) stay
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== 'xpences-receipts').map((k) => caches.delete(k))))
   );
   self.clients.claim();
 });

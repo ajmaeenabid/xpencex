@@ -1,4 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useWidgetSync } from '../widget/widget';
+import { useWidgetSettingsVersion } from '../widget/widgetSignal';
+import { useReminderSync } from '../reminders/useReminderSync';
+import SaveSuggestion from '../funds/SaveSuggestion';
+import { EarnedCard } from '../income/IncomeCards';
 import { db } from '../../shared/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../../app/App';
@@ -25,12 +30,21 @@ import FundsCard from '../funds/FundsCard';
 import SamityCard from '../samity/SamityCard';
 
 // Movable cards, in their default order
-const HOME_SECTIONS = ['budget', 'spending', 'accounts', 'cash', 'runway', 'debts', 'funds', 'samity', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
+const HOME_SECTIONS = ['budget', 'saveNudge', 'earned', 'spending', 'accounts', 'cash', 'runway', 'debts', 'funds', 'samity', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
 import { useI18n, categoryLabel } from '../../shared/i18n';
 import { CARD_SUB, CARD_TITLE } from '../../shared/lib/cardText';
+import SearchWindow, { SearchBar } from '../search/SearchWindow';
+import type { Place } from '../search/searchPlaces';
 
-export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }: { onViewAll?: () => void; onManageAccounts?: () => void; onSaveExpense?: (amount: number, people?: number) => void }) {
+export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, onGoTo, onAskAi }: {
+  onViewAll?: () => void;
+  onManageAccounts?: () => void;
+  onSaveExpense?: (amount: number, people?: number) => void;
+  onGoTo?: (place: Place) => void; // a search result: open its tab and card
+  onAskAi?: (text: string) => void; // the search's Ask button: the text goes to the chat's message box
+}) {
   const [calcOpen, setCalcOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   // The calculator downloads on its first use, then stays, so it keeps what was typed
   const [calcUsed, setCalcUsed] = useState(false);
   useEffect(() => { if (calcOpen) setCalcUsed(true); }, [calcOpen]);
@@ -89,6 +103,8 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
   }, [user]);
 
   const budget = profile?.monthlyBudget || 0;
+  useReminderSync({ expenses, loans: openLoans, spentThisMonth: summary.month, budget });
+  useWidgetSync(summary.today, summary.month, budget, useWidgetSettingsVersion());
   const remaining = budget - summary.month;
   const progress = budget > 0 ? Math.min((summary.month / budget) * 100, 100) : 0;
 
@@ -133,6 +149,8 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
         </div>
       </header>
 
+      <SearchBar onOpen={() => setSearchOpen(true)} />
+
       {/* The cards below can be moved with the button at the top; the header stays */}
       <RearrangeList layout={layout} className="space-y-8" sections={[
       { id: 'budget', node: (
@@ -176,6 +194,8 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
       ) },
 
       // Spending today and this week, each against its share of the budget
+      { id: 'saveNudge', node: user && <SaveSuggestion uid={user.uid} expenses={expenses} symbol={currencySymbol} /> },
+      { id: 'earned', node: user && <EarnedCard uid={user.uid} expenses={expenses} symbol={currencySymbol} /> },
       { id: 'spending', node: <SpendingCard spent={summary} budget={budget} symbol={currencySymbol} /> },
 
       { id: 'accounts', node: accounts.length > 0 ? (
@@ -212,7 +232,7 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
                 >
                   <div className="flex items-center gap-1.5 mb-2">
                     <Icon size={14} style={color ? { color } : undefined} className={color ? '' : 'text-indigo-600 dark:text-indigo-400'} />
-                    <span className="text-[11px] font-bold text-muted truncate max-w-[8rem]">{accountDisplayName(a)}</span>
+                    <span className="text-[12px] font-bold text-muted truncate max-w-[8rem]">{accountDisplayName(a)}</span>
                   </div>
                   <p className={`flex items-center gap-1.5 font-bold tabular-nums ${shown && a.balance < 0 ? 'text-rose-500' : 'text-foreground'}`}>
                     {currencySymbol}{shown ? a.balance.toLocaleString() : '••••'}
@@ -340,7 +360,7 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
                     </div>
                     <div>
                       <p className="font-bold text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{exp.title}</p>
-                      <p className="text-[11px] text-muted font-bold">{categoryLabel(t, exp.category)} • {format(new Date(exp.date), 'MMM d', { locale: dateLocale })}</p>
+                      <p className="text-[12px] text-muted font-bold">{categoryLabel(t, exp.category)} • {format(new Date(exp.date), 'MMM d', { locale: dateLocale })}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -377,6 +397,17 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense }:
       />
       </LazyPart>
       )}
+
+      <SearchWindow
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onPick={place => {
+          setSearchOpen(false);
+          if (place.action === 'darkMode') { toggleDarkMode(); return; } // switches light and dark
+          onGoTo?.(place);
+        }}
+        onAsk={text => { setSearchOpen(false); onAskAi?.(text); }}
+      />
     </div>
   );
 }

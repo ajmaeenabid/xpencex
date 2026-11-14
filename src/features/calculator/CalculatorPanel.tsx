@@ -171,11 +171,11 @@ export default function CalculatorPanel({ state, setState, uid, onClose, onSaveE
             {copied ? <Check size={17} className="text-indigo-600 dark:text-indigo-400" /> : <Copy size={16} />}
           </button>
         </div>
-        <p className="h-5 pl-16 text-sm text-muted font-semibold whitespace-nowrap overflow-x-auto no-scrollbar">
+        <p className="min-h-5 pl-16 text-sm text-muted font-semibold whitespace-nowrap overflow-x-auto no-scrollbar">
           {!state.fresh && state.expr ? formatExpr(state.expr) : ' '}
         </p>
         <p className={cn(
-          'mt-1 h-11 flex items-center justify-end font-bold tabular-nums whitespace-nowrap overflow-x-auto no-scrollbar text-foreground',
+          'mt-1 min-h-11 flex items-center justify-end font-bold tabular-nums whitespace-nowrap overflow-x-auto no-scrollbar text-foreground',
           shown.length > 18 ? 'text-xl' : shown.length > 12 ? 'text-2xl' : 'text-4xl',
         )}>
           {value === 'divZero' || value === 'mathError'

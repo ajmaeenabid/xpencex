@@ -503,3 +503,18 @@ body {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 3px 10px rgba(0, 0, 0, 0.35);
 }
+
+/* Search: the card a result led to lights up for a moment (src/features/search/revealSection.ts) */
+@keyframes search-flash {
+  0%, 100% { outline-color: transparent; }
+  20%, 70% { outline-color: var(--color-indigo-500); }
+}
+.search-flash {
+  outline: 3px solid transparent;
+  outline-offset: 4px;
+  border-radius: 2rem;
+  animation: search-flash 1.8s ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-flash { animation: none; outline-color: var(--color-indigo-500); }
+}

@@ -1,7 +1,7 @@
 // Backup file: plain rules, no database calls. A backup is one JSON file with all of a user's data,
 // optionally locked with a password (AES-GCM, with a key made from the password by PBKDF2).
 
-export const BACKUP_COLLECTIONS = ['accounts', 'balanceHistory', 'expenses', 'deposits', 'recurring', 'categories', 'loans', 'debts', 'funds', 'samities', 'chats'] as const;
+export const BACKUP_COLLECTIONS = ['accounts', 'balanceHistory', 'expenses', 'deposits', 'recurring', 'categories', 'loans', 'debts', 'funds', 'samities', 'chats', 'incomeRules', 'incomeCategories'] as const;
 export type BackupCollection = (typeof BACKUP_COLLECTIONS)[number];
 
 type Item = Record<string, unknown> & { id: string };
@@ -32,7 +32,8 @@ const dec = new TextDecoder();
 const toB64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
 const fromB64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-async function keyFrom(password: string, salt: Uint8Array) {
+/** The lock key made from a password (also used for receipts in Drive backups) */
+export async function keyFrom(password: string, salt: Uint8Array) {
   const base = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: ITERATIONS, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 }

@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { db } from '../../shared/firebase';
 import { callWorker } from '../../shared/lib/workerApi';
 import { downloadFile } from '../reports/reportExport';
+import { receiptLinks } from '../receipts/receiptDrive';
 import { BACKUP_COLLECTIONS, BackupCollection, BackupData, planRestore, readBackup, writeBackup } from './backup';
 
 /** All of the user's data, as it goes into a backup (also used for "Export everything" to Sheets) */
@@ -31,10 +32,13 @@ export async function downloadBackup(uid: string, password?: string) {
   downloadFile(`xpences-backup-${format(new Date(), 'yyyy-MM-dd')}.json`, text, 'application/json');
 }
 
-export interface RestoreResult { added: number; skipped: number; failed: number }
+export interface RestoreResult {
+  added: number; skipped: number; failed: number;
+  receiptLinks: { expenseId: string; receiptId: string }[]; // expenses in the backup that point to a receipt
+}
 
 // Accounts first, so expenses, history and loans that point to them line up
-const ORDER: BackupCollection[] = ['accounts', 'balanceHistory', 'expenses', 'deposits', 'recurring', 'categories', 'debts', 'funds', 'samities', 'chats'];
+const ORDER: BackupCollection[] = ['accounts', 'balanceHistory', 'expenses', 'deposits', 'recurring', 'categories', 'debts', 'funds', 'samities', 'chats', 'incomeRules', 'incomeCategories'];
 const BATCH = 100;
 
 /** Adds everything in the backup that isn't in the app yet. Nothing already there is changed. */
@@ -100,5 +104,5 @@ export async function restoreBackup(uid: string, text: string, password?: string
     }
   }
 
-  return { added, skipped: plan.skipped, failed: failed + plan.invalid };
+  return { added, skipped: plan.skipped, failed: failed + plan.invalid, receiptLinks: receiptLinks(backup.data.expenses as Record<string, unknown>[]) };
 }
