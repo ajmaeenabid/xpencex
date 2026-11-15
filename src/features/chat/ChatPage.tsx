@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import ChatHeader from './ChatHeader';
 import { useAuth } from '../../app/App';
 import { ChatMessage, Expense, AccountType } from '../../shared/types';
-import { processInput, processAudioInput, processAttachment, ChatTurn } from './aiService';
+import { processInput, processAudioInput, processAttachment, transcribeVoice, ChatTurn } from './aiService';
 import { blockedBy, chatUsage } from './limits';
 import { ReplyLanguage, scriptLanguage } from './language';
 import { motion, AnimatePresence } from 'motion/react';
@@ -288,8 +288,25 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
     const voiceId = addMessage('user', t('chat.voiceMessage'), 'text', undefined, { voiceDuration });
 
     try {
-      const result = await processAudioInput(base64Audio, mimeType, categories, spendingContext, recentHistory(), lang);
-      const spokenText = cleanSpokenText(result.heard, containsSecret, maskSensitive);
+      // Written out first (Groq or Cloudflare), so the answer can come from the normal text chain.
+      // When that fails, Gemini listens to the recording as before.
+      const written = await transcribeVoice(base64Audio, mimeType);
+      if ('reply' in written) {
+        showResult(written.reply, 'chat.confirmVoiceAsk');
+        return;
+      }
+      const { words } = written;
+      if (words && containsSecret(words)) {
+        // Same as a typed OTP or PIN: the message goes, nothing is sent on
+        setMessages(prev => prev.filter(m => m.id !== voiceId));
+        blockSecret();
+        return;
+      }
+      const heard = words ? cleanSpokenText(words, containsSecret, maskSensitive) : null;
+      const result = heard
+        ? await processInput(heard, categories, spendingContext, recentHistory(), lang, true)
+        : await processAudioInput(base64Audio, mimeType, categories, spendingContext, recentHistory(), lang);
+      const spokenText = heard ?? cleanSpokenText(result.heard, containsSecret, maskSensitive);
       if (spokenText) setMessages(prev => prev.map(m => (m.id === voiceId ? { ...m, spokenText } : m)));
       showResult(result, 'chat.confirmVoiceAsk');
     } catch (error) {

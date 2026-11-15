@@ -12,10 +12,19 @@ import { forgetGoogleLink, handleGoogleApps } from './googleApps';
 import { bdDay } from './loanDates';
 import { deleteUserReceipts, handleReceipts } from './receipts';
 import { cutoffFor, deleteErrorReports, handleErrorReport } from './errorReports';
-import { LIMIT_KINDS, LimitKind, MAX_BODY_BYTES, classifyParts, dailyLimits, firstBlocked, limitsView } from './usage';
+import { LIMIT_KINDS, LimitKind, MAX_AUDIO_BYTES, MAX_BODY_BYTES, base64Bytes, classifyParts, dailyLimits, firstBlocked, limitsView } from './usage';
+import { answer } from './providers';
+import { transcribe } from './transcribe';
 
 interface Env {
   GEMINI_API_KEY: string;
+  // The other AI services (src/providers.ts). Each one is skipped while its key or binding is missing.
+  GROQ_API_KEY?: string;
+  GROQ_MODELS?: string;
+  OPENROUTER_API_KEY?: string;
+  OPENROUTER_MODELS?: string;
+  CLOUDFLARE_AI_MODEL?: string;
+  AI?: Ai;
   FIREBASE_PROJECT_ID: string;
   DAILY_LIMIT: string;
   DAILY_VOICE_LIMIT?: string;
@@ -36,14 +45,6 @@ interface Env {
   RECEIPTS?: R2Bucket;
 }
 
-const MODEL = 'gemini-3.1-flash-lite'; // Google lists its earliest shutdown as May 7, 2027
-// Tried in order when MODEL is still busy after a retry, retired, or out of free quota. Each runs on
-// separate capacity. The last one is Google's "latest" alias, which keeps pointing at a current model
-// even after the named ones are retired.
-const BACKUP_MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
-// Busy (5xx), retired (404) or out of quota (429): another model may still answer
-const tryNextModel = (status: number) => status >= 500 || status === 404 || status === 429;
-
 // ---------------------------------------------------------------------------
 // Per-user daily counter. One instance per user, so counts never mix.
 // ---------------------------------------------------------------------------
@@ -61,11 +62,14 @@ export class UsageLimiter extends DurableObject<Env> {
     return used;
   }
 
-  /** Uses one of each kind, or none of them when any has nothing left. Returns the kind that was full. */
-  async take(kinds: LimitKind[], limits: Record<LimitKind, number>): Promise<{ blocked: LimitKind | null; used: Record<LimitKind, number> }> {
+  /**
+   * Uses one of each kind, or none of them when any has nothing left. Returns the kind that was full.
+   * `alsoNeeds` must have room too but isn't used up here (a voice message's AI request comes in a second call).
+   */
+  async take(kinds: LimitKind[], limits: Record<LimitKind, number>, alsoNeeds: LimitKind[] = []): Promise<{ blocked: LimitKind | null; used: Record<LimitKind, number> }> {
     const day = bdDay();
     const used = await this.counts();
-    const blocked = firstBlocked(kinds, limits, used);
+    const blocked = firstBlocked([...kinds, ...alsoNeeds], limits, used);
     if (blocked) return { blocked, used };
     for (const kind of kinds) {
       used[kind] += 1;
@@ -74,7 +78,7 @@ export class UsageLimiter extends DurableObject<Env> {
     return { blocked: null, used };
   }
 
-  // Give requests back when Gemini failed, so an outage doesn't use up the user's day
+  // Give requests back when the AI failed, so an outage doesn't use up the user's day
   async refund(kinds: LimitKind[]): Promise<void> {
     const day = bdDay();
     for (const kind of kinds) {
@@ -233,6 +237,33 @@ export default {
         return json({ error: 'Could not update exchange rates.' }, 502);
       }
     }
+    const reachedMessage = (kind: LimitKind) =>
+      `${{ ai: 'Daily AI limit reached.', voice: "You've used today's voice messages.", file: "You've used today's file uploads.", live: "You've used today's live chats." }[kind]} It resets at midnight.`;
+
+    // A voice message, written out (src/transcribe.ts). It uses the day's voice limit here; the answer
+    // that follows is a normal text request, which uses one of the AI requests. Empty text means the app
+    // should send the recording to Gemini instead, which then counts the voice message itself.
+    if (path === '/transcribe') {
+      let audio: unknown;
+      let mimeType: unknown;
+      try {
+        ({ audio, mimeType } = (await request.json()) as { audio: unknown; mimeType: unknown });
+      } catch {
+        return json({ error: 'Bad request.' }, 400);
+      }
+      if (typeof audio !== 'string' || typeof mimeType !== 'string' || !mimeType.startsWith('audio/') || !audio) return json({ error: 'Bad request.' }, 400);
+      if (base64Bytes(audio) > MAX_AUDIO_BYTES) return json({ error: 'That voice message is too long.' }, 400);
+      const limiter = limiterFor(uid);
+      const { blocked, used } = await limiter.take(['voice'], limits, ['ai']);
+      if (blocked) return json({ error: reachedMessage(blocked), limits: limitsView(limits, used) }, 429);
+      const text = await transcribe(env, audio, mimeType);
+      if (!text) {
+        await limiter.refund(['voice']);
+        used.voice -= 1;
+      }
+      return json({ text, limits: limitsView(limits, used) });
+    }
+
     if (path !== '/') return json({ error: 'Not found.' }, 404);
 
     const length = Number(request.headers.get('Content-Length') || 0);
@@ -260,52 +291,17 @@ export default {
     const kinds: LimitKind[] = media.kind ? [media.kind, 'ai'] : ['ai'];
     const limiter = limiterFor(uid);
     const { blocked, used } = await limiter.take(kinds, limits);
-    if (blocked) {
-      const reached = { ai: 'Daily AI limit reached.', voice: "You've used today's voice messages.", file: "You've used today's file uploads.", live: "You've used today's live chats." }[blocked];
-      return json({ error: `${reached} It resets at midnight.`, limits: limitsView(limits, used) }, 429);
-    }
+    if (blocked) return json({ error: reachedMessage(blocked), limits: limitsView(limits, used) }, 429);
 
-    const callGemini = (model: string) =>
-      fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            ...(schema ? { responseSchema: schema } : {}),
-          },
-        }),
-      });
-
-    let res = await callGemini(MODEL);
-    let model = MODEL;
-    // Gemini is sometimes briefly overloaded (5xx). One quick retry usually gets through;
-    // if not, the backup models are tried in turn and the app tells the user which one answered
-    if (res.status >= 500) {
-      console.error('Gemini error, retrying once', res.status);
-      await new Promise((r) => setTimeout(r, 1000));
-      res = await callGemini(MODEL);
-    }
-    for (const next of BACKUP_MODELS) {
-      if (!tryNextModel(res.status)) break;
-      console.error(`${model} failed (${res.status}), switching to ${next}`, await res.text());
-      model = next;
-      res = await callGemini(model);
-    }
-    if (!res.ok) {
-      console.error('Gemini error', model, res.status, await res.text());
+    // Groq, then Gemini, then Cloudflare, then OpenRouter (files and recordings: Gemini only). See src/providers.ts.
+    // Which service answered isn't shown to the user (the owner's choice), only logged.
+    const result = await answer(env, parts, schema);
+    if (!result.ok) {
       await limiter.refund(kinds);
-      // These messages are shown in the chat, so they say what happened in plain words
-      if (res.status === 429) return json({ error: 'Every AI model has used up its free quota for now. Please try again later.' }, 503);
-      if (res.status >= 500) return json({ error: 'All AI models are busy on the server right now. Please try again in a minute.' }, 503);
-      if (res.status === 404) return json({ error: 'The AI models this app uses are no longer available. The app needs an update.' }, 502);
-      return json({ error: `The AI returned an error (code ${res.status}). Please try again.` }, 502);
+      return json({ error: result.error }, result.status);
     }
-
-    const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-    const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
-    return json({ text, limits: limitsView(limits, used), ...(model !== MODEL ? { model } : {}) });
+    console.log(`Answered by ${result.service} ${result.model}`);
+    return json({ text: result.text, limits: limitsView(limits, used) });
   },
 
   // Runs on the schedule in wrangler.toml: takes every user's loan installments that have come due,

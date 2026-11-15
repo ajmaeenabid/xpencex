@@ -1,10 +1,10 @@
 # Xpences
 
-Expense tracker PWA (React 19 + TypeScript + Vite + Tailwind v4), Firebase Auth/Firestore, Gemini via a Cloudflare Worker.
+Expense tracker PWA (React 19 + TypeScript + Vite + Tailwind v4), Firebase Auth/Firestore, AI via a Cloudflare Worker: text goes Groq, Gemini, Cloudflare Workers AI, OpenRouter (`ai-server/src/providers.ts`); files and live chat are Gemini only. A new AI service must go in the privacy policy and Data safety form.
 
 ## Commands
 - `npm run dev` (app, :3000) · `npm run lint` (tsc) · `npm test` (Vitest) · `npm run build`
-- AI server: `cd ai-server && npm run dev` (:8787); key in `ai-server/.dev.vars`, never in the app
+- AI server: `cd ai-server && npm run dev` (:8787); keys (GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY) in `ai-server/.dev.vars`, never in the app
 
 ## Layout
 - `src/app/` shell (App.tsx owns tabs + auth context) · `src/features/<feature>/` screens + logic per feature

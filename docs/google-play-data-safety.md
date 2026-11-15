@@ -15,7 +15,7 @@ Check each answer against the form's wording when you fill it in, because Google
 
 ## Data types
 
-"Shared" is marked Yes where data goes to Google's Gemini free service, because Google may use it to improve its own products. A company that only works for you wouldn't count as sharing, but that doesn't describe the free service. If you move to the paid Gemini service, review these answers.
+"Shared" is marked Yes where data goes to Google's Gemini free service, because Google may use it to improve its own products. Since 2026-11-16 typed messages and voice messages may also go to Groq, Cloudflare Workers AI and OpenRouter's free models (`ai-server/src/providers.ts`). OpenRouter's free models may keep and train on what is sent, which is sharing too. The table already says Shared for these types, so the answers don't change. A company that only works for you wouldn't count as sharing, but that doesn't describe the free service. If you move to the paid Gemini service, review these answers.
 
 | Data type (form category) | Collected | Shared | Optional? | Purpose |
 | --- | --- | --- | --- | --- |

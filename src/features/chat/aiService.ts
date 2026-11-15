@@ -3,7 +3,7 @@ import { normalizeExpense, ExtractedExpense } from "../expenses/expense";
 import { parseModelJson } from "./aiResponse";
 import { restoreLineBreaks } from "./markdownRepair";
 import { ReplyLanguage, UNSUPPORTED_NOTICE, attachmentLanguageRules, languageRules } from "./language";
-import { callWorker } from "../../shared/lib/workerApi";
+import { WorkerError, callWorker } from "../../shared/lib/workerApi";
 import type { Limits } from "./limits";
 
 // The Gemini key lives on our own server (see /ai-server), never in the app. The app sends the
@@ -49,6 +49,24 @@ async function generate(parts: Part[], schema?: object): Promise<Generated> {
   const body = await res.json();
   if (body.limits) limitsListener?.(body.limits);
   return { text: body.text as string, backup: typeof body.model === 'string' ? body.model : undefined };
+}
+
+/**
+ * A voice message written out by the server's speech-to-text (Groq, then Cloudflare). Uses the day's voice limit.
+ * words '' means it couldn't be written out, so the recording should go to Gemini instead (processAudioInput).
+ * A used-up limit comes back as the reply to show, so Gemini isn't tried too.
+ */
+export async function transcribeVoice(audioData: string, mimeType: string): Promise<{ words: string } | { reply: ChatResult }> {
+  try {
+    const body = await callWorker<{ text?: string; limits?: Limits }>('/transcribe', { audio: audioData.split(',')[1] || audioData, mimeType });
+    if (body.limits) limitsListener?.(body.limits);
+    return { words: typeof body.text === 'string' ? body.text : '' };
+  } catch (error) {
+    if (error instanceof WorkerError && error.status === 429) {
+      return { reply: { type: 'chat', content: friendly(new AiError(429, error.message), '') } };
+    }
+    return { words: '' };
+  }
 }
 
 // A used-up daily limit deserves a clear message; everything else gets the generic one
@@ -154,20 +172,25 @@ export function parseReply(text: string): ChatResult {
   }
   if (parsed.type === 'income') {
     // Same clean-up as expenses: a real positive number and a full date, as the database requires
-    const income = normalizeExpense({ title: 'Money received', ...parsed.expense });
+    // Some models send an empty title for income, which must not wipe out the default
+    const income = normalizeExpense({ ...parsed.expense, title: parsed.expense?.title || 'Money received' });
     if (!income) return { type: 'chat' as const, content: parsed.content || "I couldn't figure out the amount. Could you rephrase?" };
     return { ...parsed, expense: income };
   }
   return parsed;
 }
 
-export async function processInput(input: string, categories: string[], spendingContext = '', history: ChatTurn[] = [], lang: ReplyLanguage = 'en'): Promise<ChatResult> {
+// `spoken`: the input is a voice message written out by speech-to-text, which can mishear words
+export async function processInput(input: string, categories: string[], spendingContext = '', history: ChatTurn[] = [], lang: ReplyLanguage = 'en', spoken = false): Promise<ChatResult> {
   const prompt = `
     You are Xpences Assistant, a smart expense tracker.
     ${languageRules(lang)}
     Conversation so far (oldest first):
     ${historyBlock(history)}
-
+${spoken ? `
+    The user sent a voice message. Speech-to-text wrote it out below and may have misheard some words,
+    so read it for what they most likely meant. Spoken Bangla counts as Bangla.
+` : ''}
     User input: "${input}"
     Available categories: ${categories.join(', ')}
     Current Date: ${new Date().toISOString()}

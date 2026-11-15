@@ -32,7 +32,7 @@
 <body>
 <main>
   <h1>Xpences privacy policy</h1>
-  <p class="date">Last updated: 12 November 2026</p>
+  <p class="date">Last updated: 16 November 2026</p>
   <p class="date"><a href="/privacy-bn.html" lang="bn">বাংলায় পড়ুন</a></p>
 
   <p>Xpences is an expense tracker with an AI assistant. This page explains what it collects, where that goes, and how you can delete it.</p>
@@ -41,8 +41,8 @@
     <p><strong>The most important things to know</strong></p>
     <ul>
       <li>Your money records are stored so that only you can read them. The app's admin can't see them.</li>
-      <li>Using the AI assistant sends what you give it to Google, along with a list of your recent expenses.</li>
-      <li>The assistant runs on Google's free Gemini service. <strong>Google may use what is sent to improve its products, and Google's human reviewers may read it.</strong> Please don't send anything you wouldn't want read.</li>
+      <li>Using the AI assistant sends what you give it, along with a list of your recent expenses, to an AI service: Groq, Google, Cloudflare or OpenRouter. Which one answers depends on which is free at that moment.</li>
+      <li>These are free services. <strong>Google may use what is sent to improve its products, and Google's human reviewers may read it. Some free services reached through OpenRouter may keep it and use it to train their AI.</strong> Please don't send anything you wouldn't want read.</li>
       <li>We don't sell your data, show ads, or use analytics or tracking tools. Error and crash reports are used only to fix problems.</li>
       <li>Xpences is for people aged 18 or over.</li>
     </ul>
@@ -71,22 +71,29 @@
     <li><strong>The sound of voice messages and live chats</strong> is sent to the AI and isn't saved by the app. A written version of what you said is saved in the chat, after the checks described below.</li>
     <li><strong>Photos, PDFs and spreadsheets</strong> are sent to the AI and aren't saved by the app, unless you choose to keep a photo or PDF as a receipt. Only the file's name stays in your chat.</li>
   </ul>
-  <p>"Aren't saved by the app" describes Xpences only. See the next section for what Google may do with them.</p>
+  <p>"Aren't saved by the app" describes Xpences only. See the next section for what the AI services may do with them.</p>
 
-  <h2>What goes to Google's AI</h2>
-  <p>Nothing goes to the AI until you send a message, voice message or file, or start a live chat. When you do, the following is sent through our server to Google's Gemini service:</p>
+  <h2>What goes to the AI services</h2>
+  <p>Nothing goes to the AI until you send a message, voice message or file, or start a live chat. When you do, the following is sent through our server to an AI service:</p>
   <ul>
     <li>What you sent: your message, voice recording, live chat sound, photo, PDF or spreadsheet</li>
     <li>Your last 100 expenses (date, title, category and amount), your currency and your monthly budget</li>
     <li>Up to your last 10 messages in that chat from the past 10 days, and the names of your categories</li>
   </ul>
-  <p>Google's terms for its free service say that it may use this content and the AI's replies to provide, improve and develop its products. They also say human reviewers may read it, after Google disconnects it from our Google account and API key. Google's use of this data is covered by <a href="https://policies.google.com/privacy">Google's privacy policy</a> and the <a href="https://ai.google.dev/gemini-api/terms">Gemini API terms</a>. <strong>Once something has been sent, we can't delete it from Google.</strong></p>
+  <p>Which service gets it:</p>
+  <ul>
+    <li><strong>Typed messages</strong> go to Groq first. When Groq's free allowance is used up or it is busy, they go to Google's Gemini, then to Cloudflare's own AI, and last to OpenRouter.</li>
+    <li><strong>Voice messages</strong> are first written out by Groq, or by Cloudflare if Groq can't. The written words get the checks described below, then go on like a typed message. If neither can write them out, the recording goes to Google's Gemini instead.</li>
+    <li><strong>Photos, PDFs, spreadsheets and live chats</strong> go to Google's Gemini only.</li>
+  </ul>
+  <p><strong>Groq</strong> says it doesn't use what is sent to train AI, and we have turned on its setting not to keep it. See <a href="https://groq.com/privacy-policy">Groq's privacy policy</a>. <strong>Cloudflare</strong> already runs our server, and says it doesn't use what is sent to its AI to train AI. <strong>OpenRouter</strong> passes what is sent to another company's free AI. OpenRouter says some of these free services may keep it and use it to train their AI. See <a href="https://openrouter.ai/privacy">OpenRouter's privacy policy</a>.</p>
+  <p>Google's terms for its free service say that it may use this content and the AI's replies to provide, improve and develop its products. They also say human reviewers may read it, after Google disconnects it from our Google account and API key. Google's use of this data is covered by <a href="https://policies.google.com/privacy">Google's privacy policy</a> and the <a href="https://ai.google.dev/gemini-api/terms">Gemini API terms</a>. <strong>Once something has been sent, we can't delete it from any of these services.</strong></p>
 
   <h2>How we protect sensitive details</h2>
   <ul>
     <li>Typed messages and spreadsheets holding an OTP, PIN, password, NID number or recovery phrase are blocked and aren't sent.</li>
     <li>Account, card and phone numbers in typed messages and spreadsheets are hidden before they are sent or saved.</li>
-    <li>Written versions of live chats and voice messages get the same checks before they are shown or saved.</li>
+    <li>Written versions of live chats and voice messages get the same checks before they are shown or saved. A voice message written out by Groq or Cloudflare is checked before it goes on to the AI, and one holding a code is deleted and not sent.</li>
     <li>Numbers inside photos and PDFs, such as a card number on a receipt, can't be hidden automatically, so avoid photos that show a full card number.</li>
   </ul>
   <div class="box">
@@ -116,8 +123,10 @@
 
   <h2>Who handles your data</h2>
   <ul>
+    <li><strong>Groq:</strong> the first AI service for typed messages, and writing out voice messages</li>
     <li><strong>Google:</strong> sign-in, database and app hosting (Firebase), the AI (Gemini), crash reports from the phone app (Firebase Crashlytics), which hold the error, the phone model and Android version and are not linked to your name or username, and, if you link them, Google Drive and Google Sheets</li>
-    <li><strong>Cloudflare:</strong> runs our server, which passes your AI requests to Google and keeps the daily counts. It also stores the receipts you choose to keep. It doesn't store your messages, recordings or other files. Our server's technical logs may include error details.</li>
+    <li><strong>Cloudflare:</strong> runs our server, which passes your AI requests to the AI services and keeps the daily counts. Its own AI is a backup AI service and writes out voice messages when Groq can't. It also stores the receipts you choose to keep. It doesn't store your messages, recordings or other files. Our server's technical logs may include error details.</li>
+    <li><strong>OpenRouter:</strong> the last backup AI service, which passes typed messages to another company's free AI</li>
   </ul>
   <p>The app also downloads currency exchange rates from open.er-api.com. That request is made by our server and contains nothing about you.</p>
 
@@ -133,7 +142,7 @@
     <li><strong>To delete a receipt:</strong> open Receipts (in the chat list or on Transactions), open the receipt and tap Delete, or select several and delete them together.</li>
     <li><strong>To ask for help:</strong> write to the address below.</li>
   </ul>
-  <p>Deleting doesn't remove anything already sent to Google's AI, as explained above. It also doesn't remove entries in the admin action log, which stay as a record of what the admin did.</p>
+  <p>Deleting doesn't remove anything already sent to the AI services, as explained above. It also doesn't remove entries in the admin action log, which stay as a record of what the admin did.</p>
 
   <h2>Security</h2>
   <p>Data travels over encrypted connections. Database rules limit your records to your own account on an approved device. No system is perfectly secure, so we can't promise that nothing will ever go wrong.</p>

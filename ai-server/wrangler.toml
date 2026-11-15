@@ -13,6 +13,16 @@ DAILY_LIVE_LIMIT = "3"
 # Longest live chat in seconds. If you change this, also change MAX_LIVE_SECONDS in src/features/chat/limits.ts.
 LIVE_SECONDS = "60"
 LIVE_MODEL = "gemini-3.8-live"
+# Text questions are asked in this order: Groq, Gemini, Cloudflare, OpenRouter (src/providers.ts).
+# A service is skipped while its key is missing. The keys are secrets: GROQ_API_KEY and OPENROUTER_API_KEY
+# go in .dev.vars and in Cloudflare (npx wrangler secret put GROQ_API_KEY). Separate several models with commas.
+# Groq counts its daily limit per model, so each model listed is its own free allowance.
+GROQ_MODELS = "openai/gpt-oss-120b,openai/gpt-oss-20b"
+# Cloudflare's own AI needs no key, only the [ai] binding below. Free: 10,000 "neurons" a day.
+CLOUDFLARE_AI_MODEL = "@cf/openai/gpt-oss-20b"
+# Free OpenRouter models end in ":free" and change often; pick current ones at https://openrouter.ai/models
+# (filter by price: free). Empty means OpenRouter is not used.
+OPENROUTER_MODELS = ""
 # Addresses allowed to call this server. The first one is the fallback.
 # https://localhost is the installed phone app (Capacitor). localhost:3000 is development on this computer.
 # The website is deliberately not listed: Xpences is used only as the installed app.
@@ -34,6 +44,13 @@ GOOGLE_CLIENT_ID = "77916812361-rbhs4vgr2p0cdmlu96umf52nd2agnssb.apps.googleuser
 # are 10 days old (free on Cloudflare)
 [triggers]
 crons = ["0 * * * *"]
+
+# Cloudflare's own AI (backup answers and voice transcription). It runs on Cloudflare even during npm run dev.
+[ai]
+binding = "AI"
+# Always on Cloudflare, even in npm run dev. On the free Workers plan this can't cost money:
+# past the 10,000 free neurons a day it simply refuses, and the chain moves on.
+remote = true
 
 [[durable_objects.bindings]]
 name = "LIMITER"
