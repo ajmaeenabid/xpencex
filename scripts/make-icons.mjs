@@ -2,7 +2,7 @@
 // Renders with Microsoft Edge (already on Windows), so nothing extra needs installing.
 // Run it again after any change to the logo, then `npm run android:release` for a new app file.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { logoSvg } from '../src/shared/brand/logoSvg.ts';
@@ -70,6 +70,14 @@ const splashes = {
 };
 for (const [dir, [w, h]] of Object.entries(splashes)) {
   render(join(res, dir, 'splash.png'), w, h, { frame: 'rounded' }, Math.round(Math.min(w, h) * 0.3), SPLASH_BG);
+}
+
+// Opening screen on Android 12 and later (values-v31/styles.xml): the system draws this picture in the middle
+// of the cream screen. Android's size: a 288dp square, of which only a 192dp circle in the middle shows,
+// so the rounded logo is 128dp, about the size of the app's own opening logo, and fits inside that circle.
+for (const [name, d] of Object.entries(densities)) {
+  mkdirSync(join(res, `drawable-${name}`), { recursive: true });
+  render(join(res, `drawable-${name}`, 'splash_logo.png'), 288 * d, 288 * d, { frame: 'rounded' }, 128 * d);
 }
 
 rmSync(tmp, { recursive: true, force: true });

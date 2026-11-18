@@ -14,7 +14,10 @@
     <title>Xpences | AI Expense Tracker</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- The opening screen, drawn by the page itself before any app code loads, so there is never an empty
+         screen between the phone's start screen and the opening animation. React replaces it with the
+         animation (src/app/OpeningAnimation.tsx), which starts in exactly this spot. -->
+    <div id="root"><!--boot-screen--></div>
     <script type="module" src="/src/app/main.tsx"></script>
   </body>
 </html>

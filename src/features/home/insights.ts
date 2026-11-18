@@ -1,4 +1,4 @@
-import { startOfMonth, subMonths, getDaysInMonth, getDate } from 'date-fns';
+import { moneyMonth, moneyMonthDay } from '../../shared/lib/moneyMonth';
 import { Expense } from '../../shared/types';
 import { TFunction, tEnglish, categoryLabel } from '../../shared/i18n';
 
@@ -16,14 +16,15 @@ export function sumByCategory(expenses: Expense[]): Record<string, number> {
   }, {});
 }
 
-/** Straight-line projection of this month's spending to the last day of the month. */
-export function forecastMonthEnd(spentSoFar: number, now: Date): number {
-  return (spentSoFar / getDate(now)) * getDaysInMonth(now);
+/** Straight-line projection of this (money) month's spending to its last day. `startDay`: Profile > Month starts on. */
+export function forecastMonthEnd(spentSoFar: number, now: Date, startDay = 1): number {
+  const { day, length } = moneyMonthDay(now, startDay);
+  return (spentSoFar / day) * length;
 }
 
-export function splitMonths(expenses: Expense[], now: Date) {
-  const thisStart = startOfMonth(now).getTime();
-  const lastStart = startOfMonth(subMonths(now, 1)).getTime();
+export function splitMonths(expenses: Expense[], now: Date, startDay = 1) {
+  const thisStart = moneyMonth(now, startDay).start.getTime();
+  const lastStart = moneyMonth(now, startDay, -1).start.getTime();
   // Same number of days into last month, so early-month comparisons are fair
   const lastToDateEnd = Math.min(lastStart + (now.getTime() - thisStart), thisStart);
 
@@ -48,8 +49,8 @@ export interface CategoryChange {
  * Each category this month so far against the same days of last month (a fair comparison early in the month).
  * Biggest amounts first. The Reports card shows this; Home's tip uses the same numbers.
  */
-export function compareByCategory(expenses: Expense[], now: Date = new Date()): CategoryChange[] {
-  const { thisMonth, lastMonthToDate } = splitMonths(expenses, now);
+export function compareByCategory(expenses: Expense[], now: Date = new Date(), startDay = 1): CategoryChange[] {
+  const { thisMonth, lastMonthToDate } = splitMonths(expenses, now, startDay);
   const thisByCat = sumByCategory(thisMonth);
   const lastByCat = sumByCategory(lastMonthToDate);
   return Object.keys({ ...thisByCat, ...lastByCat })
@@ -72,14 +73,16 @@ export function buildInsights(
   fmt: (n: number) => string,
   now: Date = new Date(),
   t: TFunction = tEnglish,
+  startDay = 1,
 ): Insight[] {
   const insights: Insight[] = [];
-  const { thisMonth, lastMonthToDate } = splitMonths(expenses, now);
+  const { thisMonth, lastMonthToDate } = splitMonths(expenses, now, startDay);
   const spent = thisMonth.reduce((s, e) => s + e.amount, 0);
-  const daysLeft = getDaysInMonth(now) - getDate(now);
+  const { day, length } = moneyMonthDay(now, startDay);
+  const daysLeft = length - day;
 
   if (budget > 0 && spent > 0) {
-    const forecast = forecastMonthEnd(spent, now);
+    const forecast = forecastMonthEnd(spent, now, startDay);
     const pct = Math.round((spent / budget) * 100);
     if (spent > budget) {
       insights.push({ id: 'budget', tone: 'danger', title: t('insight.budgetExceeded'), detail: t('insight.budgetExceededDetail', { amount: fmt(spent - budget) }) });

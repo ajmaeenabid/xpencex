@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../../shared/firebase';
-import { collection, doc, query, where, onSnapshot, writeBatch } from 'firebase/firestore';
+import { collection, deleteField, doc, query, where, onSnapshot, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../../app/App';
 import { Deposit, Expense, RecurringFrequency } from '../../shared/types';
 import IncomeForm from '../income/IncomeForm';
@@ -23,6 +23,13 @@ import { PreparedReceipt } from '../receipts/receiptFile';
 import { attachWhenSaved } from '../receipts/receiptService';
 import { writeDebt } from '../debts/debtService';
 import { cleanPerson } from '../debts/debts';
+import QuickEntries from './QuickEntries';
+import LabelField from '../labels/LabelField';
+import { labelFields } from '../labels/labels';
+import { ruleCategoryFor } from '../categoryRules/categoryRules';
+import { noteCategoryCorrection, useCategoryRules } from '../categoryRules/categoryRuleService';
+import WarrantyField from '../warranties/WarrantyField';
+import { warrantyTooEarly } from '../warranties/warranties';
 
 interface AddExpensePageProps {
   onComplete: () => void;
@@ -75,6 +82,8 @@ function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSw
   const [category, setCategory] = useState(expense?.category || '');
   const [date, setDate] = useState(format(expense ? new Date(expense.date) : new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState(expense?.notes || '');
+  const [labels, setLabels] = useState<string[]>(expense?.labels || []);
+  const [warrantyUntil, setWarrantyUntil] = useState<string | null>(expense?.warrantyUntil || null);
   const [isSplit, setIsSplit] = useState(!!prefillPeople);
   const [people, setPeople] = useState(prefillPeople || 2);
   // Split bill: who else was there. Each named person's share goes to Lend and borrow as "owes you".
@@ -87,6 +96,11 @@ function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSw
   const [accountId, setAccountId] = useState(expense?.accountId || CASH_ID);
   const accounts = useAccounts(user?.uid);
   const { t } = useI18n();
+  // A category rule fills the category as the title is typed, until the person picks one themselves
+  const rules = useCategoryRules(user?.uid);
+  const [pickedCategory, setPickedCategory] = useState(false);
+  const ruleCategory = isEditing ? undefined : ruleCategoryFor(title, rules, categories.map(c => c.name));
+  useEffect(() => { if (ruleCategory && !pickedCategory) setCategory(ruleCategory); }, [ruleCategory, pickedCategory]);
   // A receipt picked here is sent after the expense is saved; one already on the expense can be deleted here
   const [pendingReceipt, setPendingReceipt] = useState<PreparedReceipt | null>(null);
   const [savedReceiptId, setSavedReceiptId] = useState(expense?.receiptId);
@@ -132,6 +146,10 @@ function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSw
       setError(t('add.errorAmount'));
       return;
     }
+    if (warrantyUntil && warrantyTooEarly(warrantyUntil, date)) {
+      setError(t('warranty.tooEarly'));
+      return;
+    }
     setError('');
 
     // Keep the original timestamp when the day wasn't changed, so ordering within a day is preserved
@@ -163,6 +181,8 @@ function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSw
           category,
           date: isoDate,
           notes: finalNotes,
+          labels: labels.length ? labels : deleteField(),
+          warrantyUntil: warrantyUntil || deleteField(),
           ...payment,
         });
         // Give the old amount back to the old account, then take the new amount from the chosen one
@@ -208,6 +228,8 @@ function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSw
           notes: finalNotes,
           ...(isSplit && { split: { total: parsedAmount, people } }),
           ...(recurringId && { recurringId }),
+          ...labelFields(labels),
+          ...(warrantyUntil && { warrantyUntil }),
           ...payment,
           createdAt: new Date().toISOString(),
         });
@@ -225,6 +247,10 @@ function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSw
         const write = batch.commit();
         await saved(write);
         if (pendingReceipt) attachWhenSaved(write, pendingReceipt.blob, expenseRef.id);
+      }
+      // Moved to another category, or a rule's category was changed: twice in a row offers a rule
+      if (user && ((isEditing && expense!.category !== category) || (ruleCategory && ruleCategory !== category))) {
+        await noteCategoryCorrection(user.uid, title.trim(), category, rules, t);
       }
       onComplete();
     } catch (err) {
@@ -249,6 +275,22 @@ function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSw
         <h1 className="text-2xl font-bold text-foreground tracking-tight">{isEditing ? t('add.editTitle') : t('add.title')}</h1>
       </header>
       {modeSwitch}
+
+      {!isEditing && (
+        <QuickEntries
+          kind="expense"
+          symbol={currencySymbol}
+          form={{ title, amount: parseFloat(amount) || 0, category, accountId }}
+          onPick={entry => {
+            setTitle(entry.title);
+            setAmount(String(entry.amount));
+            setCategory(entry.category);
+            setPickedCategory(true);
+            // The account it used, if it still exists (Cash always does)
+            if (entry.accountId && (entry.accountId === CASH_ID || accounts.some(a => a.id === entry.accountId))) setAccountId(entry.accountId);
+          }}
+        />
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="bg-card p-7 rounded-[2.5rem] shadow-soft border border-card-border space-y-6 transition-all">
@@ -303,7 +345,7 @@ function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSw
                     type="button"
                     whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => setCategory(cat.name)}
+                    onClick={() => { setCategory(cat.name); setPickedCategory(true); }}
                     className={`p-4 rounded-[1.5rem] text-[11px] font-bold border-2 transition-all flex flex-col items-center gap-3 ${
                       isSelected
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-vibrant'
@@ -318,6 +360,9 @@ function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSw
                 );
               })}
             </div>
+            {ruleCategory && ruleCategory === category && (
+              <p className="text-[12px] text-muted font-medium px-1">{t('rules.applied')}</p>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -356,6 +401,10 @@ function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSw
               </div>
             </div>
           </div>
+
+          <LabelField uid={user?.uid} value={labels} onChange={setLabels} />
+
+          <WarrantyField purchaseDay={date} value={warrantyUntil} onChange={setWarrantyUntil} />
 
           {user && (
             <ReceiptField

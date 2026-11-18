@@ -4,6 +4,7 @@ import { Receipt } from 'lucide-react';
 import { Expense } from '../../shared/types';
 import { useI18n, TKey } from '../../shared/i18n';
 import { FEE_PROVIDERS, FeeProvider, feeSummary } from './fees';
+import { useStartDay } from '../../app/useStartDay';
 
 const PROVIDER_NAME: Record<FeeProvider, TKey> = {
   bkash: 'fees.bkash',
@@ -15,7 +16,8 @@ const PROVIDER_NAME: Record<FeeProvider, TKey> = {
 /** Fees paid to bKash, Nagad, Rocket and banks: this month by service, and the last 6 months */
 export default function FeesCard({ expenses, symbol }: { expenses: Expense[]; symbol: string }) {
   const { t, dateLocale } = useI18n();
-  const summary = useMemo(() => feeSummary(expenses), [expenses]);
+  const startDay = useStartDay();
+  const summary = useMemo(() => feeSummary(expenses, new Date(), startDay), [expenses, startDay]);
   const highest = Math.max(...summary.months.map(m => m.total), 0);
   const money = (n: number) => `${symbol}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const anyFees = summary.months.some(m => m.total > 0);

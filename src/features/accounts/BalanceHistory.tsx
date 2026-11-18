@@ -40,6 +40,8 @@ const REASON_TEXT: Record<BalanceReason, TKey> = {
   incomeDelete: 'balance.reason.incomeDelete',
   goalIn: 'balance.reason.goalIn',
   goalOut: 'balance.reason.goalOut',
+  transferOut: 'balance.reason.transferOut',
+  transferIn: 'balance.reason.transferIn',
 };
 
 type Line = BalanceLine & { id: string };

@@ -12,6 +12,8 @@ import { saved } from '../../shared/lib/offlineSave';
 import { alertDialog, confirmDialog } from '../../shared/components/Dialog';
 import Select from '../../shared/components/Select';
 import RecurringCard from '../profile/RecurringCard';
+import CategoryRulesCard from '../categoryRules/CategoryRulesCard';
+import WarrantiesCard from '../warranties/WarrantiesCard';
 
 // The Expenses side panel: monthly budget, category budgets, recurring expenses and custom categories
 // (moved here from Profile). Search opens it with OPEN_EXPENSE_SETTINGS and then finds a card by its
@@ -84,7 +86,9 @@ export default function ExpenseSettingsDrawer({ open, onClose }: { open: boolean
               <div data-section="expenses:budget"><BudgetCard /></div>
               <div data-section="expenses:categoryBudgets"><CategoryBudgetsCard categories={categories} /></div>
               <div data-section="expenses:recurring"><RecurringCard /></div>
+              <div data-section="expenses:warranties"><WarrantiesCard /></div>
               <div data-section="expenses:categories"><CategoriesCard categories={categories} /></div>
+              <div data-section="expenses:categoryRules"><CategoryRulesCard categories={categories} /></div>
             </div>
           </motion.aside>
         </>

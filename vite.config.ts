@@ -4,6 +4,26 @@ import path from 'path';
 import fs from 'fs';
 import { createHash } from 'crypto';
 import {defineConfig, type Plugin} from 'vite';
+import { logoSvg } from './src/shared/brand/logoSvg';
+
+/**
+ * Puts the opening screen into index.html: the logo in the middle of the cream screen, the same as the
+ * phone's start screen and the first frame of the opening animation. It shows the moment the page starts,
+ * before any app code has loaded, and React replaces it when the app draws.
+ */
+function bootScreen(): Plugin {
+  // Same place as the opening animation: between the phone's bars, logo 30% of the shorter side (max 12rem)
+  const screen = 'position:fixed;left:0;right:0;top:var(--sat,0px);bottom:var(--sab,0px);z-index:200;' +
+    'display:flex;align-items:center;justify-content:center;background:#FFF4EC';
+  const box = 'width:30vmin;height:30vmin;max-width:12rem;max-height:12rem';
+  return {
+    name: 'xpences-boot-screen',
+    transformIndexHtml(html) {
+      if (!html.includes('<!--boot-screen-->')) throw new Error('index.html no longer has the <!--boot-screen--> spot');
+      return html.replace('<!--boot-screen-->', `<div aria-hidden="true" style="${screen}"><div style="${box}">${logoSvg()}</div></div>`);
+    },
+  };
+}
 
 /**
  * Fills in public/sw.js after a build: the list of every built file, so the service worker saves
@@ -39,7 +59,7 @@ function swPrecache(): Plugin {
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss(), swPrecache()],
+    plugins: [react(), tailwindcss(), swPrecache(), bootScreen()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

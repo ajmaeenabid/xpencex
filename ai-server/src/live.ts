@@ -10,7 +10,7 @@ const SIGN_IN_WAIT_MS = 10_000;
 const CLOSE_GRACE_MS = 5_000; // the app ends the session itself; this catches one that doesn't
 
 // The model shows these to the user as confirm cards. Nothing is saved until they tap Confirm.
-const TOOLS = [{
+export const TOOLS = [{
   functionDeclarations: [
     {
       name: 'record_expense',
@@ -35,6 +35,20 @@ const TOOLS = [{
           amount: { type: 'NUMBER' },
         },
         required: ['title', 'amount'],
+      },
+    },
+    {
+      // The same actions as typed chat (src/features/chat/agent/actions.ts). The app checks the action with the
+      // same rules and shows a card; only the user's tap on Confirm saves anything.
+      name: 'prepare_action',
+      description: 'Show the user one action card (move money, lend or borrow, change or delete an entry, budgets, categories, repeating expenses, reminders, settings, opening a screen, savings goals, samity) so they can confirm it on screen.',
+      parameters: {
+        type: 'OBJECT',
+        properties: {
+          action: { type: 'STRING', description: 'The action object as JSON text, exactly as the instructions describe, for example {"kind":"transfer","from":"A1","to":"A2","amount":500}' },
+          summary: { type: 'STRING', description: "One short sentence saying what the card is for, in the user's language, with names instead of codes" },
+        },
+        required: ['action'],
       },
     },
   ],

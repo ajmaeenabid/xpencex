@@ -28,7 +28,7 @@ export function loadChoices(): Choices {
     return { moveAccount: false, spending: false };
   }
 }
-function saveChoices(choices: Choices) {
+export function saveChoices(choices: Choices) {
   try { localStorage.setItem(CHOICES_KEY, JSON.stringify(choices)); } catch { /* storage blocked: just not remembered */ }
 }
 

@@ -5,13 +5,13 @@ const GOOD = '{"type":"chat","content":"Hi"}';
 const noWait = async () => {};
 
 // A fake fetch: each call takes the next reply from the list for that service, and records who was asked
-function fakeFetch(replies: Record<'groq' | 'gemini' | 'openrouter', Response[]>) {
+function fakeFetch(replies: Partial<Record<'groq' | 'gemini' | 'openrouter', Response[]>>) {
   const asked: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
-    const service = url.includes('groq') ? 'groq' : url.includes('openrouter') ? 'openrouter' : 'gemini';
+    const service = (['groq', 'openrouter'] as const).find((name) => url.includes(name)) || 'gemini';
     const model = service === 'gemini' ? url.split('/models/')[1].split(':')[0] : JSON.parse(String(init.body)).model;
     asked.push(`${service}:${model}`);
-    const next = replies[service].shift();
+    const next = replies[service]?.shift();
     if (!next) throw new Error(`No reply set up for ${service}`);
     return next;
   }));
@@ -112,6 +112,18 @@ describe('answer', () => {
     const result = await answer(env(), [{ text: 'hi' }], undefined, noWait);
     expect(result).toMatchObject({ ok: false, status: 503 });
     expect(!result.ok && result.error).toMatch(/free allowance/);
+  });
+});
+
+describe('answer, later services', () => {
+  it('asks OpenRouter when the others are out, with its own key', async () => {
+    const asked = fakeFetch({ groq: [status(429), status(429)], gemini: [status(429), status(429), status(429)], openrouter: [openAiReply(GOOD)] });
+    const result = await answer(env({ OPENROUTER_API_KEY: 'o', OPENROUTER_MODELS: 'a:free' }), [{ text: 'hi' }], undefined, noWait);
+    expect(result).toMatchObject({ ok: true, service: 'openrouter', model: 'a:free' });
+    expect(asked.slice(-1)).toEqual(['openrouter:a:free']);
+    const calls = (fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls;
+    const routerCall = calls.find(([url]) => url.includes('openrouter'))!;
+    expect((routerCall[1].headers as Record<string, string>).Authorization).toBe('Bearer o');
   });
 });
 

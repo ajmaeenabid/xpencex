@@ -1,5 +1,6 @@
-import { format, startOfMonth, subMonths } from 'date-fns';
+import { format } from 'date-fns';
 import { Expense } from '../../shared/types';
+import { lastMoneyMonths, moneyMonthKey } from '../../shared/lib/moneyMonth';
 
 // Fees paid on bKash, Nagad, Rocket and bank transactions, read from the SMS when the expense was saved
 
@@ -30,16 +31,17 @@ export interface FeeSummary {
   months: { month: string; total: number }[]; // the last 6 months, oldest first, 'yyyy-MM'
 }
 
-export function feeSummary(expenses: Pick<Expense, 'fee' | 'notes' | 'title' | 'date'>[], now = new Date()): FeeSummary {
-  const thisMonthKey = format(now, 'yyyy-MM');
-  const months = Array.from({ length: 6 }, (_, i) => format(startOfMonth(subMonths(now, 5 - i)), 'yyyy-MM'));
+export function feeSummary(expenses: Pick<Expense, 'fee' | 'notes' | 'title' | 'date'>[], now = new Date(), startDay = 1): FeeSummary {
+  // Money months (Profile > Month starts on), each keyed by the calendar month it starts in
+  const thisMonthKey = moneyMonthKey(now, startDay);
+  const months = lastMoneyMonths(6, now, startDay).map(m => format(m.start, 'yyyy-MM'));
   const totals = Object.fromEntries(months.map(m => [m, 0])) as Record<string, number>;
   const byProvider = { bkash: 0, nagad: 0, rocket: 0, bank: 0 };
 
   for (const expense of expenses) {
     const fee = feeOf(expense);
     if (!fee) continue;
-    const month = format(new Date(expense.date), 'yyyy-MM');
+    const month = moneyMonthKey(new Date(expense.date), startDay);
     if (month in totals) totals[month] += fee;
     if (month === thisMonthKey) byProvider[feeProvider(expense)] += fee;
   }

@@ -12,20 +12,12 @@ import DetailSheet from '../../shared/components/DetailSheet';
 import Select from '../../shared/components/Select';
 import { REMINDER_KINDS, ReminderKind, reminderSettings } from './reminders';
 import { clearReminders, remindersAllowed } from './reminderService';
+import OwnReminders, { TIMES, timeLabel } from './OwnReminders';
+import { useOwnReminders } from './ownReminderService';
 
-const LABELS: Record<ReminderKind, TKey> = {
+export const LABELS: Record<ReminderKind, TKey> = {
   daily: 'remind.set.daily', streak: 'remind.set.streak', loan: 'remind.set.loan', samity: 'remind.set.samity',
-  budget: 'remind.set.budget', weekly: 'remind.set.weekly', monthly: 'remind.set.monthly', goal: 'remind.set.goal',
-};
-
-// Every half hour from 6 AM to 11:30 PM
-const TIMES = Array.from({ length: 36 }, (_, i) => {
-  const h = 6 + Math.floor(i / 2), m = i % 2 ? '30' : '00';
-  return `${String(h).padStart(2, '0')}:${m}`;
-});
-const timeLabel = (hhmm: string) => {
-  const [h, m] = hhmm.split(':').map(Number);
-  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+  budget: 'remind.set.budget', weekly: 'remind.set.weekly', monthly: 'remind.set.monthly', goal: 'remind.set.goal', planned: 'remind.set.planned', warranty: 'remind.set.warranty',
 };
 
 const tile = 'w-10 h-10 shrink-0 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400';
@@ -41,6 +33,7 @@ export default function RemindersCard() {
   const [open, setOpen] = useState(false);
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
+  const own = useOwnReminders(user?.uid);
 
   // Checked again on opening, in case notifications were switched on or off in the phone's Settings
   useEffect(() => { remindersAllowed(false).then(setAllowed); }, [open]);
@@ -51,7 +44,8 @@ export default function RemindersCard() {
     try {
       await saved(updateDoc(doc(db, 'users', user.uid), { reminders: next }));
       await refreshProfile();
-      if (!Object.values(next.on).some(Boolean)) await clearReminders();
+      // Your own reminders keep ringing even with every automatic one switched off
+      if (!Object.values(next.on).some(Boolean) && own.length === 0) await clearReminders();
     } catch (err) {
       console.error('Could not save reminder settings', err);
     } finally {
@@ -128,6 +122,8 @@ export default function RemindersCard() {
             </div>
           ))}
         </div>
+
+        {user && <OwnReminders uid={user.uid} reminders={own} />}
       </DetailSheet>
     </>
   );

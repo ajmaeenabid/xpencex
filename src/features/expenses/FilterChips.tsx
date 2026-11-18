@@ -32,6 +32,7 @@ export default function FilterChips({ filters, setFilters, accounts, symbol }: {
     const to = filters.maxAmount !== null ? `${symbol}${filters.maxAmount.toLocaleString()}` : '';
     chips.push({ key: 'amount', label: from && to ? `${from} - ${to}` : from ? t('filters.atLeast', { amount: from }) : t('filters.atMost', { amount: to }), off: { minAmount: null, maxAmount: null } });
   }
+  if (filters.label) chips.push({ key: 'label', label: filters.label, off: { label: null } });
   if (filters.receiptOnly) chips.push({ key: 'receipt', label: t('filters.withReceipt'), off: { receiptOnly: false } });
   if (filters.feeling) chips.push({ key: 'feeling', label: t(filters.feeling === 'worth' ? 'regret.worth' : 'regret.regret'), off: { feeling: null } });
 

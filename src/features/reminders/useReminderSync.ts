@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { moneyMonthKey } from '../../shared/lib/moneyMonth';
 import { format, startOfWeek, subDays, subWeeks } from 'date-fns';
 import { useAuth } from '../../app/App';
 import { MAJOR_CURRENCIES } from '../../shared/constants';
@@ -11,6 +12,9 @@ import { samityStatus } from '../samity/samity';
 import { budgetAlert, planReminders, reminderSettings } from './reminders';
 import { isNative } from '../../shared/lib/nativeApp';
 import { REMINDERS_ALLOWED, reminderWords, remindersAllowed, scheduleReminders, sendBudgetAlert } from './reminderService';
+import { useOwnReminders } from './ownReminderService';
+import { usePlanned } from '../planned/plannedService';
+import { useWarranties } from '../warranties/warrantyService';
 
 const alertKey = (uid: string, month: string) => `xpences-budget-alert:${uid}:${month}`;
 const readSent = (uid: string, month: string): number[] => {
@@ -24,7 +28,8 @@ const markSent = (uid: string, month: string, sent: number[]) => {
  * Keeps the phone's reminders in step with the data (runs on Home, which stays open in the background).
  * `expenses` must reach back at least 15 days (Home's list starts at the beginning of last month).
  */
-export function useReminderSync({ expenses, loans, spentThisMonth, budget }: {
+export function useReminderSync({ expenses, loans, spentThisMonth, budget, startDay = 1 }: {
+  startDay?: number; // the money month (Profile > Month starts on): budget alerts and the monthly report follow it
   expenses: Expense[];
   loans: Loan[];
   spentThisMonth: number;
@@ -35,6 +40,9 @@ export function useReminderSync({ expenses, loans, spentThisMonth, budget }: {
   const uid = user?.uid || '';
   const funds = useFunds(uid);
   const samities = useSamities(uid);
+  const own = useOwnReminders(uid);
+  const planned = usePlanned(uid);
+  const warranties = useWarranties(uid);
   const symbol = MAJOR_CURRENCIES.find(c => c.code === profile?.currency)?.symbol || '৳';
   const settings = reminderSettings(profile?.reminders);
   const timer = useRef<number | undefined>(undefined);
@@ -58,6 +66,8 @@ export function useReminderSync({ expenses, loans, spentThisMonth, budget }: {
   const signature = JSON.stringify([
     allowed, settings, expenses.length, expenses[0]?.id, spentThisMonth, loans.map(l => [l.id, l.nextDueDate, l.status]),
     funds.map(f => [f.id, f.saved, f.dueDate]), samities.map(s => [s.id, Object.keys(s.payments || {}).length]), dateLocale.code,
+    own.map(r => [r.id, r.at, r.repeat, r.text]), startDay, planned.map(p => [p.id, p.date, p.title, p.amount, p.kind]),
+    warranties.map(w => [w.id, w.title, w.warrantyUntil]),
   ]);
 
   useEffect(() => {
@@ -74,6 +84,7 @@ export function useReminderSync({ expenses, loans, spentThisMonth, budget }: {
       const sum = (from: Date, to: Date) => expenses.filter(e => { const d = new Date(e.date); return d >= from && d < to; }).reduce((s, e) => s + e.amount, 0);
       const plan = planReminders(settings, {
         now,
+        startDay,
         expenseDates: expenses.filter(e => new Date(e.date) >= subDays(now, 15)).map(e => e.date),
         weekSpent: sum(weekStart, now),
         lastWeekSpent: sum(lastWeekStart, lastWeekSameTime),
@@ -82,13 +93,16 @@ export function useReminderSync({ expenses, loans, spentThisMonth, budget }: {
           const next = samityStatus(s, now).nextUnpaid;
           return next ? [{ id: s.id, name: s.name, amount: s.amount, date: next.date }] : [];
         }),
-        goals: funds.map(f => ({ id: f.id, name: f.name, dueDate: f.dueDate, progress: fundPlan(f, now).progress })),
+        goals: funds.filter(f => !f.paused).map(f => ({ id: f.id, name: f.name, dueDate: f.dueDate, progress: fundPlan(f, now).progress })),
+        planned: planned.map(p => ({ id: p.id, name: p.title, amount: p.amount, date: p.date, income: p.kind === 'income' })),
+        warranties: warranties.map(w => ({ id: w.id, name: w.title, until: w.warrantyUntil! })),
+        own,
       });
       await scheduleReminders(plan, r => reminderWords(r.text, t, money, monthName));
 
-      // Budget 80% and 100%: sent once each per month, when it happens
+      // Budget 80% and 100%: sent once each per money month, when it happens
       if (settings.on.budget) {
-        const month = format(now, 'yyyy-MM');
+        const month = moneyMonthKey(now, startDay);
         const sent = readSent(uid, month);
         const due = budgetAlert(spentThisMonth, budget, sent);
         if (due) {

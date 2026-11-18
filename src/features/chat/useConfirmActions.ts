@@ -12,14 +12,17 @@ import { saved } from '../../shared/lib/offlineSave';
 import { writeDebt } from '../debts/debtService';
 import { cleanPerson } from '../debts/debts';
 import { findWallet, isCashOut } from '../accounts/cash';
+import { labelFields } from '../labels/labels';
+import { noteCategoryCorrection, useCategoryRules } from '../categoryRules/categoryRuleService';
 
 type AddMessage = (role: 'user' | 'assistant', content: string, type?: ChatMessage['type']) => string;
 
 /** Saving what a confirm card shows: an expense, or money in to an account */
-export function useConfirmActions({ user, messages, accounts, currencySymbol, tIn, t, addMessage, markResolved, afterExpenseSaved }: {
+export function useConfirmActions({ user, messages, accounts, categories, currencySymbol, tIn, t, addMessage, markResolved, afterExpenseSaved }: {
   user: User | null;
   messages: ChatMessage[];
   accounts: Account[];
+  categories: string[];
   currencySymbol: string;
   tIn: (language?: ReplyLanguage) => TFunction;
   t: TFunction;
@@ -31,6 +34,9 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
   const [isConfirming, setIsConfirming] = useState(false);
   // "Paid from" choice for each confirmation card, by message id
   const [accountChoices, setAccountChoices] = useState<Record<string, string>>({});
+  // The category picked on an expense card, by message id
+  const [categoryChoices, setCategoryChoices] = useState<Record<string, string>>({});
+  const categoryRules = useCategoryRules(user?.uid);
   // "Also match the balance the SMS reported" tick box, by message id
   const [syncChoices, setSyncChoices] = useState<Record<string, boolean>>({});
   // "This is money I lent" / "paid back to me" on SMS cards, by message id
@@ -89,6 +95,7 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
         title: income.title,
         source: sms ? 'sms' : 'chat',
         ...(sms && { smsRef: sms.ref }),
+        ...labelFields(income.labels),
       });
       if (syncTo !== undefined) setBalance(batch, account, syncTo, 'smsBalance');
       else changeBalance(batch, account, income.amount, 'moneyIn', income.title);
@@ -104,7 +111,8 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
     }
   };
 
-  const confirmExpense = async (messageId: string, expense: Partial<Expense>) => {
+  const confirmExpense = async (messageId: string, card: Partial<Expense>) => {
+    const expense = { ...card, category: categoryChoices[messageId] || card.category };
     if (!user || isConfirming || messages.find(m => m.id === messageId)?.resolved) return;
     // "Cash" means the Cash wallet once it exists
     const accountId = paymentFields(accountChoices[messageId] || expense.accountId || CASH_ID, accounts).accountId || CASH_ID;
@@ -183,6 +191,11 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
         addMessage('assistant', say('debts.savedLent', { name: person, amount: `${currencySymbol}${sent.toLocaleString()}` }));
         return;
       }
+      // A category the AI named that doesn't exist yet is added with the expense (the card said so)
+      const message = messages.find(m => m.id === messageId);
+      if (message?.newCategory && expense.category && !categories.some(c => c.toLowerCase() === expense.category!.toLowerCase())) {
+        batch.set(doc(collection(db, 'categories')), { uid: user.uid, name: expense.category, icon: 'Tag', createdAt: new Date().toISOString() });
+      }
       const expenseRef = doc(collection(db, 'expenses'));
       batch.set(expenseRef, {
         uid: user.uid,
@@ -193,6 +206,8 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
         notes: expense.notes || '',
         // The SMS fee, kept on its own so Reports can add fees up (it's already in the amount)
         ...(typeof expense.fee === 'number' && expense.fee > 0 && { fee: expense.fee }),
+        ...labelFields(expense.labels),
+        ...(expense.warrantyUntil && { warrantyUntil: expense.warrantyUntil }),
         ...payment,
         ...(sms && { smsRef: sms.ref }),
         createdAt: new Date().toISOString(),
@@ -204,6 +219,11 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
       await saved(write);
       markResolved(messageId, true);
       afterExpenseSaved?.(messageId, expenseRef.id, write);
+      // Changing the category on the card counts as a correction; not waited for, so the card finishes now
+      if (expense.title && expense.category && expense.category !== card.category) {
+        noteCategoryCorrection(user.uid, expense.title, expense.category, categoryRules, t)
+          .catch(err => console.error('Could not note the category change:', err));
+      }
       addMessage('assistant', payment.accountName
         ? say('chat.expenseSavedFrom', { title: expense.title || '', amount: `${currencySymbol}${amount}`, account: payment.accountId === CASH_ID ? say('accounts.cash') : payment.accountName })
         : say('chat.expenseSaved', { title: expense.title || '', amount: `${currencySymbol}${amount}` }));
@@ -214,7 +234,7 @@ export function useConfirmActions({ user, messages, accounts, currencySymbol, tI
     }
   };
 
-  return { isConfirming, accountChoices, setAccountChoices, syncChoices, setSyncChoices, debtChoices, setDebtChoices, confirmIncome, confirmExpense };
+  return { isConfirming, accountChoices, setAccountChoices, categoryChoices, setCategoryChoices, syncChoices, setSyncChoices, debtChoices, setDebtChoices, confirmIncome, confirmExpense };
 }
 
 /** The lend and borrow tick on an SMS card: on, who it was, and whether it also counts as spending */

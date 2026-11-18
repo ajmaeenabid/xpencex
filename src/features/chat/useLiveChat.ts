@@ -9,14 +9,37 @@ import { ReplyLanguage, liveLanguageRules, scriptLanguage } from './language';
 import { LiveEndReason, LiveSession, LiveState } from './liveSession';
 import type { ToolCall } from './liveAudio';
 import { Limits, MAX_LIVE_SECONDS, MediaKind } from './limits';
+import { ACTION_RULES, AgentAction, AgentData, readAction } from './agent/actions';
+
+/** How live chat asks for an action: a tool call instead of typed chat's JSON reply, and never confirmed by voice */
+export const LIVE_ACTION_RULES = `
+    ${ACTION_RULES}
+    In this live voice chat you don't write JSON replies. To prepare an action, call prepare_action with the action
+    object above as JSON text in "action", one action per call, with "summary": one short sentence in the user's
+    language saying what the card is for (names, never codes). The card waits in the app's Agent space. Then tell the user to check the card and tap Confirm.
+    Never say an action is done, and never treat a spoken "yes" or "confirm" as confirming it: only the tap saves.
+    Where the rules above say to reply as type "chat", just answer out loud. New spending or income still goes
+    through record_expense or record_income, not prepare_action.`;
+
+/** The action inside a prepare_action call (JSON text, or an object some models send), checked like typed chat */
+export function liveAction(args: Record<string, unknown>, data: AgentData) {
+  let raw: unknown = args.action;
+  if (typeof raw === 'string') {
+    try { raw = JSON.parse(raw); } catch { return null; }
+  }
+  return readAction(raw, data);
+}
 
 type AddMessage = (role: 'user' | 'assistant', content: string, type?: ChatMessage['type'], pending?: Partial<Expense>, extra?: Partial<ChatMessage>) => string;
 
 /** Live voice chat with the assistant: starting, the clock, captions, expense cards, and ending */
 export function useLiveChat({
   loading, isRecording, setLimitNote, explainIfBlocked, setLimits, lang, categories, spendingContext,
-  recentHistory, addMessage, setMessages, setSecretWarning, currencySymbol, tIn, t,
+  recentHistory, addMessage, setMessages, setSecretWarning, currencySymbol, tIn, t, agentData, onAction, ruleCategory,
 }: {
+  ruleCategory: (title?: string) => string | undefined; // the person's category rule for a title, if there is one
+  agentData: () => AgentData; // what action codes point at (accounts, entries, goals...), read when a call comes in
+  onAction: (action: AgentAction, words: string | undefined, replyLang: ReplyLanguage) => void; // becomes an Agent space task
   loading: boolean;
   isRecording: boolean;
   setLimitNote: (note: TKey | null) => void;
@@ -59,6 +82,17 @@ export function useLiveChat({
   const handleLiveTool = (session: LiveSession, call: ToolCall) => {
     const say = tIn(liveLanguageRef.current);
     const replyLang = liveLanguageRef.current;
+    if (call.name === 'prepare_action') {
+      const action = liveAction(call.args, agentData());
+      if (!action) {
+        session.respondToTool(call, translate('en', 'chat.liveActionInvalid'));
+        return;
+      }
+      const summary = typeof call.args.summary === 'string' ? cleanSpeech(call.args.summary) ?? undefined : undefined;
+      onAction(action, summary, replyLang);
+      session.respondToTool(call, translate('en', 'chat.liveExpenseReply'));
+      return;
+    }
     const found = normalizeExpense({
       ...call.args,
       title: typeof call.args.title === 'string' ? cleanSpeech(call.args.title) || undefined : undefined,
@@ -72,7 +106,7 @@ export function useLiveChat({
       addMessage('assistant', say('chat.aiIncome', { amount: `${currencySymbol}${found.amount.toLocaleString()}` }), 'income_confirmation', undefined,
         { pendingIncome: { title: found.title || say('chat.moneyReceived'), amount: found.amount, date: found.date || new Date().toISOString() }, replyLang });
     } else {
-      addMessage('assistant', say('chat.confirmVoiceAsk'), 'expense_confirmation', found, { replyLang });
+      addMessage('assistant', say('chat.confirmVoiceAsk'), 'expense_confirmation', { ...found, category: ruleCategory(found.title) || found.category }, { replyLang });
     }
     session.respondToTool(call, translate('en', 'chat.liveExpenseReply'));
   };
@@ -115,8 +149,9 @@ export function useLiveChat({
     These only show a card on their screen and save nothing, so then tell them to check it and tap Confirm. Never say it has been saved.
     Available categories: ${categories.join(', ')}
     Current Date: ${new Date().toISOString()}
-    User's recent spending (use this to answer questions about reports, totals and budget advice):
+    User's recent spending, accounts, loans, goals and settings (use this to answer questions about reports, totals and budget advice):
     ${spendingContext || 'No data available.'}
+    ${LIVE_ACTION_RULES}
     Conversation so far (oldest first):
     ${recentHistory().map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(0, 500)}`).join('\n') || 'None.'}`;
 

@@ -14,14 +14,15 @@ export type BalanceReason =
   | 'cashOut' | 'cashIn' // a Cash Out: out of the mobile or bank account, into the Cash wallet
   | 'samityPaid' | 'samityPayout' | 'samityUndo' // samity rounds and your payout
   | 'income' | 'incomeEdit' | 'incomeDelete' // income added by hand or repeating monthly
-  | 'goalIn' | 'goalOut'; // money moved into or back out of a savings goal
+  | 'goalIn' | 'goalOut' // money moved into or back out of a savings goal
+  | 'transferOut' | 'transferIn'; // money moved between two of your own accounts
 
 export const BALANCE_REASONS: BalanceReason[] = [
   'start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete',
   'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment',
   'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted', 'cashOut', 'cashIn',
   'samityPaid', 'samityPayout', 'samityUndo',
-  'income', 'incomeEdit', 'incomeDelete', 'goalIn', 'goalOut',
+  'income', 'incomeEdit', 'incomeDelete', 'goalIn', 'goalOut', 'transferOut', 'transferIn',
 ];
 
 export interface BalanceLine {

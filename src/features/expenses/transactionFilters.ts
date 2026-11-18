@@ -1,7 +1,9 @@
-import { startOfMonth, startOfYear, subMonths } from 'date-fns';
+import { startOfYear } from 'date-fns';
+import { moneyMonth } from '../../shared/lib/moneyMonth';
 import type { Deposit, Expense } from '../../shared/types';
+import { hasLabel } from '../labels/labels';
 
-// The Transactions filter sheet (chosen 2026-11-11): account, date range, type, amount, receipt and feeling.
+// The Transactions filter sheet (chosen 2026-11-11): account, date range, type, amount, receipt, feeling and label.
 // Plain functions, so they are tested. The search box and category chips are applied as before.
 
 export type DatePreset = 'thisMonth' | 'lastMonth' | 'last3' | 'thisYear' | 'custom';
@@ -14,19 +16,22 @@ export interface TransactionFilters {
   maxAmount: number | null;
   receiptOnly: boolean;
   feeling: 'worth' | 'regret' | null;
+  label: string | null;
 }
 
 export const NO_FILTERS: TransactionFilters = {
-  accountId: null, date: null, type: 'all', minAmount: null, maxAmount: null, receiptOnly: false, feeling: null,
+  accountId: null, date: null, type: 'all', minAmount: null, maxAmount: null, receiptOnly: false, feeling: null, label: null,
 };
 
 /** The moments a date filter covers: from (included) to (not included), as stored on expenses */
-export function dateBounds(date: NonNullable<TransactionFilters['date']>, now = new Date()): { from: string; to: string } | null {
+export function dateBounds(date: NonNullable<TransactionFilters['date']>, now = new Date(), startDay = 1): { from: string; to: string } | null {
   const iso = (d: Date) => d.toISOString();
+  // Months are the person's money months (Profile > Month starts on)
+  const month = (offset: number) => moneyMonth(now, startDay, offset);
   switch (date.preset) {
-    case 'thisMonth': return { from: iso(startOfMonth(now)), to: iso(startOfMonth(new Date(now.getFullYear(), now.getMonth() + 1, 1))) };
-    case 'lastMonth': return { from: iso(startOfMonth(subMonths(now, 1))), to: iso(startOfMonth(now)) };
-    case 'last3': return { from: iso(startOfMonth(subMonths(now, 2))), to: iso(startOfMonth(new Date(now.getFullYear(), now.getMonth() + 1, 1))) };
+    case 'thisMonth': return { from: iso(month(0).start), to: iso(month(0).end) };
+    case 'lastMonth': return { from: iso(month(-1).start), to: iso(month(-1).end) };
+    case 'last3': return { from: iso(month(-2).start), to: iso(month(0).end) };
     case 'thisYear': return { from: iso(startOfYear(now)), to: iso(new Date(now.getFullYear() + 1, 0, 1)) };
     case 'custom': {
       if (!date.from || !date.to) return null;
@@ -48,6 +53,7 @@ export function expenseMatches(e: Expense, f: TransactionFilters, bounds: { from
   if (!inAmount(e.amount, f)) return false;
   if (f.receiptOnly && !e.receiptId) return false;
   if (f.feeling && e.feeling !== f.feeling) return false;
+  if (f.label && !hasLabel(e.labels, f.label)) return false;
   return true;
 }
 
@@ -56,12 +62,13 @@ export function incomeMatches(d: Deposit, f: TransactionFilters, bounds: { from:
   if (f.type === 'expense' || f.receiptOnly || f.feeling) return false;
   if (f.accountId && d.accountId !== f.accountId) return false;
   if (bounds && (d.date < bounds.from || d.date >= bounds.to)) return false;
+  if (f.label && !hasLabel(d.labels, f.label)) return false;
   return inAmount(d.amount, f);
 }
 
 /** How many filters are on, for the badge on the filter button */
 export function activeCount(f: TransactionFilters) {
-  return [f.accountId, f.date, f.type !== 'all' || null, f.minAmount !== null || f.maxAmount !== null || null, f.receiptOnly || null, f.feeling]
+  return [f.accountId, f.date, f.type !== 'all' || null, f.minAmount !== null || f.maxAmount !== null || null, f.receiptOnly || null, f.feeling, f.label]
     .filter(Boolean).length;
 }
 

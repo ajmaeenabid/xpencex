@@ -1,5 +1,7 @@
 // The AI services the server can ask, and the order it asks them in.
-// Text questions go to Groq first, then Gemini, then Cloudflare's own AI, then OpenRouter.
+// Text questions go to Groq first, then Gemini, then Cloudflare's own AI,
+// and last OpenRouter (its free models may keep and train on what is sent). NVIDIA NIM, Mistral and SambaNova are left out on purpose:
+// NVIDIA says its free endpoints are for development and testing only, not apps with real users, and Mistral's and SambaNova's free plans have no API access (2026).
 // Photos, PDFs and voice recordings only go to Gemini, the one service that reads them well.
 // The order and the free limits are the owner's choices (2026-11-16).
 
@@ -27,6 +29,13 @@ export const GEMINI_BACKUPS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-lates
 export const DEFAULT_GROQ_MODELS = 'openai/gpt-oss-120b,openai/gpt-oss-20b';
 export const DEFAULT_CLOUDFLARE_MODEL = '@cf/openai/gpt-oss-20b';
 
+/** Services that speak the OpenAI chat format: where to send, and which key and models to use */
+const OPENAI_STYLE = {
+  groq: { url: 'https://api.groq.com/openai/v1/chat/completions', key: 'GROQ_API_KEY', models: 'GROQ_MODELS', fallback: DEFAULT_GROQ_MODELS },
+  openrouter: { url: 'https://openrouter.ai/api/v1/chat/completions', key: 'OPENROUTER_API_KEY', models: 'OPENROUTER_MODELS', fallback: '' },
+} as const;
+type OpenAiStyle = keyof typeof OPENAI_STYLE;
+
 // Room for a long answer, such as a 3-day trip plan with tables
 const MAX_ANSWER_TOKENS = 3000;
 // A service that hasn't answered by then is treated as busy, so the next one gets a turn
@@ -38,11 +47,7 @@ export const list = (value: string | undefined, fallback = '') =>
 // ---------------------------------------------------------------------------
 // The order
 
-export type Step =
-  | { service: 'groq'; model: string }
-  | { service: 'gemini'; model: string }
-  | { service: 'cloudflare'; model: string }
-  | { service: 'openrouter'; model: string };
+export type Step = { service: OpenAiStyle | 'gemini' | 'cloudflare'; model: string };
 
 /**
  * Who to ask, in order. A service without its key (or, for Cloudflare, without the AI binding) is skipped.
@@ -51,10 +56,12 @@ export type Step =
 export function planSteps(env: ProviderEnv, geminiOnly: boolean): Step[] {
   const gemini: Step[] = [GEMINI_MODEL, ...GEMINI_BACKUPS].map((model) => ({ service: 'gemini', model }));
   if (geminiOnly) return gemini;
-  const groq: Step[] = env.GROQ_API_KEY ? list(env.GROQ_MODELS, DEFAULT_GROQ_MODELS).map((model) => ({ service: 'groq', model })) : [];
+  const openAiStyle = (service: OpenAiStyle): Step[] => {
+    const { key, models, fallback } = OPENAI_STYLE[service];
+    return env[key] ? list(env[models], fallback).map((model) => ({ service, model })) : [];
+  };
   const cloudflare: Step[] = env.AI ? [{ service: 'cloudflare', model: env.CLOUDFLARE_AI_MODEL || DEFAULT_CLOUDFLARE_MODEL }] : [];
-  const openrouter: Step[] = env.OPENROUTER_API_KEY ? list(env.OPENROUTER_MODELS).map((model) => ({ service: 'openrouter', model })) : [];
-  return [...groq, ...gemini, ...cloudflare, ...openrouter];
+  return [...openAiStyle('groq'), ...gemini, ...cloudflare, ...openAiStyle('openrouter')];
 }
 
 /** The app's question as one piece of text, for services that only take text */
@@ -131,39 +138,20 @@ export function askGemini(env: ProviderEnv, model: string, parts: Part[], schema
   );
 }
 
-// Groq's guide for its gpt-oss models: everything in the user message, no system prompt.
-// Low reasoning keeps answers fast and saves the daily token allowance; the thinking itself isn't sent back.
-export function askGroq(env: ProviderEnv, model: string, prompt: string): Promise<Outcome> {
+// One try at a service that speaks the OpenAI chat format (Groq, OpenRouter).
+// Groq's guide for its gpt-oss models: everything in the user message, no system prompt. Low reasoning keeps
+// answers fast and saves the daily token allowance; the thinking itself isn't sent back.
+export function askOpenAiStyle(env: ProviderEnv, service: OpenAiStyle, model: string, prompt: string): Promise<Outcome> {
+  const { url, key } = OPENAI_STYLE[service];
+  const extra = service === 'groq'
+    ? { reasoning_effort: 'low', include_reasoning: false, max_completion_tokens: MAX_ANSWER_TOKENS }
+    : { max_tokens: MAX_ANSWER_TOKENS };
   return fetchOutcome(
-    'https://api.groq.com/openai/v1/chat/completions',
+    url,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.GROQ_API_KEY}` },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        reasoning_effort: 'low',
-        include_reasoning: false,
-        max_completion_tokens: MAX_ANSWER_TOKENS,
-      }),
-    },
-    answerText,
-  );
-}
-
-export function askOpenRouter(env: ProviderEnv, model: string, prompt: string): Promise<Outcome> {
-  return fetchOutcome(
-    'https://openrouter.ai/api/v1/chat/completions',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.OPENROUTER_API_KEY}` },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        max_tokens: MAX_ANSWER_TOKENS,
-      }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env[key]}` },
+      body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, ...extra }),
     },
     answerText,
   );
@@ -219,12 +207,10 @@ export async function answer(
         await wait(1000);
         outcome = await askGemini(env, step.model, parts, schema);
       }
-    } else if (step.service === 'groq') {
-      outcome = await askGroq(env, step.model, prompt);
     } else if (step.service === 'cloudflare') {
       outcome = await askCloudflare(env, step.model, prompt);
     } else {
-      outcome = await askOpenRouter(env, step.model, prompt);
+      outcome = await askOpenAiStyle(env, step.service, step.model, prompt);
     }
 
     // Gemini's replies go to the app as before (it repairs small slips). Other services must send clean JSON.

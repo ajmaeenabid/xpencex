@@ -15,6 +15,8 @@ import { useAccounts } from '../accounts/accountService';
 import { INCOME_CATEGORIES } from './income';
 import { addIncomeCategory, deleteIncome, saveIncome, useIncomeCategories, useIncomeRules } from './incomeService';
 import { incomeCategoryLabel } from './incomeText';
+import QuickEntries from '../expenses/QuickEntries';
+import LabelField from '../labels/LabelField';
 
 const field = 'w-full px-4 py-4 bg-background/50 rounded-2xl border-2 border-transparent focus:border-indigo-600/20 focus:bg-background outline-none transition-all text-foreground font-medium';
 
@@ -38,6 +40,7 @@ export default function IncomeForm({ income, onComplete, presetAccountId }: {
   const [category, setCategory] = useState(income?.category || 'Salary');
   const [date, setDate] = useState(format(income ? new Date(income.date) : new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState(income?.notes || '');
+  const [labels, setLabels] = useState<string[]>(income?.labels || []);
   const [accountId, setAccountId] = useState<string>(income ? income.accountId || '' : presetAccountId || '');
   const [repeat, setRepeat] = useState(!!income?.ruleId && rules.some(r => r.id === income.ruleId));
   const [newCategory, setNewCategory] = useState<string | null>(null);
@@ -67,7 +70,7 @@ export default function IncomeForm({ income, onComplete, presetAccountId }: {
     try {
       await saveIncome(user.uid, {
         title, amount: value, category, date: isoDate, notes, accountId: accountId || null,
-        repeat,
+        repeat, labels,
       }, accounts, income ? { ...income, ruleId: ruleStillOn ? income.ruleId : undefined } : undefined);
       onComplete();
     } catch (err) {
@@ -106,6 +109,20 @@ export default function IncomeForm({ income, onComplete, presetAccountId }: {
   const categories = [...INCOME_CATEGORIES, ...ownCategories.map(c => c.name).filter(n => !(INCOME_CATEGORIES as readonly string[]).includes(n))];
 
   return (
+    <>
+    {!isEditing && (
+      <QuickEntries
+        kind="income"
+        symbol={symbol}
+        form={{ title, amount: parseFloat(amount) || 0, category, accountId: accountId || undefined }}
+        onPick={entry => {
+          setTitle(entry.title);
+          setAmount(String(entry.amount));
+          setCategory(entry.category);
+          setAccountId(entry.accountId && accounts.some(a => a.id === entry.accountId) ? entry.accountId : '');
+        }}
+      />
+    )}
     <form onSubmit={submit} className="space-y-8">
       <div className="bg-card p-7 rounded-[2.5rem] shadow-soft border border-card-border space-y-6">
         <div className="space-y-2">
@@ -176,6 +193,8 @@ export default function IncomeForm({ income, onComplete, presetAccountId }: {
           </div>
         </div>
 
+        <LabelField uid={user?.uid} value={labels} onChange={setLabels} />
+
         <label className="flex items-center gap-3 bg-background/50 p-4 rounded-2xl cursor-pointer">
           <span className="w-10 h-10 bg-teal-50 dark:bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-600 dark:text-teal-400"><Repeat size={18} /></span>
           <span className="flex-1">
@@ -198,5 +217,6 @@ export default function IncomeForm({ income, onComplete, presetAccountId }: {
         </button>
       )}
     </form>
+    </>
   );
 }

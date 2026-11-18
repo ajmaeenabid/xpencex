@@ -23,12 +23,13 @@ const PRESETS: { id: DatePreset; label: TKey }[] = [
 ];
 
 /** The Transactions filter sheet: changes apply only on Apply; Clear turns every filter off */
-export default function FilterSheet({ open, onClose, value, onApply, accounts }: {
+export default function FilterSheet({ open, onClose, value, onApply, accounts, labels }: {
   open: boolean;
   onClose: () => void;
   value: TransactionFilters;
   onApply: (filters: TransactionFilters) => void;
   accounts: Account[];
+  labels: string[]; // the labels on the entries being shown
 }) {
   const { t } = useI18n();
   const [draft, setDraft] = useState(value);
@@ -116,6 +117,19 @@ export default function FilterSheet({ open, onClose, value, onApply, accounts }:
             <input type="number" inputMode="decimal" min="0" placeholder={t('filters.max')} aria-label={t('filters.max')} className={field} value={max} onChange={e => setMax(e.target.value)} />
           </div>
         </section>
+
+        {labels.length > 0 && (
+          <section className="space-y-2">
+            <p className="text-xs font-bold text-muted">{t('labels.title')}</p>
+            <div className="flex flex-wrap gap-2">
+              {labels.map(label => (
+                <button key={label} type="button" onClick={() => set({ label: draft.label === label ? null : label })} aria-pressed={draft.label === label} className={chip(draft.label === label)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="space-y-2">
           <p className="text-xs font-bold text-muted">{t('filters.more')}</p>

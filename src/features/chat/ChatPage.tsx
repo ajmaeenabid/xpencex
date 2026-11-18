@@ -5,7 +5,8 @@ import { ChatMessage, Expense, AccountType } from '../../shared/types';
 import { processInput, processAudioInput, processAttachment, transcribeVoice, ChatTurn } from './aiService';
 import { blockedBy, chatUsage } from './limits';
 import { ReplyLanguage, scriptLanguage } from './language';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { useSwipe } from '../../shared/lib/swipe';
 import { X, Sparkles, ShieldAlert, PanelLeft, SquarePen } from 'lucide-react';
 import { MAJOR_CURRENCIES } from '../../shared/constants';
 import { parseTransactionSms, maskSensitive } from '../../shared/lib/smsParser';
@@ -20,6 +21,19 @@ import { useAttachments } from './useAttachments';
 import { OnRecorded, useVoiceRecorder } from './useVoiceRecorder';
 import { useLiveChat } from './useLiveChat';
 import { useConfirmActions } from './useConfirmActions';
+import { useAgentActions } from './agent/useAgentActions';
+import { AgentData, agentContext, readAction } from './agent/actions';
+import { useLoans } from '../accounts/loanService';
+import { useOwnReminders } from '../reminders/ownReminderService';
+import { reminderSettings } from '../reminders/reminders';
+import { useFunds } from '../funds/fundService';
+import { useSamities } from '../samity/samityService';
+import { usePlanned } from '../planned/plannedService';
+import { useCategoryRules } from '../categoryRules/categoryRuleService';
+import { useShoppingLists } from '../shopping/shoppingService';
+import { useWarranties } from '../warranties/warrantyService';
+import { ruleCategoryFor } from '../categoryRules/categoryRules';
+import type { Place } from '../search/searchPlaces';
 import { useChatHistory } from './useChatHistory';
 import ChatDrawer from './ChatDrawer';
 import { useReceipts } from '../receipts/useReceipts';
@@ -32,21 +46,27 @@ import ChatComposer from './ChatComposer';
 import { CardActions } from './ConfirmCards';
 import { isOnline } from '../../shared/lib/offlineSave';
 import { cn } from '../../shared/lib/utils';
+import { alertDialog } from '../../shared/components/Dialog';
+import AgentSpace, { ChatSwitch } from './agent/AgentSpace';
+import { createTask, finishTask, newTaskId, useTasks } from './agent/taskService';
+import { AgentTask, taskTitle } from './agent/tasks';
+import { AgentAction, OPEN_PLACES } from './agent/actions';
 import { useKeyboardOpen } from '../../shared/lib/keyboard';
 
 // Money questions get a status that says the assistant is looking at the user's data
 const MONEY_QUESTION = /spen|expens|budget|report|total|sav|cost|money|taka|tk|৳|balance|month|week|afford|plan/i;
 
 /** `active` is false while another tab is showing: the chat stays mounted so the conversation and any pending reply survive */
-export default function ChatPage({ active = true, incomingText, onIncomingHandled, draftText, onDraftHandled, onOpenExpense }: {
+export default function ChatPage({ active = true, incomingText, onIncomingHandled, draftText, onDraftHandled, onOpenExpense, onGoTo }: {
   onOpenExpense: (expense: Expense) => void; // from a receipt in the drawer's Receipts tab
+  onGoTo?: (place: Place) => void; // the Open button on an "open a screen" card
   active?: boolean;
   incomingText?: string | null; // an SMS shared into the app; read once, in a fresh chat
   onIncomingHandled?: () => void;
   draftText?: string | null; // typed in Home's search, then Ask: put in the message box, not sent
   onDraftHandled?: () => void;
 }) {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile, isDarkMode } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -63,7 +83,23 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   const usage = chatUsage(messages);
   const currencySymbol = MAJOR_CURRENCIES.find(c => c.code === profile?.currency)?.symbol || '৳';
   const accounts = useAccounts(user?.uid);
-  const { categories, spendingContext } = useChatData(user, profile);
+  const { categories, spendingContext, recentExpenses, recentIncome, recurring } = useChatData(user, profile);
+  const categoryBudgets = profile?.categoryBudgets || {};
+  const loans = useLoans(user?.uid);
+  const ownReminders = useOwnReminders(user?.uid);
+  // ChatPage only shows when someone is signed in, so the id is always there
+  const funds = useFunds(user?.uid || '');
+  const samities = useSamities(user?.uid || '');
+  const planned = usePlanned(user?.uid);
+  const shoppingLists = useShoppingLists(user?.uid);
+  const warranties = useWarranties(user?.uid);
+  // The person's category rules decide the category on the cards made from SMS and the AI
+  const categoryRules = useCategoryRules(user?.uid);
+  const ruleCategory = (title?: string) => ruleCategoryFor(title, categoryRules, categories);
+  // Typed and voice messages also see account names and loans, so they can prepare action cards (agent/actions.ts)
+  const aiContext = [spendingContext, agentContext(accounts, loans, recentIncome, recurring, categoryBudgets, {
+    darkMode: isDarkMode, language: lang, currency: profile?.currency || 'BDT', reminders: reminderSettings(profile?.reminders), monthStart: profile?.monthStart,
+  }, funds, samities, planned, shoppingLists, warranties)].join('\n');
   const {
     limits, setLimits, limitNote, setLimitNote, limitNoteVars, setLimitNoteVars, warnedRef, warnOnce, explainIfBlocked, explainIfNoAiLeft,
   } = useLimitNotes(user, active, usage, categories);
@@ -107,20 +143,65 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   // Sentences follow the language the user just used; card labels and buttons stay in the app's language
   const tIn = (language?: ReplyLanguage): TFunction => (key, vars) => translate(language || lang, key, vars);
 
+  // Agent space: every action the AI prepares becomes a task there; the chat keeps one short line for it
+  const tasks = useTasks(user?.uid);
+  const [view, setView] = useState<'chats' | 'agent'>('chats');
+  const waitingCount = tasks.filter(task => task.status === 'waiting').length;
+  // Each view slides in from the side it lives on: Chats on the left, Agent space on the right
+  const reduceMotion = useReducedMotion();
+  const slide = reduceMotion ? 0 : 28;
+  const makeTask = (action: AgentAction, words: string | undefined, replyLang: ReplyLanguage) => {
+    if (!user) return;
+    const title = taskTitle(words, tIn(replyLang)('agent.taskFallback'));
+    const taskId = newTaskId();
+    // The line keeps the action too, so a task that couldn't be saved can be tried again from it
+    const messageId = addMessage('assistant', title, 'task_link', undefined, { taskId, replyLang, pendingAction: action });
+    saveTaskFor(messageId, taskId, title, action, replyLang);
+  };
+  const setTaskFailed = (messageId: string, failed: boolean) =>
+    setMessages(prev => prev.map(m => (m.id === messageId ? { ...m, taskFailed: failed } : m)));
+  const saveTaskFor = (messageId: string, taskId: string, title: string, action: AgentAction, replyLang?: ReplyLanguage) => {
+    if (!user) return Promise.resolve();
+    return createTask(taskId, { uid: user.uid, chatId: activeId, messageId, title, action, replyLang })
+      .then(() => setTaskFailed(messageId, false))
+      .catch(err => {
+        console.error('Could not save the task', err);
+        setTaskFailed(messageId, true);
+      });
+  };
+  /** "Try again" on a line whose task couldn't be saved */
+  const retryTask = (msg: ChatMessage) => {
+    if (msg.taskId && msg.pendingAction) saveTaskFor(msg.id, msg.taskId, msg.content, msg.pendingAction, msg.replyLang);
+  };
+
+  // What the AI's action codes (A1, E1, G1...) point at: the same lists it was shown
+  const agentData = (): AgentData => ({ accounts, expenses: recentExpenses, incomes: recentIncome, categories, recurring, categoryBudgets, funds, samities, shoppingLists });
+
   // Shows an AI reply: a confirm card for money, or the written answer
   /** Shows the AI's answer. Returns the id of the expense card it made, if it made one. */
   const showResult = (result: Awaited<ReturnType<typeof processInput>>, askKey: TKey): string | null => {
     const replyLang = result.language || lang;
     const say = tIn(replyLang);
-    if (result.type === 'income' && result.expense?.amount) {
-      const { title, amount, date, notes } = result.expense;
+    const action = result.type === 'action' ? readAction(result.action, agentData()) : null;
+    if (action) {
+      makeTask(action, result.content, replyLang);
+    } else if (result.type === 'action') {
+      // An action the app can't show (or one with no amount): say so instead of showing nothing
+      addMessage('assistant', say('agent.cantDo'), 'text', undefined, { backupModel: result.backup, replyLang });
+    } else if (result.type === 'income' && result.expense?.amount) {
+      const { title, amount, date, notes, labels } = result.expense;
       addMessage('assistant', say('chat.aiIncome', { amount: `${currencySymbol}${amount.toLocaleString()}` }), 'income_confirmation', undefined,
-        { pendingIncome: { title: title || say('chat.moneyReceived'), amount, date: date || new Date().toISOString(), notes }, backupModel: result.backup, replyLang });
+        { pendingIncome: { title: title || say('chat.moneyReceived'), amount, date: date || new Date().toISOString(), notes, labels }, backupModel: result.backup, replyLang });
     } else if (result.type === 'expense' && result.expense) {
-      if (result.expense.category === 'INVALID') {
+      const ruled = ruleCategory(result.expense.title);
+      if (result.expense.category === 'INVALID' && !ruled) {
         addMessage('assistant', say('chat.noCategory'), 'error', undefined, { backupModel: result.backup, replyLang });
       } else {
-        return addMessage('assistant', say(askKey), 'expense_confirmation', result.expense, { backupModel: result.backup, replyLang });
+        // A "new" category that the user already has (in other capitals) is just that category
+        const existing = ruled || categories.find(c => c.toLowerCase() === result.expense!.category.toLowerCase());
+        const expense = existing ? { ...result.expense, category: existing } : result.expense;
+        return addMessage('assistant', say(askKey), 'expense_confirmation', expense,
+          { backupModel: result.backup, replyLang, ...(result.newCategory && !existing && { newCategory: true }) });
       }
     } else {
       addMessage('assistant', result.content, 'text', undefined, { steps: result.steps, backupModel: result.backup, replyLang });
@@ -138,14 +219,21 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   } = useVoiceRecorder({ explainIfBlocked, addMessage, setLimitNote, t });
 
   const { liveState, liveSeconds, liveCaption, liveRef, startLive } = useLiveChat({
-    loading, isRecording, setLimitNote, explainIfBlocked, setLimits, lang, categories, spendingContext,
-    recentHistory: () => recentHistory(), addMessage, setMessages, setSecretWarning, currencySymbol, tIn, t,
+    loading, isRecording, setLimitNote, explainIfBlocked, setLimits, lang, categories, spendingContext: aiContext,
+    recentHistory: () => recentHistory(), addMessage, setMessages, setSecretWarning, currencySymbol, tIn, t, agentData,
+    onAction: makeTask, ruleCategory,
   });
 
   // "Keep this receipt" on expense cards made from a photo or PDF
   const chatReceipts = useChatReceipts(user?.uid, t);
-  const { isConfirming, accountChoices, setAccountChoices, syncChoices, setSyncChoices, debtChoices, setDebtChoices, confirmIncome, confirmExpense } = useConfirmActions({
-    user, messages, accounts, currencySymbol, tIn, t, addMessage, markResolved, afterExpenseSaved: chatReceipts.afterSaved,
+  const { isConfirming, accountChoices, setAccountChoices, categoryChoices, setCategoryChoices, syncChoices, setSyncChoices, debtChoices, setDebtChoices, confirmIncome, confirmExpense } = useConfirmActions({
+    user, messages, accounts, categories, currencySymbol, tIn, t, addMessage, markResolved, afterExpenseSaved: chatReceipts.afterSaved,
+  });
+
+  // Opening a screen leaves the chat, which ends a live chat anyway: end it first, cleanly
+  const goTo = onGoTo && ((place: Place) => { liveRef.current?.finish('user'); onGoTo(place); });
+
+  const agent = useAgentActions({ user, messages, accounts, expenses: recentExpenses, incomes: recentIncome, recurring, categories, funds, samities, ownReminderCount: ownReminders.length, plannedCount: planned.length, shoppingLists, refreshProfile, currencySymbol, tIn, t, addMessage, markResolved, onGoTo: goTo,
   });
 
   // Per-chat messages and anything only meant for the chat being left
@@ -167,6 +255,37 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   } = useChatHistory({
     user, t, messages, setMessages, setInput, setLimitNote, setLimitNoteVars, resetChatExtras, loading, isRecording, liveState,
   });
+
+  /** Confirm in Agent space: saved like any card, then the task (and its line in chat) shows the result */
+  const confirmTask = async (task: AgentTask) => {
+    const outcome = await agent.runAction({ id: task.id, pendingAction: task.action, replyLang: task.replyLang });
+    if (outcome.kind === 'problem') { alertDialog(outcome.text); return; }
+    if (outcome.kind !== 'done') return;
+    await finishTask(task, 'done', outcome.reply, outcome.saved !== false).catch(err => console.error('Could not update the task', err));
+    outcome.after?.();
+  };
+  const cancelTask = (task: AgentTask) =>
+    finishTask(task, 'cancelled', tIn(task.replyLang)('agent.cancelled')).catch(err => console.error('Could not update the task', err));
+
+  /** "Go to chat": the task's chat, scrolled to its line */
+  const goToChat = (task: AgentTask) => {
+    if (task.chatId !== activeId) {
+      const chat = chats.find(c => c.id === task.chatId);
+      if (!chat) { alertDialog(t('agent.space.chatGone')); return; }
+      openChat(chat);
+    }
+    setView('chats');
+    window.setTimeout(() => document.getElementById(`task-${task.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350);
+  };
+  /** "Review" on a chat line: Agent space, scrolled to that task's card */
+  const reviewTask = (taskId: string) => {
+    setView('agent');
+    window.setTimeout(() => document.getElementById(`agent-task-${taskId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
+  };
+  const seeIt = (placeId: string) => {
+    const place = OPEN_PLACES.find(p => p.id === placeId);
+    if (place && goTo) goTo(place);
+  };
 
   // Read only while the drawer is open, for its Receipts tab
   const receipts = useReceipts(user?.uid, sidebarOpen);
@@ -230,7 +349,7 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
         addMessage('assistant', say('chat.smsIncome', { source, amount: `${currencySymbol}${sms.income.amount.toLocaleString()}`, ask }), 'income_confirmation', undefined,
           { pendingIncome: { ...sms.income, accountId }, sms: smsInfo, replyLang });
       } else {
-        addMessage('assistant', say('chat.smsExpense', { source }), 'expense_confirmation', { ...sms.expense, accountId }, { sms: smsInfo, replyLang });
+        addMessage('assistant', say('chat.smsExpense', { source }), 'expense_confirmation', { ...sms.expense, category: ruleCategory(sms.expense.title) || sms.expense.category, accountId }, { sms: smsInfo, replyLang });
       }
       setLoading(false);
       return;
@@ -238,7 +357,7 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
 
     setStatus(MONEY_QUESTION.test(userText) ? 'chat.status.checking' : 'chat.status.thinking');
     try {
-      showResult(await processInput(userText, categories, spendingContext, history, lang), 'chat.confirmExpenseAsk');
+      showResult(await processInput(userText, categories, aiContext, history, lang), 'chat.confirmExpenseAsk');
     } catch (error) {
       addMessage('assistant', t('chat.genericError'), 'error');
     } finally {
@@ -304,8 +423,8 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
       }
       const heard = words ? cleanSpokenText(words, containsSecret, maskSensitive) : null;
       const result = heard
-        ? await processInput(heard, categories, spendingContext, recentHistory(), lang, true)
-        : await processAudioInput(base64Audio, mimeType, categories, spendingContext, recentHistory(), lang);
+        ? await processInput(heard, categories, aiContext, recentHistory(), lang, true)
+        : await processAudioInput(base64Audio, mimeType, categories, aiContext, recentHistory(), lang);
       const spokenText = heard ?? cleanSpokenText(result.heard, containsSecret, maskSensitive);
       if (spokenText) setMessages(prev => prev.map(m => (m.id === voiceId ? { ...m, spokenText } : m)));
       showResult(result, 'chat.confirmVoiceAsk');
@@ -400,15 +519,22 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   );
 
   const cards: CardActions = {
-    messages, currencySymbol, accounts, accountChoices, setAccountChoices, syncChoices, setSyncChoices, debtChoices, setDebtChoices,
+    messages, currencySymbol, accounts, categories, accountChoices, setAccountChoices, categoryChoices, setCategoryChoices, syncChoices, setSyncChoices, debtChoices, setDebtChoices,
     isConfirming, confirmExpense, confirmIncome, markResolved, addMessage, tIn,
-    receiptFor: chatReceipts.receiptFor, toggleReceipt: chatReceipts.toggle, openReceipts,
+    receiptFor: chatReceipts.receiptFor, toggleReceipt: chatReceipts.toggle, openReceipts, agent,
+    tasks, onReviewTask: reviewTask, onSeeIt: seeIt, onRetryTask: retryTask,
   };
+
+  // Swipe left for Agent space, right for Chats (not while the history drawer is open or a message is being edited)
+  const swipeHandlers = useSwipe(direction => setView(direction === 'left' ? 'agent' : 'chats'), !sidebarOpen && !editingId);
 
   return (
     // The screen minus the phone's status and navigation bars, the space above (pt-6) and the bottom bar
     // (6rem). While typing, the bottom bar is hidden, so the message box sits just above the keyboard.
-    <div className={cn('relative flex flex-col overflow-hidden', keyboardOpen ? 'h-[calc(100dvh-var(--sat)-2.25rem)]' : 'h-[calc(100dvh-var(--sat)-var(--sab)-7.5rem)]')}>
+    <div
+      {...swipeHandlers}
+      className={cn('relative flex flex-col overflow-hidden', keyboardOpen ? 'h-[calc(100dvh-var(--sat)-2.25rem)]' : 'h-[calc(100dvh-var(--sat)-var(--sab)-7.5rem)]')}
+    >
       {/* Chat history drawer */}
       <ChatDrawer
         sidebarOpen={sidebarOpen}
@@ -441,13 +567,42 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
         onDismissNotSaved={() => setNotSavedClosedFor(activeId)}
       />
 
+      <ChatSwitch view={view} setView={setView} waiting={waitingCount} />
+
       {saveError && (
         <div role="alert" className="mb-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-semibold">
           {saveError}
         </div>
       )}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-1 py-3 space-y-6 no-scrollbar">
+      {view === 'agent' && (
+        <motion.div
+          initial={{ x: slide, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+          className="flex-1 min-h-0 flex flex-col"
+        >
+        <AgentSpace
+          tasks={tasks}
+          chatTitle={id => chats.find(c => c.id === id)?.title}
+          agent={agent}
+          accounts={accounts}
+          currencySymbol={currencySymbol}
+          onConfirm={confirmTask}
+          onCancel={cancelTask}
+          onGoToChat={goToChat}
+          onSeeIt={seeIt}
+        />
+        </motion.div>
+      )}
+
+      <motion.div
+        ref={scrollRef}
+        initial={false}
+        animate={view === 'chats' ? { x: 0, opacity: 1 } : { x: -slide, opacity: 0 }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+        className={cn('flex-1 overflow-y-auto px-1 py-3 space-y-6 no-scrollbar', view === 'agent' && 'hidden')}
+      >
         {messages.length === 0 && (
           <ChatWelcome firstName={firstName} handleSend={handleSend} />
         )}
@@ -495,9 +650,9 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
             <span className="status-shimmer text-sm font-semibold">{t(status)}…</span>
           </div>
         )}
-      </div>
+      </motion.div>
 
-      <div className="px-4 pb-4 pt-2">
+      <div className={cn('px-4 pb-4 pt-2', view === 'agent' && 'hidden')}>
         <ChatNotices
           secretWarning={secretWarning}
           setSecretWarning={setSecretWarning}

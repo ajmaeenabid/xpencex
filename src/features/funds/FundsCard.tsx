@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { CalendarClock, CheckCircle2, PiggyBank } from 'lucide-react';
 import { useI18n } from '../../shared/i18n';
 import TapCard, { ChipTone } from '../home/TapCard';
-import { fundPlan, sortFunds } from './funds';
+import { fundPlan, goalStage, sortFunds } from './funds';
 import { useFunds } from './fundService';
 import FundsWindow from './FundsWindow';
 
@@ -12,7 +12,8 @@ export default function FundsCard({ uid, symbol }: { uid: string; symbol: string
   const funds = sortFunds(useFunds(uid));
   const [open, setOpen] = useState(false);
   const money = (n: number) => `${symbol}${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-  const nearest = funds[0];
+  // Goals still in progress come first; paused goals never show here
+  const nearest = funds.find(f => goalStage(f) === 'active') ?? funds.find(f => goalStage(f) === 'reached');
   const plan = nearest && fundPlan(nearest);
 
   let chip: string | undefined;

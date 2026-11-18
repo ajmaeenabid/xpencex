@@ -127,6 +127,8 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    /* A sideways swipe is the app's own (chat: Chats | Agent space), never the browser going back a page */
+    overscroll-behavior-x: none;
     /* Garamond's default old-style numbers bob up and down; keep amounts level and lined up */
     font-variant-numeric: lining-nums tabular-nums;
   }

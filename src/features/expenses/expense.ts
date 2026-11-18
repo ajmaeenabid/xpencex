@@ -1,3 +1,6 @@
+import { cleanLabels, labelFields } from '../labels/labels';
+import { warrantyFromAi } from '../warranties/warranties';
+
 export interface ExtractedExpense {
   title: string;
   amount: number;
@@ -5,6 +8,8 @@ export interface ExtractedExpense {
   date: string;
   notes?: string;
   fee?: number; // from an SMS only; already included in amount
+  labels?: string[]; // only when the user asked for one
+  warrantyUntil?: string; // only when the user mentioned a warranty
 }
 
 // Gemini may return "2026-10-23", a string amount, or junk; Firestore rules need a full ISO date and a positive number
@@ -14,12 +19,15 @@ export function normalizeExpense(raw: any): ExtractedExpense | null {
   if (!raw.title || !Number.isFinite(amount) || amount <= 0) return null;
   let date = raw.date ? new Date(raw.date) : new Date();
   if (isNaN(date.getTime())) date = new Date();
+  const warrantyUntil = warrantyFromAi(raw, date.toISOString());
   return {
     title: String(raw.title).slice(0, 100),
     amount: Math.round(amount * 100) / 100,
     category: String(raw.category || 'Other').slice(0, 50),
     date: date.toISOString(),
     notes: raw.notes ? String(raw.notes).slice(0, 500) : '',
+    ...labelFields(cleanLabels(raw.labels)),
+    ...(warrantyUntil && { warrantyUntil }),
   };
 }
 

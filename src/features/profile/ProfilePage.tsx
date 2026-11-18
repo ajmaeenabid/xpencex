@@ -25,10 +25,11 @@ import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/compo
 import LanguageToggle from '../../shared/components/LanguageToggle';
 import { useI18n } from '../../shared/i18n';
 import { saved } from '../../shared/lib/offlineSave';
+import MonthStartCard from './MonthStartCard';
 
 // Movable cards, in their default order. Budgets, recurring expenses and categories are in the
 // Expenses side panel now (features/expenses/ExpenseSettings.tsx).
-const PROFILE_SECTIONS = ['accounts', 'admin', 'notices', 'reminders', 'widget', 'pin', 'language', 'currency', 'connectedApps', 'backup', 'feedback'];
+const PROFILE_SECTIONS = ['accounts', 'admin', 'notices', 'reminders', 'widget', 'pin', 'language', 'currency', 'monthStart', 'connectedApps', 'backup', 'feedback'];
 
 export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal?: number }) {
   const { user, profile, refreshProfile } = useAuth();
@@ -170,11 +171,12 @@ export default function ProfilePage({ openAccountsSignal }: { openAccountsSignal
       </div>
       ) },
 
+      { id: 'monthStart', node: <MonthStartCard /> },
       { id: 'reminders', node: <RemindersCard /> },
       { id: 'widget', node: <WidgetCard onHiddenChange={widgetSettingsChanged} /> },
       { id: 'connectedApps', node: user && <ConnectedAppsCard uid={user.uid} /> },
 
-      { id: 'backup', node: user && <BackupCard uid={user.uid} /> },
+      { id: 'backup', node: user && <BackupCard uid={user.uid} symbol={currencySymbol} /> },
 
       { id: 'feedback', node: user && <FeedbackCard uid={user.uid} /> },
 

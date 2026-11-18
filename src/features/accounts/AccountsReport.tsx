@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { startOfMonth } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { db } from '../../shared/firebase';
 import { useAuth } from '../../app/App';
@@ -8,6 +7,8 @@ import { Account, Deposit, Expense } from '../../shared/types';
 import { accountDisplayName } from './accounts';
 import { cn } from '../../shared/lib/utils';
 import { useI18n } from '../../shared/i18n';
+import { useStartDay } from '../../app/useStartDay';
+import { moneyMonth } from '../../shared/lib/moneyMonth';
 
 interface Props {
   expenses: Expense[];
@@ -29,8 +30,9 @@ export default function AccountsReport({ expenses, accounts, symbol }: Props) {
     });
   }, [user]);
 
+  const startDay = useStartDay();
   const rows = useMemo(() => {
-    const monthStart = startOfMonth(new Date()).getTime();
+    const monthStart = moneyMonth(new Date(), startDay).start.getTime();
     const inMonth = (iso: string) => new Date(iso).getTime() >= monthStart;
     return accounts.map(a => ({
       name: accountDisplayName(a),

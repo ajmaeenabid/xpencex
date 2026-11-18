@@ -12,6 +12,8 @@ import { actionsFor, switchVersion } from './versions';
 import { formatClock as formatTime } from './limits';
 import { CopyButton, EditButton, ResendButton, ShareButton, VersionArrows } from './MessageActions';
 import { CardActions, ExpenseCard, IncomeCard, WithExpense, WithIncome } from './ConfirmCards';
+import ActionCard from './agent/ActionCard';
+import { TaskLine } from './agent/AgentSpace';
 
 /** Tables can be wider than a phone screen, so they scroll sideways on their own */
 const markdownComponents = {
@@ -41,6 +43,15 @@ export default function MessageItem({
   cards: CardActions;
 }) {
   const { t } = useI18n();
+  // An action the AI prepared: the card lives in Agent space, the chat shows one line that follows it
+  if (msg.type === 'task_link' && msg.taskId) {
+    const taskId = msg.taskId;
+    return (
+      <div className="w-full">
+        <TaskLine task={cards.tasks.find(task => task.id === taskId)} title={msg.content} failed={msg.taskFailed} onRetry={() => cards.onRetryTask(msg)} onReview={() => cards.onReviewTask(taskId)} onSeeIt={cards.onSeeIt} />
+      </div>
+    );
+  }
   return (
     <div className={`space-y-2 ${msg.role === 'user' && editingId !== msg.id ? 'max-w-[85%]' : 'w-full'}`}>
       <div className={
@@ -203,6 +214,10 @@ export default function MessageItem({
 
       {msg.type === 'income_confirmation' && msg.pendingIncome && !msg.resolved && (
         <IncomeCard msg={msg as WithIncome} cards={cards} />
+      )}
+
+      {msg.type === 'action_confirmation' && msg.pendingAction && !msg.resolved && (
+        <ActionCard msg={msg as ChatMessage & { pendingAction: NonNullable<ChatMessage['pendingAction']> }} agent={cards.agent} accounts={cards.accounts} currencySymbol={cards.currencySymbol} />
       )}
     </div>
   );

@@ -7,11 +7,11 @@ const LABEL: Record<SpendingLine['key'], TKey> = { today: 'home.today', week: 'h
 const COLOR: Record<LineStatus, string> = { ok: 'bg-emerald-500', near: 'bg-amber-500', over: 'bg-rose-500' };
 
 /** Spending today and this week, each as a line filled against its share of the budget */
-export default function SpendingCard({ spent, budget, symbol }: { spent: { today: number; week: number; month: number }; budget: number; symbol: string }) {
+export default function SpendingCard({ spent, budget, symbol, startDay = 1 }: { spent: { today: number; week: number; month: number }; budget: number; symbol: string; startDay?: number }) {
   const { t } = useI18n();
   return (
     <div className="bg-card p-6 rounded-[2.5rem] shadow-soft border border-card-border space-y-4">
-      {spendingLines(spent, budget).map(line => (
+      {spendingLines(spent, budget, new Date(), startDay).map(line => (
         <div key={line.key} className="space-y-1.5">
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-xs font-bold text-muted">{t(LABEL[line.key])}</p>

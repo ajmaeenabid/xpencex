@@ -1,17 +1,19 @@
 import { useRef, useState } from 'react';
-import { DatabaseBackup, Download, Upload } from 'lucide-react';
+import { DatabaseBackup, Download, FileUp, Upload } from 'lucide-react';
 import { useI18n } from '../../shared/i18n';
 import { isOnline } from '../../shared/lib/offlineSave';
 import { alertDialog } from '../../shared/components/Dialog';
 import { BackupError, isLocked } from './backup';
 import { downloadBackup, restoreBackup } from './backupService';
+import ImportWindow from '../import/ImportWindow';
 
 const field = 'w-full h-11 px-3 rounded-xl bg-background/60 border border-card-border text-sm text-foreground outline-none focus:border-indigo-500';
 const btn = 'flex-1 inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl text-sm font-bold transition-colors disabled:opacity-50';
 
 /** Profile card: download all your data as one file (optionally locked with a password), and restore it */
-export default function BackupCard({ uid }: { uid: string }) {
+export default function BackupCard({ uid, symbol }: { uid: string; symbol: string }) {
   const { t } = useI18n();
+  const [importing, setImporting] = useState(false);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState<'' | 'download' | 'restore'>('');
   const [pending, setPending] = useState<string | null>(null); // a locked file waiting for its password
@@ -101,6 +103,14 @@ export default function BackupCard({ uid }: { uid: string }) {
 
       <p className="text-[12px] text-muted font-medium leading-relaxed">{t('backup.restoreHint')}</p>
       {message && <p role="status" className="text-xs font-semibold text-foreground">{message}</p>}
+
+      <div className="pt-4 border-t border-card-border space-y-2">
+        <button onClick={() => (isOnline() ? setImporting(true) : setMessage(t('backup.offline')))} className={`${btn} w-full bg-card text-foreground border border-card-border`}>
+          <FileUp size={16} /> {t('import.title')}
+        </button>
+        <p className="text-[12px] text-muted font-medium leading-relaxed">{t('import.cardHint')}</p>
+      </div>
+      {importing && <ImportWindow uid={uid} symbol={symbol} onClose={() => setImporting(false)} />}
     </div>
   );
 }

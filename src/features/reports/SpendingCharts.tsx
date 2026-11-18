@@ -7,7 +7,9 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis,
   CartesianGrid, BarChart, Bar, ReferenceLine, Legend,
 } from 'recharts';
-import { startOfMonth, subMonths, getDaysInMonth, getDate, getDay, endOfMonth } from 'date-fns';
+import { addDays, getDate, getDay } from 'date-fns';
+import { moneyMonth, moneyMonthDay } from '../../shared/lib/moneyMonth';
+import { useStartDay } from '../../app/useStartDay';
 
 const COLORS = ['#F97C45', '#14b8a6', '#F5B942', '#EE5578', '#9B7BD4', '#4AA3DF'];
 const WEEKDAYS: TKey[] = ['weekday.sun', 'weekday.mon', 'weekday.tue', 'weekday.wed', 'weekday.thu', 'weekday.fri', 'weekday.sat'];
@@ -32,16 +34,18 @@ export default function SpendingCharts({ expenses, symbol, budget = 0 }: Props) 
   const { t } = useI18n();
   const [view, setView] = useState<View>('category');
 
+  // This and last money month (Profile > Month starts on)
+  const startDay = useStartDay();
   const now = new Date();
-  const thisStart = startOfMonth(now).getTime();
-  const lastStart = startOfMonth(subMonths(now, 1)).getTime();
-  const lastEnd = endOfMonth(subMonths(now, 1)).getTime();
+  const thisStart = moneyMonth(now, startDay).start.getTime();
+  const lastStart = moneyMonth(now, startDay, -1).start.getTime();
+  const lastEnd = thisStart;
 
   const data = useMemo(() => {
     const thisMonth = expenses.filter(e => new Date(e.date).getTime() >= thisStart);
     const lastMonth = expenses.filter(e => {
       const t = new Date(e.date).getTime();
-      return t >= lastStart && t <= lastEnd;
+      return t >= lastStart && t < lastEnd;
     });
 
     const byCat = (list: Expense[]) => {
@@ -57,20 +61,20 @@ export default function SpendingCharts({ expenses, symbol, budget = 0 }: Props) 
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
-    // Cumulative spend by day for this and last month
-    const days = getDaysInMonth(now);
-    const today = getDate(now);
+    // Cumulative spend by day for this and last money month: position 1 is the start day, labelled with its date
+    const { day: today, length: days } = moneyMonthDay(now, startDay);
+    const position = (iso: string) => moneyMonthDay(new Date(iso), startDay).day;
     const perDayThis = new Array(days + 1).fill(0);
-    thisMonth.forEach(e => { perDayThis[getDate(new Date(e.date))] += e.amount; });
-    const perDayLast = new Array(32).fill(0);
-    lastMonth.forEach(e => { perDayLast[getDate(new Date(e.date))] += e.amount; });
+    thisMonth.forEach(e => { perDayThis[Math.min(position(e.date), days)] += e.amount; });
+    const perDayLast = new Array(33).fill(0);
+    lastMonth.forEach(e => { perDayLast[Math.min(position(e.date), 32)] += e.amount; });
     let cumThis = 0, cumLast = 0;
     const pace = Array.from({ length: days }, (_, i) => {
       const d = i + 1;
       cumLast += perDayLast[d];
       if (d <= today) cumThis += perDayThis[d];
       return {
-        day: d,
+        day: getDate(addDays(new Date(thisStart), i)),
         spent: d <= today ? cumThis : null,
         lastMonth: cumLast,
         budget: budget > 0 ? Math.round((budget / days) * d) : null,

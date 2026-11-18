@@ -10,10 +10,15 @@ export interface Fund {
   fromAccounts?: Record<string, number>; // money moved in from each account, so taking it out can put it back
   saved: number; // set aside so far
   createdAt: string;
+  paused?: boolean; // set aside for now: off Home, suggestions and reminders until resumed
+  celebrated?: boolean; // false = just reached, celebration still to show; true = shown. Missing = never reached since this was added
 }
 
 export const FESTIVALS = ['eidFitr', 'eidAdha', 'durgaPuja', 'boishakh', 'christmas', 'buddhaPurnima'] as const;
 export type Festival = (typeof FESTIVALS)[number];
+
+export const GOAL_IDEAS = ['emergency', 'gadget', 'hajj', 'wedding', 'admission', 'trip'] as const;
+export type GoalIdea = (typeof GOAL_IDEAS)[number];
 
 const DAY = 24 * 60 * 60 * 1000;
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -48,6 +53,23 @@ export function fundPlan(fund: Pick<Fund, 'target' | 'saved' | 'dueDate'>, now =
     passed: daysLeft < 0,
   };
 }
+
+export type GoalStage = 'active' | 'reached' | 'paused';
+
+/** Which section a goal belongs in. Paused comes first, so a paused goal can always be found and resumed. */
+export function goalStage(fund: Pick<Fund, 'target' | 'saved' | 'dueDate' | 'paused'>): GoalStage {
+  if (fund.paused) return 'paused';
+  return fundPlan(fund).reached ? 'reached' : 'active';
+}
+
+/** True when putting in this amount takes the goal to its target for the first time */
+export function reachesGoal(fund: Pick<Fund, 'target' | 'saved' | 'celebrated'>, amount: number): boolean {
+  return fund.celebrated === undefined && fund.saved < fund.target && round2(fund.saved + amount) >= fund.target;
+}
+
+/** True when a reached goal is still waiting for its one celebration */
+export const needsCelebration = (fund: Pick<Fund, 'target' | 'saved' | 'celebrated'>) =>
+  fund.celebrated === false && fund.saved >= fund.target;
 
 /** Upcoming goals first (soonest first), then goals with no end date (newest first), then ones whose day has passed */
 export function sortFunds(funds: Fund[], now = new Date()): Fund[] {

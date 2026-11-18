@@ -5,6 +5,7 @@ import { db } from '../../shared/firebase';
 import { Expense } from '../../shared/types';
 import { useI18n, categoryLabel } from '../../shared/i18n';
 import { MIN_REGRETS, regretSummary } from './regret';
+import { useStartDay } from '../../app/useStartDay';
 
 /** Reports card: this month's worth-it vs regret spending, and the strongest pattern in your regrets */
 export default function RegretCard({ uid, expenses, symbol }: { uid: string; expenses: Expense[]; symbol: string }) {
@@ -13,7 +14,8 @@ export default function RegretCard({ uid, expenses, symbol }: { uid: string; exp
   const [moneyIn, setMoneyIn] = useState<string[]>([]);
   useEffect(() => onSnapshot(query(collection(db, 'deposits'), where('uid', '==', uid)), snap => setMoneyIn(snap.docs.map(d => d.data().date as string))), [uid]);
 
-  const s = useMemo(() => regretSummary(expenses, moneyIn), [expenses, moneyIn]);
+  const startDay = useStartDay();
+  const s = useMemo(() => regretSummary(expenses, moneyIn, new Date(), startDay), [expenses, moneyIn, startDay]);
   const money = (n: number) => `${symbol}${n.toLocaleString()}`;
   const percent = s.pattern ? Math.round(s.pattern.share * 100) : 0;
   const patternText = !s.pattern ? null

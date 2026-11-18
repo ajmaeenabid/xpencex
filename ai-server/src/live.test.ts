@@ -123,7 +123,7 @@ describe('live chat relay: talking to Gemini', () => {
     const setup = JSON.parse(gemini!.sent[0] as string).setup;
     expect(setup.model).toBe('models/gemini-test-live');
     expect(setup.systemInstruction.parts[0].text).toBe('You help with expenses.');
-    expect(setup.tools[0].functionDeclarations.map((f: { name: string }) => f.name)).toEqual(['record_expense', 'record_income']);
+    expect(setup.tools[0].functionDeclarations.map((f: { name: string }) => f.name)).toEqual(['record_expense', 'record_income', 'prepare_action']);
   });
 
   it('passes audio and tool answers on, but never a second setup from the phone', async () => {

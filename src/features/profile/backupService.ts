@@ -38,7 +38,7 @@ export interface RestoreResult {
 }
 
 // Accounts first, so expenses, history and loans that point to them line up
-const ORDER: BackupCollection[] = ['accounts', 'balanceHistory', 'expenses', 'deposits', 'recurring', 'categories', 'debts', 'funds', 'samities', 'chats', 'incomeRules', 'incomeCategories'];
+const ORDER: BackupCollection[] = ['accounts', 'balanceHistory', 'expenses', 'deposits', 'recurring', 'categories', 'debts', 'funds', 'samities', 'chats', 'incomeRules', 'incomeCategories', 'reminders', 'templates', 'planned', 'categoryRules', 'shoppingLists', 'savedFilters'];
 const BATCH = 100;
 
 /** Adds everything in the backup that isn't in the app yet. Nothing already there is changed. */

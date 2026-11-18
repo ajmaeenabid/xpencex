@@ -85,6 +85,49 @@ describe('other reminders', () => {
   });
 });
 
+describe('planned payment reminders', () => {
+  const bill = { id: 'p1', name: 'School fee', amount: 3000, date: day(20), income: false };
+  const only = (r: ReturnType<typeof planReminders>) => r.filter(x => x.kind === 'planned');
+
+  it('rings at 9 AM the day before and on the day', () => {
+    const list = only(planReminders(DEFAULT_REMINDERS, { ...base, planned: [bill] }));
+    expect(list.map(r => [r.at.getDate(), r.at.getHours()])).toEqual([[19, 9], [20, 9]]);
+    expect(list.map(r => r.text.key === 'planned' && r.text.today)).toEqual([false, true]);
+  });
+
+  it('skips a time that has already passed', () => {
+    expect(only(planReminders(DEFAULT_REMINDERS, { ...base, planned: [{ ...bill, date: day(11) }] }))).toHaveLength(0);
+    expect(only(planReminders(DEFAULT_REMINDERS, { ...base, planned: [{ ...bill, date: day(12) }] }))).toHaveLength(1);
+  });
+
+  it('stays quiet when its switch is off', () => {
+    const off = { ...DEFAULT_REMINDERS, on: { ...DEFAULT_REMINDERS.on, planned: false } };
+    expect(only(planReminders(off, { ...base, planned: [bill] }))).toHaveLength(0);
+  });
+});
+
+describe('warranty reminders', () => {
+  const only = (r: ReturnType<typeof planReminders>) => r.filter(x => x.kind === 'warranty');
+  const fan = { id: 'w1', name: 'Fan', until: new Date(2027, 0, 20, 12).toISOString() };
+
+  it('rings at 9 AM, 30 and 7 days before the end', () => {
+    const list = only(planReminders(DEFAULT_REMINDERS, { ...base, warranties: [fan] }));
+    expect(list.map(r => [r.at.getMonth(), r.at.getDate(), r.at.getHours()])).toEqual([[11, 21, 9], [0, 13, 9]]);
+  });
+
+  it('keeps its ids clear of the alerts sent at once and of your own reminders', () => {
+    const ids = only(planReminders(DEFAULT_REMINDERS, { ...base, warranties: [fan] })).map(r => r.id);
+    expect(ids.every(id => id >= 12000)).toBe(true);
+  });
+
+  it('skips a time that has passed, and stays quiet when switched off', () => {
+    const soon = { ...fan, until: day(20) };
+    expect(only(planReminders(DEFAULT_REMINDERS, { ...base, warranties: [soon] }))).toHaveLength(1);
+    const off = { ...DEFAULT_REMINDERS, on: { ...DEFAULT_REMINDERS.on, warranty: false } };
+    expect(only(planReminders(off, { ...base, warranties: [fan] }))).toHaveLength(0);
+  });
+});
+
 describe('budgetAlert', () => {
   it('sends 80% and 100% once each', () => {
     expect(budgetAlert(700, 1000, [])).toBeNull();

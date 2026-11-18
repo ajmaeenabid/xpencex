@@ -1,4 +1,5 @@
 import { Expense } from '../../shared/types';
+import { inMoneyMonth } from '../../shared/lib/moneyMonth';
 
 // "Worth it or regret?": totals and the strongest pattern in your regrets, worked out on the phone
 
@@ -20,12 +21,10 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 // When it was actually bought: the time it was saved (a typed date is set to midday)
 const when = (e: Tagged) => new Date(e.createdAt || e.date);
 
-export function regretSummary(expenses: Tagged[], moneyInDates: string[] = [], now = new Date()) {
-  const month = (d: Date) => d.getFullYear() * 12 + d.getMonth();
-  const thisMonth = month(now);
+export function regretSummary(expenses: Tagged[], moneyInDates: string[] = [], now = new Date(), startDay = 1) {
   let regret = 0, worth = 0;
   for (const e of expenses) {
-    if (month(new Date(e.date)) !== thisMonth) continue;
+    if (!inMoneyMonth(e.date, now, startDay)) continue; // this money month (Profile > Month starts on)
     if (e.feeling === 'regret') regret += e.amount;
     else if (e.feeling === 'worth') worth += e.amount;
   }

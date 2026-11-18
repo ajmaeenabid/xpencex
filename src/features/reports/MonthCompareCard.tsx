@@ -1,19 +1,33 @@
+import { useState } from 'react';
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react';
 import { categoryLabel, useI18n } from '../../shared/i18n';
 import { cn } from '../../shared/lib/utils';
 import type { Expense } from '../../shared/types';
 import { compareByCategory } from '../home/insights';
+import { useStartDay } from '../../app/useStartDay';
+import YearCompareView from './YearCompareView';
 
-/** Reports: each category this month so far against the same days of last month */
-export default function MonthCompareCard({ expenses, symbol }: { expenses: Expense[]; symbol: string }) {
+/** Reports: this month so far against last month, or against the same month last year */
+export default function MonthCompareCard({ uid, expenses, symbol }: { uid: string; expenses: Expense[]; symbol: string }) {
   const { t } = useI18n();
-  const rows = compareByCategory(expenses);
+  const [tab, setTab] = useState<'month' | 'year'>('month');
+  const rows = compareByCategory(expenses, new Date(), useStartDay());
   const money = (n: number) => `${symbol}${n.toLocaleString()}`;
   return (
     <div className="bg-card p-6 rounded-3xl shadow-sm border border-card-border">
-      <h3 className="text-lg font-bold text-foreground">{t('compare.title')}</h3>
-      <p className="text-xs text-muted font-medium mb-4">{t('compare.hint')}</p>
-      {rows.length === 0 ? (
+      <h3 className="text-lg font-bold text-foreground">{t(tab === 'month' ? 'compare.title' : 'compare.yearTitle')}</h3>
+      <p className="text-xs text-muted font-medium mb-4">{t(tab === 'month' ? 'compare.hint' : 'compare.yearHint')}</p>
+      <div role="tablist" className="grid grid-cols-2 p-1 mb-4 rounded-xl bg-background/50 border border-card-border">
+        {(['month', 'year'] as const).map(id => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+            className={cn('py-2 rounded-lg text-xs font-bold transition-colors', tab === id ? 'bg-indigo-600 text-white' : 'text-muted')}>
+            {t(id === 'month' ? 'compare.tabMonth' : 'compare.tabYear')}
+          </button>
+        ))}
+      </div>
+      {tab === 'year' ? (
+        <YearCompareView uid={uid} expenses={expenses} symbol={symbol} />
+      ) : rows.length === 0 ? (
         <p className="text-sm text-muted font-medium text-center py-4">{t('compare.none')}</p>
       ) : (
         <div className="space-y-2">

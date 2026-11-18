@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, increment, onSnapshot, query, where, writeBatch } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, increment, onSnapshot, query, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { db } from '../../shared/firebase';
 import { saved } from '../../shared/lib/offlineSave';
 import type { Account } from '../../shared/types';
 import { changeBalance } from '../accounts/accountService';
-import { Fund } from './funds';
+import { Fund, reachesGoal } from './funds';
 
 // Savings goal changes. Every save goes through saved(), so the screen never waits forever offline.
 
@@ -37,6 +37,7 @@ export function addToFund(fund: Fund, amount: number, account: Account | null = 
   batch.update(doc(db, 'funds', fund.id), {
     saved: increment(value),
     ...(account && { [`fromAccounts.${account.id}`]: increment(value) }),
+    ...(reachesGoal(fund, value) && { celebrated: false }),
   });
   if (account) changeBalance(batch, account, -value, 'goalIn', fund.name);
   return saved(batch.commit());
@@ -56,3 +57,8 @@ export function takeFromFund(fund: Fund, amount: number, account: Account | null
 }
 
 export const deleteFund = (fund: Fund) => saved(deleteDoc(doc(db, 'funds', fund.id)));
+
+export const setFundPaused = (fund: Fund, paused: boolean) => saved(updateDoc(doc(db, 'funds', fund.id), { paused }));
+
+/** The celebration has been shown, so it never shows again for this goal */
+export const markFundCelebrated = (fund: Fund) => saved(updateDoc(doc(db, 'funds', fund.id), { celebrated: true }));

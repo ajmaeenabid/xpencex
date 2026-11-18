@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { useI18n } from '../../shared/i18n';
 import type { Deposit } from '../../shared/types';
 import { incomeCategoryLabel } from './incomeText';
+import { EntryLabels } from '../labels/LabelField';
 
 /** An income in the Transactions list: green, with "+". Tapping it opens it to edit or delete. */
 export function IncomeRow({ income, symbol, onOpen }: { income: Deposit; symbol: string; onOpen: () => void }) {
@@ -31,6 +32,7 @@ export function IncomeRow({ income, symbol, onOpen }: { income: Deposit; symbol:
           {income.accountName && (
             <span className="flex items-center gap-1 mt-1 text-[11px] font-semibold text-muted"><Wallet size={10} /> {income.accountName}</span>
           )}
+          <EntryLabels labels={income.labels} />
         </span>
       </span>
       <span className="shrink-0 font-bold text-lg text-emerald-600 dark:text-emerald-400">+{symbol}{income.amount.toLocaleString()}</span>

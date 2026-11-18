@@ -12,7 +12,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Banknote, Wallet, Clock, Tag, Landmark, Smartphone, ChevronRight, Sun, Moon, Eye, EyeOff, Calculator } from 'lucide-react';
 import { CalculatorSheet, SpendingCharts } from '../../app/lazyParts';
 import LazyPart, { LoadingSpot } from '../../shared/components/LazyPart';
-import { format, startOfMonth, startOfWeek, subMonths } from 'date-fns';
+import { format, startOfWeek } from 'date-fns';
+import { cleanStartDay, moneyMonth } from '../../shared/lib/moneyMonth';
 import { useAccounts } from '../accounts/accountService';
 import { useLoans } from '../accounts/loanService';
 import { activeLoans } from '../accounts/loans';
@@ -28,9 +29,12 @@ import DebtsCard from '../debts/DebtsCard';
 import CashCard from './CashCard';
 import FundsCard from '../funds/FundsCard';
 import SamityCard from '../samity/SamityCard';
+import UpcomingCard from '../planned/UpcomingCard';
+import ShoppingCard from '../shopping/ShoppingCard';
+import UnsortedCard, { useUnsortedExpenses } from '../expenses/UnsortedCard';
 
 // Movable cards, in their default order
-const HOME_SECTIONS = ['budget', 'saveNudge', 'earned', 'spending', 'accounts', 'cash', 'runway', 'debts', 'funds', 'samity', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
+const HOME_SECTIONS = ['budget', 'saveNudge', 'unsorted', 'earned', 'spending', 'accounts', 'cash', 'runway', 'planned', 'shopping', 'debts', 'funds', 'samity', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
 import { useI18n, categoryLabel } from '../../shared/i18n';
 import { CARD_SUB, CARD_TITLE } from '../../shared/lib/cardText';
 import SearchWindow, { SearchBar } from '../search/SearchWindow';
@@ -50,6 +54,8 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
   useEffect(() => { if (calcOpen) setCalcUsed(true); }, [calcOpen]);
   const layout = useRearrange('home', HOME_SECTIONS);
   const { user, profile, isDarkMode, toggleDarkMode } = useAuth();
+  // The person's money month (Profile > Month starts on): every "this month" on Home follows it
+  const startDay = cleanStartDay(profile?.monthStart);
   const { t, dateLocale } = useI18n();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [summary, setSummary] = useState({ today: 0, week: 0, month: 0 });
@@ -74,7 +80,7 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
       collection(db, 'expenses'),
       where('uid', '==', user.uid),
       // From the start of last month: covers this month's totals, a week that began last month, and month-over-month insights
-      where('date', '>=', startOfMonth(subMonths(new Date(), 1)).toISOString()),
+      where('date', '>=', moneyMonth(new Date(), startDay, -1).start.toISOString()),
       orderBy('date', 'desc')
     );
 
@@ -86,7 +92,7 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
       const now = new Date();
       const todayStart = new Date().setHours(0, 0, 0, 0);
       const weekStart = startOfWeek(now).getTime();
-      const monthStart = startOfMonth(now).getTime();
+      const monthStart = moneyMonth(now, startDay).start.getTime();
 
       let today = 0, week = 0, month = 0;
       docs.forEach(exp => {
@@ -100,18 +106,19 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
     });
 
     return unsubscribe;
-  }, [user]);
+  }, [user, startDay]);
 
+  const unsorted = useUnsortedExpenses(user?.uid, startDay);
   const budget = profile?.monthlyBudget || 0;
-  useReminderSync({ expenses, loans: openLoans, spentThisMonth: summary.month, budget });
+  useReminderSync({ expenses, loans: openLoans, spentThisMonth: summary.month, budget, startDay });
   useWidgetSync(summary.today, summary.month, budget, useWidgetSettingsVersion());
   const remaining = budget - summary.month;
   const progress = budget > 0 ? Math.min((summary.month / budget) * 100, 100) : 0;
 
-  const thisMonthByCategory = sumByCategory(expenses.filter(exp => new Date(exp.date).getTime() >= startOfMonth(new Date()).getTime()));
+  const thisMonthByCategory = sumByCategory(expenses.filter(exp => new Date(exp.date).getTime() >= moneyMonth(new Date(), startDay).start.getTime()));
   const categoryBudgets = profile?.categoryBudgets || {};
   const fmt = (n: number) => `${currencySymbol}${Math.round(n).toLocaleString()}`;
-  const insights = buildInsights(expenses, budget, categoryBudgets, fmt, new Date(), t);
+  const insights = buildInsights(expenses, budget, categoryBudgets, fmt, new Date(), t, startDay);
 
   return (
     <div className="space-y-8 pb-6">
@@ -196,7 +203,7 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
       // Spending today and this week, each against its share of the budget
       { id: 'saveNudge', node: user && <SaveSuggestion uid={user.uid} expenses={expenses} symbol={currencySymbol} /> },
       { id: 'earned', node: user && <EarnedCard uid={user.uid} expenses={expenses} symbol={currencySymbol} /> },
-      { id: 'spending', node: <SpendingCard spent={summary} budget={budget} symbol={currencySymbol} /> },
+      { id: 'spending', node: <SpendingCard spent={summary} budget={budget} symbol={currencySymbol} startDay={startDay} /> },
 
       { id: 'accounts', node: accounts.length > 0 ? (
         <div className="bg-card p-6 rounded-[2.5rem] shadow-soft border border-card-border space-y-4">
@@ -281,8 +288,26 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
           symbol={currencySymbol}
           userSince={user?.metadata.creationTime ? new Date(user.metadata.creationTime) : undefined}
           shown={allShown}
+          startDay={startDay}
         />
       ) },
+
+      { id: 'planned', node: user && (
+        <UpcomingCard
+          uid={user.uid}
+          accounts={accounts}
+          expenses={expenses}
+          loans={openLoans}
+          symbol={currencySymbol}
+          shown={allShown}
+          startDay={startDay}
+          userSince={user.metadata.creationTime ? new Date(user.metadata.creationTime) : undefined}
+        />
+      ) },
+
+      { id: 'unsorted', node: user && unsorted.length > 0 && <UnsortedCard uid={user.uid} entries={unsorted} symbol={currencySymbol} /> },
+
+      { id: 'shopping', node: user && <ShoppingCard uid={user.uid} accounts={accounts} symbol={currencySymbol} /> },
 
       { id: 'debts', node: user && <DebtsCard uid={user.uid} accounts={accounts} symbol={currencySymbol} /> },
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Fund, fundPlan, mainSource, quickAmounts, sortFunds, tidyAmount } from './funds';
+import { Fund, fundPlan, goalStage, mainSource, needsCelebration, quickAmounts, reachesGoal, sortFunds, tidyAmount } from './funds';
 
 const now = new Date('2026-11-20T12:00:00.000Z');
 const inDays = (d: number) => new Date(now.getTime() + d * 86_400_000).toISOString();
@@ -26,6 +26,46 @@ describe('festival funds', () => {
   it('shows the soonest upcoming fund first and past ones last', () => {
     const f = (id: string, d: number) => ({ id, dueDate: inDays(d) }) as Fund;
     expect(sortFunds([f('past', -10), f('later', 60), f('soon', 5)], now).map(x => x.id)).toEqual(['soon', 'later', 'past']);
+  });
+});
+
+describe('goal stages', () => {
+  it('moves to reached at the target and back to active if money is taken out', () => {
+    expect(goalStage({ target: 1000, saved: 1000 })).toBe('reached');
+    expect(goalStage({ target: 1000, saved: 999 })).toBe('active');
+  });
+
+  it('keeps a paused goal in paused, even when it is full, so it can be resumed', () => {
+    expect(goalStage({ target: 1000, saved: 200, paused: true })).toBe('paused');
+    expect(goalStage({ target: 1000, saved: 1000, paused: true })).toBe('paused');
+    expect(goalStage({ target: 1000, saved: 200, paused: false })).toBe('active');
+  });
+});
+
+describe('goal celebration', () => {
+  it('starts when money takes a goal to its target', () => {
+    expect(reachesGoal({ target: 1000, saved: 900 }, 100)).toBe(true);
+    expect(reachesGoal({ target: 1000, saved: 900 }, 99)).toBe(false);
+  });
+
+  it('adds up paisa without a rounding miss', () => {
+    expect(reachesGoal({ target: 0.3, saved: 0.1 }, 0.2)).toBe(true);
+  });
+
+  it('happens only once for a goal', () => {
+    expect(reachesGoal({ target: 1000, saved: 500, celebrated: true }, 500)).toBe(false);
+    expect(reachesGoal({ target: 1000, saved: 500, celebrated: false }, 500)).toBe(false);
+  });
+
+  it('does not start for a goal that was already full', () => {
+    expect(reachesGoal({ target: 1000, saved: 1000 }, 50)).toBe(false);
+  });
+
+  it('waits only while the goal is full and not yet shown', () => {
+    expect(needsCelebration({ target: 1000, saved: 1000, celebrated: false })).toBe(true);
+    expect(needsCelebration({ target: 1000, saved: 800, celebrated: false })).toBe(false);
+    expect(needsCelebration({ target: 1000, saved: 1000, celebrated: true })).toBe(false);
+    expect(needsCelebration({ target: 1000, saved: 1000 })).toBe(false);
   });
 });
 

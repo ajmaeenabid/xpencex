@@ -1,6 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import type { Deposit } from '../../shared/types';
-import { earnedSpentSaved, isRealIncome, lastMonth, monthlySeries, thisMonth } from './income';
+import { earnedSpentSaved, isRealIncome, lastMonth, monthlySeries, savingsSummary, thisMonth } from './income';
+
+describe('savings summary', () => {
+  const m = (month: string, earned: number, spent: number) => ({ month, earned, spent });
+
+  it('averages the full months and finds the best one', () => {
+    const series = [m('2026-08', 1000, 400), m('2026-09', 1000, 1300), m('2026-10', 2000, 500), m('2026-11', 9000, 0)];
+    expect(savingsSummary(series)).toEqual({ average: 600, best: { month: '2026-10', saved: 1500 } });
+  });
+
+  it('skips months with nothing recorded', () => {
+    expect(savingsSummary([m('2026-08', 0, 0), m('2026-09', 500, 100), m('2026-10', 0, 0)])?.average).toBe(400);
+  });
+
+  it('waits for one full month', () => {
+    expect(savingsSummary([m('2026-11', 500, 100)])).toBeNull();
+    expect(savingsSummary([m('2026-10', 0, 0), m('2026-11', 500, 100)])).toBeNull();
+  });
+});
 
 const dep = (amount: number, date: string, extra: Partial<Deposit> & { transfer?: boolean } = {}): Deposit =>
   ({ id: 'd', uid: 'u', accountId: 'a', accountName: 'A', amount, date, ...extra });

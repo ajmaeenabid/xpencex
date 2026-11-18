@@ -8,7 +8,8 @@ import { useAuth } from '../../app/App';
 import { Expense } from '../../shared/types';
 import { motion } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
-import { format, startOfMonth, subMonths, eachMonthOfInterval } from 'date-fns';
+import { format } from 'date-fns';
+import { cleanStartDay, lastMoneyMonths, moneyMonth } from '../../shared/lib/moneyMonth';
 import { MAJOR_CURRENCIES } from '../../shared/constants';
 import { FileDown, FileText } from 'lucide-react';
 import SpendingCharts from './SpendingCharts';
@@ -22,9 +23,11 @@ import SheetsExportButton from '../connect/SheetsExportButton';
 import { reportTabs } from '../connect/googleApps';
 import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/components/Rearrange';
 import { alertDialog } from '../../shared/components/Dialog';
+import LabelsCard from '../labels/LabelsCard';
+import NeedsWantsCard from './NeedsWantsCard';
 
 // Movable cards, in their default order
-const REPORT_SECTIONS = ['export', 'earned', 'compare', 'analysis', 'accounts', 'fees', 'regret', 'monthly', 'breakdown'];
+const REPORT_SECTIONS = ['export', 'earned', 'compare', 'analysis', 'needsWants', 'labels', 'accounts', 'fees', 'regret', 'monthly', 'breakdown'];
 
 export default function ReportsPage() {
   const { user, profile, isDarkMode } = useAuth();
@@ -34,26 +37,25 @@ export default function ReportsPage() {
   const layout = useRearrange('reports', REPORT_SECTIONS);
 
   const currencySymbol = MAJOR_CURRENCIES.find(c => c.code === profile?.currency)?.symbol || '৳';
+  // Months here are the person's money months (Profile > Month starts on)
+  const startDay = cleanStartDay(profile?.monthStart);
 
   useEffect(() => {
     if (!user) return;
     // The last 12 months, which is all the charts show (older months aren't read)
-    const q = query(collection(db, 'expenses'), where('uid', '==', user.uid), where('date', '>=', windowStart(REPORTS_MONTHS)), orderBy('date', 'desc'));
+    const q = query(collection(db, 'expenses'), where('uid', '==', user.uid), where('date', '>=', windowStart(REPORTS_MONTHS, new Date(), startDay)), orderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setExpenses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense)));
     });
     return unsubscribe;
-  }, [user]);
+  }, [user, startDay]);
 
-  const monthlyData = eachMonthOfInterval({
-    start: subMonths(new Date(), 5),
-    end: new Date()
-  }).map(month => {
-    const monthStr = format(month, 'MMM');
+  // The last 6 money months, each named after the month it starts in
+  const monthlyData = lastMoneyMonths(6, new Date(), startDay).map(({ start, end }) => {
     const total = expenses
-      .filter(exp => format(new Date(exp.date), 'MMM yyyy') === format(month, 'MMM yyyy'))
+      .filter(exp => { const t = new Date(exp.date).getTime(); return t >= start.getTime() && t < end.getTime(); })
       .reduce((sum, exp) => sum + exp.amount, 0);
-    return { name: monthStr, total };
+    return { name: format(start, 'MMM'), total };
   });
 
   const categoryData = expenses.reduce((acc: any[], exp) => {
@@ -69,9 +71,9 @@ export default function ReportsPage() {
   const grandTotal = expenses.reduce((s, e) => s + e.amount, 0);
 
   const handleMonthlyPdf = () => {
-    const monthStart = startOfMonth(new Date()).getTime();
+    const monthStart = moneyMonth(new Date(), startDay).start.getTime();
     const html = buildReportHtml({
-      title: t('reports.pdfTitle', { month: format(new Date(), 'MMMM yyyy', { locale: dateLocale }) }),
+      title: t('reports.pdfTitle', { month: format(moneyMonth(new Date(), startDay).start, 'MMMM yyyy', { locale: dateLocale }) }),
       expenses: expenses.filter(e => new Date(e.date).getTime() >= monthStart),
       symbol: currencySymbol,
       name: profile?.name,
@@ -130,8 +132,12 @@ export default function ReportsPage() {
       ) },
 
       { id: 'earned', node: user && <EarnedChart uid={user.uid} expenses={expenses} symbol={currencySymbol} /> },
-      { id: 'compare', node: <MonthCompareCard expenses={expenses} symbol={currencySymbol} /> },
+      { id: 'compare', node: user && <MonthCompareCard uid={user.uid} expenses={expenses} symbol={currencySymbol} /> },
       { id: 'analysis', node: <SpendingCharts expenses={expenses} symbol={currencySymbol} budget={profile?.monthlyBudget} /> },
+
+      { id: 'needsWants', node: user && <NeedsWantsCard uid={user.uid} expenses={expenses} symbol={currencySymbol} /> },
+
+      { id: 'labels', node: user && <LabelsCard uid={user.uid} expenses={expenses} symbol={currencySymbol} /> },
 
       { id: 'accounts', node: <AccountsReport expenses={expenses} accounts={accounts} symbol={currencySymbol} /> },
 

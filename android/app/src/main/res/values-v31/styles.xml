@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12 and later draw their own start screen. Without a picture named here, some phones
+         (HyperOS on Xiaomi, for one) show only the cream colour for a second: the "blank screen".
+         With it, the start screen is the logo on cream, then the page shows the same logo in the same spot,
+         then the opening animation (src/app/OpeningAnimation.tsx). `npm run icons` draws splash_logo. -->
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/launch_cream</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="android:windowSplashScreenBackground">@color/launch_cream</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="android:windowBackground">@color/launch_cream</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+    </style>
+</resources>

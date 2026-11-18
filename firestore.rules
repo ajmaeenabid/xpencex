@@ -12,6 +12,7 @@
 //   - photoURL: string (optional) - User's profile photo URL
 //   - monthlyBudget: number (optional, positive) - Monthly budget limit
 //   - currency: string (optional) - Preferred currency (default BDT)
+//   - monthStart: int (optional, 1-31) - Day the person's money month starts (e.g. salary day); missing = 1
 //   - categoryBudgets: map (optional) - Category name -> monthly limit
 //   - layout: map (optional) - page ('home' | 'reports' | 'profile') -> order of its movable cards
 //   - driveBackup: map (optional) - { auto, every (1-72), unit ('hours' | 'days'), lastAt } Google Drive backups
@@ -70,6 +71,30 @@
 // Admin: there is deliberately no admin access in these rules. Nobody, admin included, can read
 // another user's data from the app. Admin actions (device approval, suspend, delete) run on the
 // AI server with the service account, after it checks the caller is in ADMIN_UIDS.
+//
+// Collection: reminders
+//   - uid, text (1-100), at (ISO, first time it rings), repeat ('once' | 'weekly' | 'monthly'), createdAt
+//     the person's own reminders, at most 20 (checked by the app)
+//
+// Collection: savedFilters (named filters on the Expenses screen)
+//   - uid, name (1-30), filters (map), category (1-60), createdAt. Up to 5.
+//
+// Collection: shoppingLists
+//   - uid, name (1-60), items (up to 100: id, name, qty, price, paid, done), createdAt, updatedAt. Up to 20 lists.
+//
+// Collection: categoryRules (titles that always go in one category)
+//   - uid, words (2-60), category (1-50), createdAt. Up to 50.
+//
+// Collection: planned (future bills and expected money)
+//   - uid, kind ('expense' | 'income'), title (1-100), amount, category (1-50), accountId (optional),
+//     repeat ('once' | 'weekly' | 'monthly' | 'yearly'), date (ISO, next due), day (1-31), createdAt. Up to 50.
+//
+// Collection: templates (favourites on the Add screen)
+//   - uid, kind ('expense' | 'income'), title (1-100), amount, category (1-50), accountId (optional), createdAt. Up to 12.
+//
+// Collection: tasks (Agent space)
+//   - uid, chatId, messageId, title (<=200), action (the card's details), status ('waiting' | 'done' | 'cancelled' | 'expired'),
+//     createdAt; doneAt, result (<=300), replyLang, saved once finished. Only a waiting task can change, once.
 //
 // Collection: notices (written only by the AI server)
 //   - uid, type ('suspended' | 'restored' | 'deviceApproved' | 'deviceRefused' | 'deviceRemoved'), at (ISO date)
@@ -161,9 +186,13 @@ service cloud.firestore {
              (!('monthlyBudget' in data) || isPositive(data.monthlyBudget)) &&
              (!('name' in data) || (data.name is string && data.name.size() < 100)) &&
              (!('categoryBudgets' in data) || (data.categoryBudgets is map && data.categoryBudgets.size() <= 50)) &&
+             // Which categories count as needs or wants (src/features/reports/needsWants.ts)
+             (!('spendingTypes' in data) || (data.spendingTypes is map && data.spendingTypes.size() <= 150)) &&
              (!('layout' in data) || isValidLayout(data.layout)) &&
              (!('driveBackup' in data) || isValidDriveBackup(data.driveBackup)) &&
              (!('welcome' in data) || data.welcome in ['slides', 'tour', 'done']) &&
+             // The day the money month starts, e.g. salary day (src/shared/lib/moneyMonth.ts)
+             (!('monthStart' in data) || (data.monthStart is int && data.monthStart >= 1 && data.monthStart <= 31)) &&
              // Phone reminders: which kinds are on, and the daily time (src/features/reminders)
              (!('reminders' in data) || (data.reminders is map && data.reminders.keys().hasOnly(['on', 'time']) &&
                (!('on' in data.reminders) || (data.reminders.on is map && data.reminders.on.size() <= 12)) &&
@@ -189,8 +218,17 @@ service cloud.firestore {
              (!('lastAt' in b) || isValidDateString(b.lastAt));
     }
 
+    // Up to 3 short labels on an expense or income (src/features/labels/labels.ts)
+    function isValidLabels(data) {
+      return !('labels' in data) || (data.labels is list && data.labels.size() <= 3 &&
+             (data.labels.size() < 1 || (data.labels[0] is string && data.labels[0].size() >= 1 && data.labels[0].size() <= 30)) &&
+             (data.labels.size() < 2 || (data.labels[1] is string && data.labels[1].size() >= 1 && data.labels[1].size() <= 30)) &&
+             (data.labels.size() < 3 || (data.labels[2] is string && data.labels[2].size() >= 1 && data.labels[2].size() <= 30)));
+    }
+
     function isValidExpense(data) {
       return data.keys().hasAll(['uid', 'title', 'amount', 'category', 'date']) &&
+             isValidLabels(data) &&
              data.uid == request.auth.uid &&
              data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
              isPositive(data.amount) &&
@@ -202,6 +240,9 @@ service cloud.firestore {
              (!('smsRef' in data) || (data.smsRef is string && data.smsRef.size() <= 100)) &&
              (!('fee' in data) || (data.fee is number && data.fee >= 0 && data.fee <= 1000000)) &&
              (!('debtId' in data) || (data.debtId is string && data.debtId.size() <= 100)) &&
+             (!('plannedId' in data) || (data.plannedId is string && data.plannedId.size() <= 100)) &&
+             (!('warrantyUntil' in data) || isValidDateString(data.warrantyUntil)) &&
+             (!('categoryKept' in data) || data.categoryKept is bool) &&
              (!('feeling' in data) || data.feeling in ['worth', 'regret']) &&
              // Set by the AI server when a receipt is added (ai-server/src/receipts.ts); kept when the expense is edited
              (!('receiptId' in data) || (data.receiptId is string && data.receiptId.size() <= 100));
@@ -211,7 +252,9 @@ service cloud.firestore {
     // A savings goal (src/features/funds). The end date is optional; fromAccounts counts money moved in per account.
     function isValidFund(data) {
       return data.keys().hasAll(['uid', 'name', 'target', 'saved', 'createdAt']) &&
-             data.keys().hasOnly(['uid', 'name', 'target', 'dueDate', 'saved', 'createdAt', 'fromAccounts']) &&
+             data.keys().hasOnly(['uid', 'name', 'target', 'dueDate', 'saved', 'createdAt', 'fromAccounts', 'paused', 'celebrated']) &&
+             (!('paused' in data) || data.paused is bool) &&
+             (!('celebrated' in data) || data.celebrated is bool) &&
              data.uid == request.auth.uid &&
              data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
              isPositive(data.target) &&
@@ -280,7 +323,7 @@ service cloud.firestore {
              data.accountId is string && data.accountId.size() >= 1 && data.accountId.size() <= 100 &&
              data.kind in ['set', 'change'] &&
              data.amount is number &&
-             data.reason in ['start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete', 'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment', 'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted', 'cashOut', 'cashIn', 'samityPaid', 'samityPayout', 'samityUndo', 'income', 'incomeEdit', 'incomeDelete', 'goalIn', 'goalOut'] &&
+             data.reason in ['start', 'created', 'corrected', 'smsBalance', 'expense', 'expenseEdit', 'expenseDelete', 'moneyIn', 'monthlyDeposit', 'recurring', 'loanReceived', 'loanPayment', 'lent', 'gotBack', 'borrowed', 'paidBack', 'debtDeleted', 'cashOut', 'cashIn', 'samityPaid', 'samityPayout', 'samityUndo', 'income', 'incomeEdit', 'incomeDelete', 'goalIn', 'goalOut', 'transferOut', 'transferIn'] &&
              (!('previous' in data) || data.previous is number) &&
              (!('title' in data) || (data.title is string && data.title.size() <= 100)) &&
              isValidDateString(data.at);
@@ -289,6 +332,7 @@ service cloud.firestore {
     // Money in. Income can be recorded without an account (src/features/income).
     function isValidDeposit(data) {
       return data.keys().hasAll(['uid', 'amount', 'date']) &&
+             isValidLabels(data) &&
              data.uid == request.auth.uid &&
              (!('accountId' in data) || (data.accountId is string && data.accountId.size() <= 100)) &&
              (!('accountName' in data) || (data.accountName is string && data.accountName.size() <= 120)) &&
@@ -301,6 +345,98 @@ service cloud.firestore {
              (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
              (!('ruleId' in data) || (data.ruleId is string && data.ruleId.size() <= 100)) &&
              (!('transfer' in data) || data.transfer is bool);
+    }
+
+    // Your own reminder (src/features/reminders/reminders.ts): your words, when it first rings, and how it repeats.
+    // At most 20 per person, which the app checks (rules can't count documents).
+    function isValidReminder(data) {
+      return data.keys().hasAll(['uid', 'text', 'at', 'repeat', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'text', 'at', 'repeat', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 100 &&
+             isValidDateString(data.at) &&
+             data.repeat in ['once', 'weekly', 'monthly'] &&
+             isValidDateString(data.createdAt);
+    }
+
+    // A task in Agent space (src/features/chat/agent/tasks.ts): an action the AI prepared, waiting for the
+    // owner's Confirm, then kept as history (the newest 100). `action` is the card's details, checked by the app.
+    function isValidTask(data) {
+      return data.keys().hasAll(['uid', 'chatId', 'messageId', 'title', 'action', 'status', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'chatId', 'messageId', 'title', 'action', 'status', 'createdAt', 'doneAt', 'result', 'replyLang', 'saved']) &&
+             data.uid == request.auth.uid &&
+             data.chatId is string && data.chatId.size() >= 1 && data.chatId.size() <= 100 &&
+             data.messageId is string && data.messageId.size() >= 1 && data.messageId.size() <= 100 &&
+             data.title is string && data.title.size() <= 200 &&
+             data.action is map && data.action.size() <= 12 && data.action.kind is string &&
+             data.status in ['waiting', 'done', 'cancelled', 'expired'] &&
+             isValidDateString(data.createdAt) &&
+             (!('doneAt' in data) || isValidDateString(data.doneAt)) &&
+             (!('result' in data) || (data.result is string && data.result.size() <= 300)) &&
+             (!('replyLang' in data) || data.replyLang in ['en', 'bn']) &&
+             (!('saved' in data) || data.saved is bool);
+    }
+
+    // A favourite for the Add screen (src/features/expenses/templates.ts): one tap fills the form.
+    // At most 12 per person, which the app checks (rules can't count documents). Never edited: removed and added again.
+    function isValidTemplate(data) {
+      return data.keys().hasAll(['uid', 'kind', 'title', 'amount', 'category', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'kind', 'title', 'amount', 'category', 'accountId', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.kind in ['expense', 'income'] &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
+             isPositive(data.amount) &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             (!('accountId' in data) || (data.accountId is string && data.accountId.size() <= 100)) &&
+             isValidDateString(data.createdAt);
+    }
+
+    // A saved filter on the Expenses screen (src/features/expenses/savedFilters.ts). At most 5 per person, which the app checks.
+    function isValidSavedFilter(data) {
+      return data.keys().hasAll(['uid', 'name', 'filters', 'category', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'name', 'filters', 'category', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 30 &&
+             data.filters is map && data.filters.size() <= 10 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
+             isValidDateString(data.createdAt);
+    }
+
+    // A shopping list (src/features/shopping/shopping.ts). At most 20 per person, which the app checks.
+    function isValidShoppingList(data) {
+      return data.keys().hasAll(['uid', 'name', 'items', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['uid', 'name', 'items', 'createdAt', 'updatedAt']) &&
+             data.uid == request.auth.uid &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             data.items is list && data.items.size() <= 100 &&
+             isValidDateString(data.createdAt) &&
+             isValidDateString(data.updatedAt);
+    }
+
+    // A category rule (src/features/categoryRules/categoryRules.ts). At most 50 per person, which the app checks.
+    function isValidCategoryRule(data) {
+      return data.keys().hasAll(['uid', 'words', 'category', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'words', 'category', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.words is string && data.words.size() >= 2 && data.words.size() <= 60 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             isValidDateString(data.createdAt);
+    }
+
+    // A planned payment or expected money (src/features/planned/planned.ts). At most 50 per person, which the app checks.
+    function isValidPlanned(data) {
+      return data.keys().hasAll(['uid', 'kind', 'title', 'amount', 'category', 'repeat', 'date', 'day', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'kind', 'title', 'amount', 'category', 'accountId', 'repeat', 'date', 'day', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.kind in ['expense', 'income'] &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
+             isPositive(data.amount) &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             (!('accountId' in data) || (data.accountId is string && data.accountId.size() <= 100)) &&
+             data.repeat in ['once', 'weekly', 'monthly', 'yearly'] &&
+             isValidDateString(data.date) &&
+             data.day is int && data.day >= 1 && data.day <= 31 &&
+             isValidDateString(data.createdAt);
     }
 
     // A monthly income (src/features/income/incomeService.ts)
@@ -437,6 +573,58 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidDeposit(request.resource.data);
       // Income can be edited (amount, account, category...); the uid can't change
       allow update: if isDocOwner() && isValidDeposit(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /reminders/{reminderId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidReminder(request.resource.data);
+      allow update: if isDocOwner() && isValidReminder(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    // Tasks start waiting; a waiting one is finished once (done, cancelled or expired) and then never changes.
+    // Deleting is how the history is kept to the newest 100.
+    match /tasks/{taskId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidTask(request.resource.data) && request.resource.data.status == 'waiting';
+      allow update: if isDocOwner() && isValidTask(request.resource.data) && uidNotModified() &&
+                       resource.data.status == 'waiting' &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'doneAt', 'result', 'saved']);
+      allow delete: if isDocOwner();
+    }
+
+    match /templates/{templateId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidTemplate(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /savedFilters/{filterId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidSavedFilter(request.resource.data);
+      allow update: if isDocOwner() && isValidSavedFilter(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /shoppingLists/{listId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidShoppingList(request.resource.data);
+      allow update: if isDocOwner() && isValidShoppingList(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /categoryRules/{ruleId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidCategoryRule(request.resource.data);
+      allow update: if isDocOwner() && isValidCategoryRule(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /planned/{plannedId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidPlanned(request.resource.data);
+      allow update: if isDocOwner() && isValidPlanned(request.resource.data) && uidNotModified();
       allow delete: if isDocOwner();
     }
 

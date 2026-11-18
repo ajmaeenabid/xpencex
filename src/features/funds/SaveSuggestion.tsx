@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { format, getDate, startOfMonth, subMonths } from 'date-fns';
 import { PiggyBank, X } from 'lucide-react';
 import { useI18n } from '../../shared/i18n';
 import type { Expense } from '../../shared/types';
 import { lastMonth } from '../income/income';
 import { useIncome } from '../income/incomeService';
-import { fundPlan, sortFunds } from './funds';
+import { goalStage, sortFunds } from './funds';
 import { useFunds } from './fundService';
 import FundsWindow from './FundsWindow';
+import { useStartDay } from '../../app/useStartDay';
+import { moneyMonth, moneyMonthDay, moneyMonthKey } from '../../shared/lib/moneyMonth';
 
 const SHOW_DAYS = 7; // shown in the first week of a month
 const keyFor = (uid: string, month: string) => `xpences-save-nudge:${uid}:${month}`;
@@ -24,14 +25,16 @@ function dismissed(uid: string, month: string) {
 export default function SaveSuggestion({ uid, expenses, symbol }: { uid: string; expenses: Pick<Expense, 'amount' | 'date'>[]; symbol: string }) {
   const { t } = useI18n();
   const now = new Date();
-  const month = format(now, 'yyyy-MM');
-  const incomes = useIncome(uid, startOfMonth(subMonths(now, 1)).toISOString());
-  const goal = sortFunds(useFunds(uid)).find(f => !fundPlan(f).reached);
+  // Money months (Profile > Month starts on): shown in the first days after the start day, about the month before
+  const startDay = useStartDay();
+  const month = moneyMonthKey(now, startDay);
+  const incomes = useIncome(uid, moneyMonth(now, startDay, -1).start.toISOString());
+  const goal = sortFunds(useFunds(uid)).find(f => goalStage(f) === 'active');
   const [hidden, setHidden] = useState(() => dismissed(uid, month));
   const [open, setOpen] = useState(false);
-  const { saved } = lastMonth(incomes, expenses, now);
+  const { saved } = lastMonth(incomes, expenses, now, startDay);
 
-  if (hidden || !goal || saved <= 0 || getDate(now) > SHOW_DAYS) return null;
+  if (hidden || !goal || saved <= 0 || moneyMonthDay(now, startDay).day > SHOW_DAYS) return null;
 
   const notNow = () => {
     try { localStorage.setItem(keyFor(uid, month), '1'); } catch { /* shows again next time */ }

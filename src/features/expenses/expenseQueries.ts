@@ -1,5 +1,5 @@
 import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
-import { startOfMonth, subMonths } from 'date-fns';
+import { moneyMonth } from '../../shared/lib/moneyMonth';
 import { db } from '../../shared/firebase';
 import type { Expense } from '../../shared/types';
 
@@ -10,8 +10,8 @@ import type { Expense } from '../../shared/types';
 export const TRANSACTIONS_MONTHS = 3; // shown at first, and added by each "Show older"
 export const REPORTS_MONTHS = 12;
 
-/** The first moment of the window that covers this month and the `months - 1` before it, as stored in expenses */
-export const windowStart = (months: number, now = new Date()) => startOfMonth(subMonths(now, months - 1)).toISOString();
+/** The first moment of the window that covers this money month and the `months - 1` before it, as stored in expenses */
+export const windowStart = (months: number, now = new Date(), startDay = 1) => moneyMonth(now, startDay, -(months - 1)).start.toISOString();
 
 /** Every expense, newest first. For exports, which must be complete. */
 export async function fetchAllExpenses(uid: string): Promise<Expense[]> {

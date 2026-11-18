@@ -1,4 +1,5 @@
-import { startOfMonth, subMonths, format } from 'date-fns';
+import { format } from 'date-fns';
+import { lastMoneyMonths, moneyMonth } from '../../shared/lib/moneyMonth';
 import type { Deposit, Expense } from '../../shared/types';
 import { isCashOut } from '../accounts/cash';
 
@@ -30,22 +31,32 @@ export function earnedSpentSaved(incomes: Deposit[], expenses: Pick<Expense, 'am
   return { earned, spent, saved: round2(earned - spent) };
 }
 
-/** This calendar month so far */
-export function thisMonth(incomes: Deposit[], expenses: Pick<Expense, 'amount' | 'date'>[], now = new Date()) {
-  return earnedSpentSaved(incomes, expenses, startOfMonth(now), new Date(now.getTime() + 1));
+/** This money month so far (`startDay`: Profile > Month starts on) */
+export function thisMonth(incomes: Deposit[], expenses: Pick<Expense, 'amount' | 'date'>[], now = new Date(), startDay = 1) {
+  return earnedSpentSaved(incomes, expenses, moneyMonth(now, startDay).start, new Date(now.getTime() + 1));
 }
 
-/** Last full calendar month, for the month-end suggestion */
-export function lastMonth(incomes: Deposit[], expenses: Pick<Expense, 'amount' | 'date'>[], now = new Date()) {
-  return earnedSpentSaved(incomes, expenses, startOfMonth(subMonths(now, 1)), startOfMonth(now));
+/** The last full money month, for the month-end suggestion */
+export function lastMonth(incomes: Deposit[], expenses: Pick<Expense, 'amount' | 'date'>[], now = new Date(), startDay = 1) {
+  const { start, end } = moneyMonth(now, startDay, -1);
+  return earnedSpentSaved(incomes, expenses, start, end);
 }
 
-/** Earned and spent for each of the last `count` months, oldest first, for the Reports chart */
-export function monthlySeries(incomes: Deposit[], expenses: Pick<Expense, 'amount' | 'date'>[], count = 6, now = new Date()) {
-  return Array.from({ length: count }, (_, i) => {
-    const start = startOfMonth(subMonths(now, count - 1 - i));
-    const end = startOfMonth(subMonths(now, count - 2 - i));
+/** Earned and spent for each of the last `count` money months, oldest first, for the Reports chart */
+export function monthlySeries(incomes: Deposit[], expenses: Pick<Expense, 'amount' | 'date'>[], count = 6, now = new Date(), startDay = 1) {
+  return lastMoneyMonths(count, now, startDay).map(({ start, end }) => {
     const { earned, spent } = earnedSpentSaved(incomes, expenses, start, end);
     return { month: format(start, 'yyyy-MM'), earned, spent };
   });
+}
+
+/**
+ * The average saved per month and the best month, from a monthlySeries. The newest month is still running and
+ * months with nothing recorded say nothing about saving, so both are left out. Null until one full month exists.
+ */
+export function savingsSummary(series: { month: string; earned: number; spent: number }[]) {
+  const full = series.slice(0, -1).filter(m => m.earned > 0 || m.spent > 0).map(m => ({ month: m.month, saved: round2(m.earned - m.spent) }));
+  if (full.length === 0) return null;
+  const best = full.reduce((top, m) => (m.saved > top.saved ? m : top), full[0]);
+  return { average: round2(full.reduce((sum, m) => sum + m.saved, 0) / full.length), best };
 }

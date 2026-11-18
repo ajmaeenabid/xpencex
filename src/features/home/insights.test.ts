@@ -69,3 +69,15 @@ describe('compareByCategory', () => {
     expect(rows.find(r => r.category === 'Transport')!.change).toBeNull();
   });
 });
+
+describe('insights on a money month that starts on the 25th', () => {
+  it('counts only spending since the start day, and projects over that month', async () => {
+    const { splitMonths, forecastMonthEnd } = await import('./insights');
+    const now = new Date('2026-12-04T12:00:00'); // day 10 of 25 Nov - 24 Dec
+    const e = (date: string, amount: number) => ({ id: date, uid: 'u', title: 'x', category: 'Food', amount, date: `${date}T12:00:00.000Z` }) as Expense;
+    const { thisMonth, lastMonthToDate } = splitMonths([e('2026-11-26', 100), e('2026-11-20', 50), e('2026-10-27', 30)], now, 25);
+    expect(thisMonth.map(x => x.amount)).toEqual([100]);
+    expect(lastMonthToDate.map(x => x.amount)).toEqual([30]);
+    expect(forecastMonthEnd(100, now, 25)).toBe(300); // 100 in 10 days, 30-day month
+  });
+});

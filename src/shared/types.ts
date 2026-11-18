@@ -1,3 +1,4 @@
+import type { AgentAction } from '../features/chat/agent/actions';
 export interface UserProfile {
   uid: string;
   name?: string;
@@ -6,7 +7,10 @@ export interface UserProfile {
   photoURL?: string;
   monthlyBudget?: number;
   currency?: string;
+  // The day the person's money month starts (1-31), e.g. salary day. Missing means the 1st. See shared/lib/moneyMonth.ts
+  monthStart?: number;
   categoryBudgets?: Record<string, number>;
+  spendingTypes?: Record<string, 'need' | 'want'>; // which categories count as needs or wants (features/reports/needsWants.ts)
   layout?: Partial<Record<'home' | 'reports' | 'profile', string[]>>; // order of the movable cards per page
   driveBackup?: DriveBackupSettings; // Google Drive backups (src/features/connect)
   // Brand-new accounts only: 'slides' (welcome slides next), then 'tour' (button tour on Home), then 'done'.
@@ -34,6 +38,8 @@ export interface Expense {
   notes?: string;
   split?: { total: number; people: number };
   recurringId?: string;
+  plannedId?: string; // recorded from a planned payment (features/planned)
+  loanId?: string; // a loan installment, written by the AI server
   accountId?: string; // 'cash' or an Account id; missing on expenses saved before accounts existed
   accountName?: string; // kept so the expense still reads right after its account is deleted
   smsRef?: string; // set when the expense came from an SMS, so the same SMS can't be saved twice
@@ -42,6 +48,9 @@ export interface Expense {
   createdAt?: string;
   feeling?: 'worth' | 'regret'; // tagged in Transactions: worth it, or a regret
   receiptId?: string; // its receipt photo or PDF, set by the AI server (ai-server/src/receipts.ts)
+  labels?: string[]; // up to 3, for an event such as "Eid 2027" (features/labels)
+  warrantyUntil?: string; // ISO: the day its warranty ends (features/warranties)
+  categoryKept?: boolean; // the person chose to keep it in Other, so it isn't asked about again
 }
 
 export type AccountType = 'bank' | 'bkash' | 'nagad' | 'rocket' | 'cash';
@@ -76,6 +85,7 @@ export interface Deposit {
   notes?: string;
   ruleId?: string; // made by, or repeating with, an incomeRules rule
   transfer?: boolean; // money moved between your own accounts (e.g. Cash Out to the Cash wallet): not income
+  labels?: string[]; // up to 3, for an event such as "Eid 2027" (features/labels)
 }
 
 // A loan taken against one bank or mobile banking account. The AI server takes each monthly
@@ -137,9 +147,13 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
-  type?: 'text' | 'expense_confirmation' | 'income_confirmation' | 'error';
+  type?: 'text' | 'expense_confirmation' | 'income_confirmation' | 'action_confirmation' | 'task_link' | 'error';
+  taskId?: string; // task_link: the Agent space task this short line stands for (features/chat/agent/tasks.ts)
+  taskFailed?: boolean; // task_link: the task couldn't be saved; the line offers Try again
+  pendingAction?: AgentAction; // an action the AI prepared (features/chat/agent/actions.ts), saved only on Confirm
+  newCategory?: boolean; // the expense card's category doesn't exist yet: Confirm adds it
   pendingExpense?: Partial<Expense>;
-  pendingIncome?: { title: string; amount: number; date: string; notes?: string; accountId?: string };
+  pendingIncome?: { title: string; amount: number; date: string; notes?: string; accountId?: string; labels?: string[] };
   // Facts read from a money SMS (never the account number): its reference and the balance it reported
   sms?: { ref: string; balance?: number; accountType?: AccountType };
   voiceDuration?: number; // seconds, set on voice messages

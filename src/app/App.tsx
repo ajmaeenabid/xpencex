@@ -24,6 +24,7 @@ import AddExpensePage from '../features/expenses/AddExpensePage';
 import { ButtonTour, ChatPage, ReportsPage, WelcomeSlides, warmUp } from './lazyParts';
 import LazyPart from '../shared/components/LazyPart';
 import { revealSection } from '../features/search/revealSection';
+import type { Place } from '../features/search/searchPlaces';
 import { OPEN_EXPENSE_SETTINGS } from '../features/expenses/ExpenseSettings';
 import ProfilePage from '../features/profile/ProfilePage';
 import { motion, AnimatePresence } from 'motion/react';
@@ -385,6 +386,15 @@ export default function App() {
   // Checked on every render, so nothing shows for even a moment on a locked phone
   const pinLocked = isPinLocked(user.uid);
 
+  // Home's search and the chat's "open a screen" card: open the tab, then find and light up the card
+  const goToPlace = (place: Place) => {
+    setEditingExpense(null); setEditingIncome(null); setPrefillAmount(null); setPrefillPeople(null);
+    setActiveTab(place.tab);
+    // A card in the Expenses side panel: open the panel once the page is there, then find the card
+    if (place.panel) window.setTimeout(() => window.dispatchEvent(new Event(OPEN_EXPENSE_SETTINGS)), 120);
+    if (place.section) revealSection(`${place.tab}:${place.section}`, !!place.open);
+  };
+
   const renderPage = (tab: string) => {
     switch (tab) {
       case 'home': return (
@@ -392,13 +402,7 @@ export default function App() {
           onViewAll={() => setActiveTab('expenses')}
           onManageAccounts={() => { setActiveTab('profile'); setOpenAccountsSignal(n => n + 1); }}
           onSaveExpense={(amount, people) => { setEditingExpense(null); setPrefillAmount(amount); setPrefillPeople(people ?? null); setActiveTab('add'); }}
-          onGoTo={place => {
-            setEditingExpense(null); setEditingIncome(null); setPrefillAmount(null); setPrefillPeople(null);
-            setActiveTab(place.tab);
-            // A card in the Expenses side panel: open the panel once the page is there, then find the card
-            if (place.panel) window.setTimeout(() => window.dispatchEvent(new Event(OPEN_EXPENSE_SETTINGS)), 120);
-            if (place.section) revealSection(`${place.tab}:${place.section}`, !!place.open);
-          }}
+          onGoTo={goToPlace}
           onAskAi={text => { setChatDraft(text); setActiveTab('chat'); }}
         />
       );
@@ -471,6 +475,7 @@ export default function App() {
                   draftText={chatDraft}
                   onDraftHandled={() => setChatDraft(null)}
                   onOpenExpense={(exp) => { setEditingExpense(exp); setActiveTab('add'); }}
+                  onGoTo={goToPlace}
                 />
               </LazyPart>
             </motion.div>

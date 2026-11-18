@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, ChevronRight, Landmark, Plus, X } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, ChevronRight, Landmark, Plus, X } from 'lucide-react';
 import { Account, Loan } from '../../shared/types';
 import { cn } from '../../shared/lib/utils';
 import { useI18n } from '../../shared/i18n';
@@ -14,6 +14,7 @@ import LoanForm from './LoanForm';
 import { btnSmall, iconButton } from './ui';
 import { alertDialog, confirmDialog } from '../../shared/components/Dialog';
 import CashForm from './CashForm';
+import TransferForm from './TransferForm';
 import { format } from 'date-fns';
 import { useAuth } from '../../app/App';
 import SheetsExportButton from '../connect/SheetsExportButton';
@@ -25,7 +26,8 @@ type View =
   | { page: 'list' }
   | { page: 'account'; accountId: string }
   | { page: 'accountForm'; accountId?: string }
-  | { page: 'loanForm'; accountId: string; loanId?: string };
+  | { page: 'loanForm'; accountId: string; loanId?: string }
+  | { page: 'transfer' };
 
 interface Props {
   uid: string;
@@ -146,6 +148,11 @@ export default function AccountsManager({ uid, accounts, symbol, openSignal }: P
       body = <LoanForm key={view.loanId || 'new'} uid={uid} account={account} accounts={accounts} symbol={symbol} loan={loan} onDone={back} />;
     }
   }
+  if (view.page === 'transfer') {
+    title = t('transfer.title');
+    subtitle = t('transfer.subtitle');
+    body = <TransferForm accounts={accounts} symbol={symbol} onDone={back} />;
+  }
   // The account was deleted elsewhere while its page was open
   if (!body) body = <p className="text-center py-16 text-sm text-muted font-medium">{t('accounts.gone')}</p>;
 
@@ -196,6 +203,11 @@ export default function AccountsManager({ uid, accounts, symbol, openSignal }: P
                         tabs: accountsTabs(accounts, await loadMine<SavedBalanceLine>(uid, 'balanceHistory'), loans, profile?.currency || 'BDT', t),
                       })}
                     />
+                  )}
+                  {view.page === 'list' && accounts.length > 1 && (
+                    <button onClick={() => go({ page: 'transfer' })} aria-label={t('transfer.title')} title={t('transfer.title')} className={iconButton}>
+                      <ArrowRightLeft size={18} />
+                    </button>
                   )}
                   {view.page === 'list' && accounts.length > 0 && (
                     <button onClick={() => go({ page: 'accountForm' })} className={cn(btnSmall, 'bg-indigo-600 text-white hover:bg-indigo-700')}>

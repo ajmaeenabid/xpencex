@@ -9,6 +9,7 @@ import { accountDisplayName } from '../accounts/accounts';
 import { changeBalance } from '../accounts/accountService';
 import { dueDeposits } from '../accounts/accounts';
 import { isRealIncome } from './income';
+import { labelFields } from '../labels/labels';
 
 // Saving income (src/features/income/income.ts has the rules). Income lives in `deposits`, like all money in.
 // With an account: its balance goes up, and the income shows in that account's window.
@@ -36,6 +37,7 @@ export interface IncomeInput {
   notes: string;
   accountId: string | null; // null: no account
   repeat: boolean;
+  labels?: string[]; // left out: an edit keeps the labels it has
 }
 
 /** Money in since `since` (ISO), newest first. Includes non-income money in; filter with isRealIncome. */
@@ -130,6 +132,7 @@ export async function saveIncome(uid: string, input: IncomeInput, accounts: Acco
     uid, title, amount: input.amount, category: input.category, date: input.date, notes: input.notes.trim().slice(0, 500),
     source: existing?.source ?? 'manual', ...into, ...(ruleId && { ruleId }),
     ...(existing?.smsRef && { smsRef: existing.smsRef }),
+    ...labelFields(input.labels ?? existing?.labels),
   };
   batch.set(ref, fields); // a full write, so a removed account or repeat is removed here too
 

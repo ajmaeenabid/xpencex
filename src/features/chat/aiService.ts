@@ -5,6 +5,7 @@ import { restoreLineBreaks } from "./markdownRepair";
 import { ReplyLanguage, UNSUPPORTED_NOTICE, attachmentLanguageRules, languageRules } from "./language";
 import { WorkerError, callWorker } from "../../shared/lib/workerApi";
 import type { Limits } from "./limits";
+import { ACTION_RULES, cleanCategoryName } from "./agent/actions";
 
 // The Gemini key lives on our own server (see /ai-server), never in the app. The app sends the
 // user's login token, and the server checks it and enforces a daily limit per user.
@@ -117,7 +118,9 @@ function historyBlock(history: ChatTurn[]) {
 }
 
 type ChatResult = {
-  type: 'chat' | 'expense' | 'income';
+  type: 'chat' | 'expense' | 'income' | 'action';
+  // What the AI asked for when type is "action", not yet checked (see agent/actions.ts readAction)
+  action?: unknown;
   content: string;
   expense?: ExtractedExpense;
   steps?: string[];
@@ -126,6 +129,8 @@ type ChatResult = {
   language?: ReplyLanguage;
   // What was said in a voice message, written out, so the next question can refer back to it
   heard?: string;
+  // The expense's category is a new one the AI named; the card offers to add it
+  newCategory?: boolean;
 };
 
 function asText(value: unknown): string {
@@ -166,6 +171,12 @@ export function parseReply(text: string): ChatResult {
     ? parsed.steps.filter((s: unknown) => typeof s === 'string' && s.trim()).slice(0, 4).map(noDashes)
     : undefined;
   if (parsed.type === 'expense') {
+    // A category that isn't in the list: the card offers to add the one the AI named (or says it can't)
+    const newCategory = parsed.expense?.category === 'INVALID' ? cleanCategoryName(parsed.expense?.newCategory) : undefined;
+    if (newCategory) {
+      const expense = normalizeExpense({ ...parsed.expense, category: newCategory });
+      if (expense) return { ...parsed, expense, newCategory: true };
+    }
     const expense = parsed.expense?.category === 'INVALID' ? parsed.expense : normalizeExpense(parsed.expense);
     if (!expense) return { type: 'chat' as const, content: parsed.content || "I couldn't figure out the amount. Could you rephrase?" };
     return { ...parsed, expense };
@@ -194,7 +205,7 @@ ${spoken ? `
     User input: "${input}"
     Available categories: ${categories.join(', ')}
     Current Date: ${new Date().toISOString()}
-    User's recent spending (use this to answer questions about reports, totals and budget advice):
+    User's recent spending, accounts and loans (use this to answer questions about reports, totals and budget advice):
     ${spendingContext || 'No data available.'}
 
     Tasks:
@@ -208,18 +219,20 @@ ${spoken ? `
        - Correct any misheard words (e.g., "speed" -> "spent", "fod" -> "food").
        - Extract: title, amount (number), category (must match one of the available categories or be "Other"), date (ISO string).
        - If the category doesn't strictly match, try fuzzy matching to available categories.
-       - If it's a completely new category not in the list, set category to "INVALID".
+       - If it's a completely new category not in the list, set category to "INVALID" and "newCategory" to a short English name for it (e.g. "Pets"). The app will offer to add it.
     3. If it's a chat:
        - Provide helpful financial advice or answer questions, following the language rules above.
     ${RESPONSE_STYLE}
+    ${ACTION_RULES}
 
     Return ONLY a JSON object:
     {
       "language": "en" | "bn" | "other",
-      "type": "chat" | "expense" | "income",
+      "type": "chat" | "expense" | "income" | "action",
       "content": "Your response to the user",
       "steps": ["..."],
-      "expense": { "title": "...", "amount": 0, "category": "...", "date": "...", "notes": "..." } // Only if type is expense
+      "expense": { "title": "...", "amount": 0, "category": "...", "date": "...", "notes": "..." }, // Only if type is expense or income
+      "action": { "kind": "..." } // Only if type is action
     }
   `;
 
@@ -252,19 +265,21 @@ export async function processAudioInput(audioData: string, mimeType: string, cat
     3. If the user wants to record an expense:
        - Extract: title (translate to English), amount (number), category (must match one of the available categories or be "Other"), date (ISO string).
        - If the category doesn't strictly match, try fuzzy matching to available categories.
-       - If it's a completely new category not in the list, set category to "INVALID".
+       - If it's a completely new category not in the list, set category to "INVALID" and "newCategory" to a short English name for it (e.g. "Pets"). The app will offer to add it.
     4. If it's a chat:
        - Provide helpful financial advice or answer questions, following the language rules above.
     ${RESPONSE_STYLE}
+    ${ACTION_RULES}
 
     Return ONLY a JSON object:
     {
       "language": "en" | "bn" | "other",
       "heard": "What the user said, written out in the language they spoke. Leave out any code, password, or account, card or phone number.",
-      "type": "chat" | "expense" | "income",
+      "type": "chat" | "expense" | "income" | "action",
       "content": "Your response to the user, following the language rules",
       "steps": ["..."],
-      "expense": { "title": "...", "amount": 0, "category": "...", "date": "...", "notes": "..." } // Only if type is expense
+      "expense": { "title": "...", "amount": 0, "category": "...", "date": "...", "notes": "..." }, // Only if type is expense or income
+      "action": { "kind": "..." } // Only if type is action
     }
   `;
 

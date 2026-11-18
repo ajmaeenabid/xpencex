@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { format, startOfMonth, subMonths } from 'date-fns';
+import { format } from 'date-fns';
+import { moneyMonth } from '../../shared/lib/moneyMonth';
 import { AlertTriangle, CalendarClock, CheckCircle2, Hourglass } from 'lucide-react';
 import { Account, Expense } from '../../shared/types';
 import { cn } from '../../shared/lib/utils';
@@ -10,18 +11,19 @@ import { ROUGH_BELOW_DAYS, runway } from './runway';
 import TapCard, { ChipTone, IconBox, TONE_CLASS } from './TapCard';
 
 /** How long the money in your accounts lasts at your recent spending. Tap for the full picture. */
-export default function RunwayCard({ accounts, expenses, symbol, userSince, shown }: {
+export default function RunwayCard({ accounts, expenses, symbol, userSince, shown, startDay = 1 }: {
   accounts: Account[];
   expenses: Expense[]; // Home's expenses, which start at the beginning of last month
   symbol: string;
   userSince?: Date;
   shown: boolean; // balances revealed on Home
+  startDay?: number; // Home's expenses start at the beginning of last money month
 }) {
   const { t, dateLocale } = useI18n();
   const [open, setOpen] = useState(false);
   const r = useMemo(
-    () => runway({ accounts, expenses, userSince, dataSince: startOfMonth(subMonths(new Date(), 1)) }),
-    [accounts, expenses, userSince],
+    () => runway({ accounts, expenses, userSince, dataSince: moneyMonth(new Date(), startDay, -1).start }),
+    [accounts, expenses, userSince, startDay],
   );
   const money = (n: number) => `${symbol}${Math.round(n).toLocaleString()}`;
   // The year is added when it isn't this year, so "18 Dec" 400 days away isn't mistaken for this December

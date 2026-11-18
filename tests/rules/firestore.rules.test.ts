@@ -189,3 +189,178 @@ describe('income', () => {
     await assertFails(setDoc(doc(bob(), 'incomeCategories/c2'), { uid: 'alice', name: 'Pension' }));
   });
 });
+
+describe('Agent space tasks', () => {
+  const task = (uid: string, extra: Record<string, unknown> = {}) => ({
+    uid, chatId: 'c-alice', messageId: 'm1', title: 'Move 500 from bKash to Cash',
+    action: { kind: 'transfer', amount: 500 }, status: 'waiting', createdAt: DATE, ...extra,
+  });
+
+  it('start waiting, and are finished once by their owner', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'tasks/t1'), task('alice')));
+    await assertSucceeds(updateDoc(doc(alice(), 'tasks/t1'), { status: 'done', doneAt: DATE, result: 'Done.', saved: true }));
+    // Finished tasks never change again
+    await assertFails(updateDoc(doc(alice(), 'tasks/t1'), { status: 'waiting' }));
+    await assertSucceeds(deleteDoc(doc(alice(), 'tasks/t1')));
+  });
+
+  it("can't start finished, change their card, or belong to someone else", async () => {
+    await assertFails(setDoc(doc(alice(), 'tasks/t2'), task('alice', { status: 'done' })));
+    await assertFails(setDoc(doc(alice(), 'tasks/t3'), task('bob')));
+    await assertFails(setDoc(doc(alice(), 'tasks/t4'), task('alice', { extra: 1 })));
+    await assertSucceeds(setDoc(doc(alice(), 'tasks/t5'), task('alice')));
+    await assertFails(updateDoc(doc(alice(), 'tasks/t5'), { action: { kind: 'transfer', amount: 5000 } }));
+    await assertFails(getDoc(doc(bob(), 'tasks/t5')));
+    await assertFails(updateDoc(doc(bob(), 'tasks/t5'), { status: 'cancelled', doneAt: DATE }));
+  });
+});
+
+describe('saved filters', () => {
+  const saved = (uid: string, extra: Record<string, unknown> = {}) => ({ uid, name: 'Eid bills', filters: { label: 'Eid', type: 'all' }, category: 'All', createdAt: DATE, ...extra });
+
+  it('belong to their owner, who can rename and remove them', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'savedFilters/f1'), saved('alice')));
+    await assertSucceeds(updateDoc(doc(alice(), 'savedFilters/f1'), { name: 'Eid' }));
+    await assertFails(getDoc(doc(bob(), 'savedFilters/f1')));
+    await assertFails(updateDoc(doc(bob(), 'savedFilters/f1'), { name: 'Mine' }));
+    await assertFails(deleteDoc(doc(bob(), 'savedFilters/f1')));
+    await assertSucceeds(deleteDoc(doc(alice(), 'savedFilters/f1')));
+  });
+
+  it('refuse anything the app would not save', async () => {
+    await assertFails(setDoc(doc(alice(), 'savedFilters/f2'), saved('bob')));
+    await assertFails(setDoc(doc(alice(), 'savedFilters/f3'), saved('alice', { name: '' })));
+    await assertFails(setDoc(doc(alice(), 'savedFilters/f4'), saved('alice', { name: 'x'.repeat(31) })));
+    await assertFails(setDoc(doc(alice(), 'savedFilters/f5'), saved('alice', { filters: 'all' })));
+    await assertFails(setDoc(doc(alice(), 'savedFilters/f6'), saved('alice', { extra: 1 })));
+  });
+});
+
+describe('warranties', () => {
+  const expense = (extra: Record<string, unknown> = {}) => ({ uid: 'alice', title: 'Fan', amount: 3000, category: 'Shopping', date: DATE, ...extra });
+
+  it('keeping an entry in Other is a yes or no', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'expenses/k1'), expense({ category: 'Other', categoryKept: true })));
+    await assertFails(setDoc(doc(alice(), 'expenses/k2'), expense({ category: 'Other', categoryKept: 'yes' })));
+  });
+
+  it('are a real date on an expense', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'expenses/w1'), expense({ warrantyUntil: DATE })));
+    await assertFails(setDoc(doc(alice(), 'expenses/w2'), expense({ warrantyUntil: 'next year' })));
+    await assertFails(setDoc(doc(alice(), 'expenses/w3'), expense({ warrantyUntil: 24 })));
+  });
+});
+
+describe('shopping lists', () => {
+  const list = (uid: string, extra: Record<string, unknown> = {}) => ({
+    uid, name: 'Weekly bazar', items: [{ id: 'a', name: 'Rice', done: false }], createdAt: DATE, updatedAt: DATE, ...extra,
+  });
+
+  it('belong to their owner, who can change and remove them', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'shoppingLists/s1'), list('alice')));
+    await assertSucceeds(updateDoc(doc(alice(), 'shoppingLists/s1'), { items: [], updatedAt: DATE }));
+    await assertFails(getDoc(doc(bob(), 'shoppingLists/s1')));
+    await assertFails(updateDoc(doc(bob(), 'shoppingLists/s1'), { name: 'Mine' }));
+    await assertFails(deleteDoc(doc(bob(), 'shoppingLists/s1')));
+    await assertSucceeds(deleteDoc(doc(alice(), 'shoppingLists/s1')));
+  });
+
+  it('refuse anything the app would not save', async () => {
+    await assertFails(setDoc(doc(alice(), 'shoppingLists/s2'), list('bob')));
+    await assertFails(setDoc(doc(alice(), 'shoppingLists/s3'), list('alice', { name: '' })));
+    await assertFails(setDoc(doc(alice(), 'shoppingLists/s4'), list('alice', { items: 'Rice' })));
+    await assertFails(setDoc(doc(alice(), 'shoppingLists/s5'), list('alice', { items: Array.from({ length: 101 }, () => ({ id: 'x' })) })));
+    await assertFails(setDoc(doc(alice(), 'shoppingLists/s6'), list('alice', { extra: 1 })));
+  });
+});
+
+describe('category rules', () => {
+  const rule = (uid: string, extra: Record<string, unknown> = {}) => ({ uid, words: 'Shwapno', category: 'Food', createdAt: DATE, ...extra });
+
+  it('belong to their owner, who can change and remove them', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'categoryRules/r1'), rule('alice')));
+    await assertSucceeds(updateDoc(doc(alice(), 'categoryRules/r1'), { category: 'Shopping' }));
+    await assertFails(getDoc(doc(bob(), 'categoryRules/r1')));
+    await assertFails(updateDoc(doc(bob(), 'categoryRules/r1'), { category: 'Bills' }));
+    await assertFails(deleteDoc(doc(bob(), 'categoryRules/r1')));
+    await assertSucceeds(deleteDoc(doc(alice(), 'categoryRules/r1')));
+  });
+
+  it('refuse anything the app would not save', async () => {
+    await assertFails(setDoc(doc(alice(), 'categoryRules/r2'), rule('bob')));
+    await assertFails(setDoc(doc(alice(), 'categoryRules/r3'), rule('alice', { words: 'a' })));
+    await assertFails(setDoc(doc(alice(), 'categoryRules/r4'), rule('alice', { words: 'x'.repeat(61) })));
+    await assertFails(setDoc(doc(alice(), 'categoryRules/r5'), rule('alice', { category: '' })));
+    await assertFails(setDoc(doc(alice(), 'categoryRules/r6'), rule('alice', { extra: 1 })));
+  });
+});
+
+describe('labels', () => {
+  const expense = (extra: Record<string, unknown> = {}) => ({ uid: 'alice', title: 'Bus', amount: 500, category: 'Travel', date: DATE, ...extra });
+  const income = (extra: Record<string, unknown> = {}) => ({ uid: 'alice', amount: 500, date: DATE, ...extra });
+
+  it('allow up to 3 short labels on expenses and income', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'expenses/l1'), expense({ labels: ['Eid', 'Trip', 'Family'] })));
+    await assertSucceeds(setDoc(doc(alice(), 'deposits/l1'), income({ labels: ['Eid'] })));
+    await assertSucceeds(updateDoc(doc(alice(), 'expenses/l1'), { labels: ['Cox trip'] }));
+  });
+
+  it('refuse too many, too long, empty or the wrong kind', async () => {
+    await assertFails(setDoc(doc(alice(), 'expenses/l2'), expense({ labels: ['a', 'b', 'c', 'd'] })));
+    await assertFails(setDoc(doc(alice(), 'expenses/l3'), expense({ labels: ['x'.repeat(31)] })));
+    await assertFails(setDoc(doc(alice(), 'expenses/l4'), expense({ labels: [''] })));
+    await assertFails(setDoc(doc(alice(), 'expenses/l5'), expense({ labels: 'Eid' })));
+    await assertFails(setDoc(doc(alice(), 'deposits/l6'), income({ labels: [5] })));
+  });
+});
+
+describe('planned payments', () => {
+  const plan = (uid: string, extra: Record<string, unknown> = {}) => ({
+    uid, kind: 'expense', title: 'School fee', amount: 3000, category: 'Education', repeat: 'monthly', date: DATE, day: 10, createdAt: DATE, ...extra,
+  });
+
+  it('belong to their owner, who can change and remove them', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'planned/p1'), plan('alice', { accountId: 'cash' })));
+    await assertSucceeds(updateDoc(doc(alice(), 'planned/p1'), { date: DATE, amount: 3500 }));
+    await assertFails(getDoc(doc(bob(), 'planned/p1')));
+    await assertFails(updateDoc(doc(bob(), 'planned/p1'), { amount: 1 }));
+    await assertFails(deleteDoc(doc(bob(), 'planned/p1')));
+    await assertSucceeds(deleteDoc(doc(alice(), 'planned/p1')));
+  });
+
+  it('refuse anything the app would not save', async () => {
+    await assertFails(setDoc(doc(alice(), 'planned/p2'), plan('bob')));
+    await assertFails(setDoc(doc(alice(), 'planned/p3'), plan('alice', { kind: 'transfer' })));
+    await assertFails(setDoc(doc(alice(), 'planned/p4'), plan('alice', { amount: 0 })));
+    await assertFails(setDoc(doc(alice(), 'planned/p5'), plan('alice', { repeat: 'daily' })));
+    await assertFails(setDoc(doc(alice(), 'planned/p6'), plan('alice', { day: 32 })));
+    await assertFails(setDoc(doc(alice(), 'planned/p7'), plan('alice', { extra: 1 })));
+  });
+});
+
+describe('favourites and the month start day', () => {
+  const fav = (uid: string, extra: Record<string, unknown> = {}) => ({ uid, kind: 'expense', title: 'Rickshaw', amount: 50, category: 'Transport', createdAt: DATE, ...extra });
+
+  it('favourites are added and removed by their owner only, never edited', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'templates/f1'), fav('alice', { accountId: 'cash' })));
+    await assertFails(updateDoc(doc(alice(), 'templates/f1'), { amount: 60 }));
+    await assertFails(getDoc(doc(bob(), 'templates/f1')));
+    await assertFails(setDoc(doc(alice(), 'templates/f2'), fav('bob')));
+    await assertFails(setDoc(doc(alice(), 'templates/f3'), fav('alice', { kind: 'transfer' })));
+    await assertFails(setDoc(doc(alice(), 'templates/f4'), fav('alice', { amount: 0 })));
+    await assertSucceeds(deleteDoc(doc(alice(), 'templates/f1')));
+  });
+
+  it('needs and wants are a list of categories on the profile', async () => {
+    await assertSucceeds(updateDoc(doc(alice(), 'users/alice'), { spendingTypes: { Pets: 'want' } }));
+    await assertFails(updateDoc(doc(alice(), 'users/alice'), { spendingTypes: 'want' }));
+  });
+
+  it('the month may start on day 1 to 31 only', async () => {
+    await assertSucceeds(updateDoc(doc(alice(), 'users/alice'), { monthStart: 25 }));
+    await assertSucceeds(updateDoc(doc(alice(), 'users/alice'), { monthStart: 31 }));
+    await assertFails(updateDoc(doc(alice(), 'users/alice'), { monthStart: 0 }));
+    await assertFails(updateDoc(doc(alice(), 'users/alice'), { monthStart: 32 }));
+    await assertFails(updateDoc(doc(alice(), 'users/alice'), { monthStart: 2.5 }));
+  });
+});

@@ -12,9 +12,25 @@ import AccountPicker from '../accounts/AccountPicker';
 import { savedInAnotherVersion } from './versions';
 import { ReplyLanguage } from './language';
 import type { DebtChoice } from './useConfirmActions';
+import type { AgentActions } from './agent/useAgentActions';
+import type { AgentTask } from './agent/tasks';
 import { personFromSms } from '../debts/debts';
 import { loadChoices } from '../debts/DebtForm';
 import { findWallet, isCashOut } from '../accounts/cash';
+import { EntryLabels } from '../labels/LabelField';
+import Select from '../../shared/components/Select';
+
+/** The labels the user asked for, on a confirm card */
+function LabelsLine({ labels }: { labels?: string[] }) {
+  const { t } = useI18n();
+  if (!labels?.length) return null;
+  return (
+    <div className="flex justify-between items-center gap-3 bg-background/50 p-3 rounded-xl">
+      <span className="text-xs font-semibold text-muted">{t('labels.title')}</span>
+      <EntryLabels labels={labels} />
+    </div>
+  );
+}
 
 export type WithExpense = ChatMessage & { pendingExpense: Partial<Expense> };
 export type WithIncome = ChatMessage & { pendingIncome: NonNullable<ChatMessage['pendingIncome']> };
@@ -24,8 +40,11 @@ export interface CardActions {
   messages: ChatMessage[];
   currencySymbol: string;
   accounts: Account[];
+  categories: string[];
   accountChoices: Record<string, string>;
   setAccountChoices: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  categoryChoices: Record<string, string>;
+  setCategoryChoices: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   syncChoices: Record<string, boolean>;
   setSyncChoices: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   debtChoices: Record<string, DebtChoice>;
@@ -40,6 +59,13 @@ export interface CardActions {
   receiptFor: (cardId: string) => ChatReceipt | undefined;
   toggleReceipt: (cardId: string) => void;
   openReceipts: () => void;
+  // Action cards the AI prepared (transfers, lend and borrow...): see agent/useAgentActions.ts
+  agent: AgentActions;
+  // Agent space tasks, for the short lines they leave in chat (src/features/chat/agent/AgentSpace.tsx)
+  tasks: AgentTask[];
+  onReviewTask: (taskId: string) => void;
+  onSeeIt: (placeId: string) => void;
+  onRetryTask: (msg: ChatMessage) => void; // a task that couldn't be saved
 }
 
 /** The "Keep this receipt" tick, greyed with the reason when the file can't be kept */
@@ -150,6 +176,10 @@ export function ExpenseCard({ msg, cards }: { msg: WithExpense; cards: CardActio
   const { messages, currencySymbol, accounts, accountChoices, setAccountChoices, isConfirming, confirmExpense, markResolved, addMessage, tIn } = cards;
   const balanceSync = balanceSyncFor(cards, t);
   const duplicateWarning = duplicateWarningFor(t);
+  // The category can be changed here; a new one the AI named stays on the list until something else is picked
+  const cardCategory = msg.pendingExpense.category || 'Other';
+  const category = cards.categoryChoices[msg.id] || cardCategory;
+  const categoryNames = [...new Set([...cards.categories, cardCategory])];
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -172,10 +202,28 @@ export function ExpenseCard({ msg, cards }: { msg: WithExpense; cards: CardActio
           <span className="text-xs font-semibold text-muted">{t('add.amount')}</span>
           <span className="font-bold text-indigo-600 dark:text-indigo-400">{currencySymbol}{msg.pendingExpense.amount}</span>
         </div>
-        <div className="flex justify-between items-center bg-background/50 p-3 rounded-xl">
+        <div className="bg-background/50 p-3 rounded-xl space-y-2">
           <span className="text-xs font-semibold text-muted">{t('add.category')}</span>
-          <span className="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-semibold">{categoryLabel(t, msg.pendingExpense.category || '')}</span>
+          <Select
+            ariaLabel={t('add.category')}
+            value={category}
+            onChange={(name) => cards.setCategoryChoices(prev => ({ ...prev, [msg.id]: name }))}
+            options={categoryNames.map(name => ({ value: name, label: categoryLabel(t, name) }))}
+          />
         </div>
+        {msg.newCategory && category === cardCategory && (
+          <p className="flex items-start gap-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/10 p-3 rounded-xl leading-relaxed">
+            <Plus size={15} className="shrink-0 mt-px" />
+            {t('agent.newCategoryNote', { name: cardCategory })}
+          </p>
+        )}
+        <LabelsLine labels={msg.pendingExpense.labels} />
+        {msg.pendingExpense.warrantyUntil && (
+          <div className="flex justify-between items-center gap-3 bg-background/50 p-3 rounded-xl">
+            <span className="text-xs font-semibold text-muted">{t('warranty.endsOn')}</span>
+            <span className="font-bold text-sm">{new Date(msg.pendingExpense.warrantyUntil).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+          </div>
+        )}
         <div className="bg-background/50 p-3 rounded-xl space-y-2">
           <span className="text-xs font-semibold text-muted">{t('add.paidFrom')}</span>
           <AccountPicker
@@ -282,6 +330,7 @@ export function IncomeCard({ msg, cards }: { msg: WithIncome; cards: CardActions
           <span className="text-xs font-semibold text-muted">{t('add.date')}</span>
           <span className="font-bold text-sm">{new Date(income.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
         </div>
+        <LabelsLine labels={income.labels} />
         <div className="bg-background/50 p-3 rounded-xl space-y-2">
           <span className="text-xs font-semibold text-muted">{msg.sms?.accountType === 'bank' ? t('chat.addToBank') : t('chat.addTo')}</span>
           {pickerAccounts.length > 0 ? (

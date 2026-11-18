@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../shared/firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, writeBatch, updateDoc, deleteField } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteField } from 'firebase/firestore';
 import { useAuth } from '../../app/App';
 import { Deposit, Expense } from '../../shared/types';
 import { useIncome } from '../income/incomeService';
@@ -13,13 +13,15 @@ import { MAJOR_CURRENCIES, DEFAULT_CATEGORIES } from '../../shared/constants';
 import { toCSV, downloadFile } from '../reports/reportExport';
 import SheetsExportButton from '../connect/SheetsExportButton';
 import { expenseRows, tabTitle } from '../connect/googleApps';
-import { useAccounts, adjustBalance } from '../accounts/accountService';
+import { useAccounts } from '../accounts/accountService';
+import { deleteExpense } from './expenseService';
 import { useI18n, categoryLabel } from '../../shared/i18n';
 import { saved } from '../../shared/lib/offlineSave';
 import { TRANSACTIONS_MONTHS, fetchAllExpenses, oldestExpenseDate, windowStart } from './expenseQueries';
 import { NO_FILTERS, TransactionFilters, activeCount, dateBounds, expenseMatches, incomeMatches } from './transactionFilters';
 import FilterSheet from './FilterSheet';
 import FilterChips from './FilterChips';
+import SavedFilterRow from './SavedFilterRow';
 import FullWindow from '../../shared/components/FullWindow';
 import ReceiptsGallery from '../receipts/ReceiptsGallery';
 import ReceiptViewer from '../receipts/ReceiptViewer';
@@ -28,6 +30,9 @@ import { deleteReceipt, ReceiptError } from '../receipts/receiptService';
 import { receiptProblemKey } from '../receipts/receiptFile';
 import { showToast } from '../../shared/lib/toast';
 import { alertDialog, confirmDialog } from '../../shared/components/Dialog';
+import { useStartDay } from '../../app/useStartDay';
+import { EntryLabels } from '../labels/LabelField';
+import { hasLabel, recentLabels } from '../labels/labels';
 
 // The category chip that shows only income (not a real category name)
 const INCOME_CHIP = '__income';
@@ -80,8 +85,9 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
   // The filter sheet. A date filter reads exactly those dates instead of the recent months.
   const [filters, setFilters] = useState<TransactionFilters>(NO_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const bounds = filters.date ? dateBounds(filters.date) : null;
-  const since = bounds?.from ?? windowStart(months);
+  const startDay = useStartDay();
+  const bounds = filters.date ? dateBounds(filters.date, new Date(), startDay) : null;
+  const since = bounds?.from ?? windowStart(months, new Date(), startDay);
   const until = bounds?.to ?? null;
   const hasOlder = !bounds && !!oldest && oldest < since;
 
@@ -126,11 +132,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
       setIsDeleting(true);
       // Deleting an expense puts its money back into the account it was paid from
       const expense = expenses.find(e => e.id === id);
-      const batch = writeBatch(db);
-      batch.delete(doc(db, 'expenses', id));
-      // A lend and borrow expense: the account movement belongs to that entry, so only the spending goes
-      if (expense && !expense.debtId) adjustBalance(batch, accounts, expense.accountId, expense.amount, 'expenseDelete', expense.title);
-      await saved(batch.commit());
+      if (expense) await deleteExpense(expense, accounts);
       setDeletingId(null);
       if (expense?.receiptId && alsoReceipt) deleteReceiptAfter(expense.receiptId);
     } catch (error) {
@@ -143,7 +145,8 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
 
   function matches(exp: Expense) {
     const matchesSearch = exp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         exp.category.toLowerCase().includes(searchTerm.toLowerCase());
+                         exp.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (exp.labels || []).some(l => l.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = filterCategory === 'All' || exp.category === filterCategory;
     return matchesSearch && matchesCategory && expenseMatches(exp, filters, bounds);
   }
@@ -154,8 +157,11 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
   const incomes = useIncome(user?.uid, since);
   const term = searchTerm.toLowerCase();
   const shownIncomes = filterCategory === 'All' || filterCategory === INCOME_CHIP
-    ? incomes.filter(d => (!term || (d.title || '').toLowerCase().includes(term) || (d.category || '').toLowerCase().includes(term)) && incomeMatches(d, filters, bounds))
+    ? incomes.filter(d => (!term || (d.title || '').toLowerCase().includes(term) || (d.category || '').toLowerCase().includes(term) || (d.labels || []).some(l => l.toLowerCase().includes(term))) && incomeMatches(d, filters, bounds))
     : [];
+  // The labels on what is loaded, plus the one being filtered by, so it can always be switched off
+  const seenLabels = recentLabels([...expenses, ...incomes], 20);
+  const filterLabels = filters.label && !hasLabel(seenLabels, filters.label) ? [filters.label, ...seenLabels] : seenLabels;
   const shownExpenses = filterCategory === INCOME_CHIP ? [] : filteredExpenses;
   type Row = { kind: 'expense'; exp: Expense; date: string } | { kind: 'income'; inc: Deposit; date: string };
   const rows: Row[] = [
@@ -163,7 +169,8 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
     ...shownIncomes.map(inc => ({ kind: 'income' as const, inc, date: inc.date })),
   ].sort((a, b) => b.date.localeCompare(a.date));
 
-  const categories = ['All', INCOME_CHIP, ...Array.from(new Set(expenses.map(e => e.category)))];
+  // A saved filter's category stays on the row even when no loaded expense uses it
+  const categories = Array.from(new Set(['All', INCOME_CHIP, ...expenses.map(e => e.category), filterCategory]));
 
   return (
     <div className="space-y-8 pb-6">
@@ -243,7 +250,16 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
           </button>
         </div>
         <FilterChips filters={filters} setFilters={setFilters} accounts={accounts} symbol={currencySymbol} />
-        <FilterSheet open={filtersOpen} onClose={() => setFiltersOpen(false)} value={filters} onApply={setFilters} accounts={accounts} />
+        <FilterSheet open={filtersOpen} onClose={() => setFiltersOpen(false)} value={filters} onApply={setFilters} accounts={accounts} labels={filterLabels} />
+        {user && (
+          <SavedFilterRow
+            uid={user.uid}
+            filters={filters}
+            category={filterCategory}
+            accountIds={accounts.map(a => a.id)}
+            onApply={(next, category) => { setFilters(next); setFilterCategory(category); }}
+          />
+        )}
 
         <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar px-1">
           {categories.map(cat => (
@@ -352,6 +368,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
                           <Wallet size={10} /> {exp.accountName === 'Cash' ? t('accounts.cash') : exp.accountName}
                         </p>
                       )}
+                      <EntryLabels labels={exp.labels} />
                     </div>
                   </div>
                     <div className="text-right">

@@ -20,9 +20,11 @@ LIVE_MODEL = "gemini-3.8-live"
 GROQ_MODELS = "openai/gpt-oss-120b,openai/gpt-oss-20b"
 # Cloudflare's own AI needs no key, only the [ai] binding below. Free: 10,000 "neurons" a day.
 CLOUDFLARE_AI_MODEL = "@cf/openai/gpt-oss-20b"
+# Mistral and SambaNova are not used: in 2026 neither has free API use any more (both need payment).
+# NVIDIA NIM is not used: NVIDIA's free endpoints are for development and testing only, not apps with real users.
 # Free OpenRouter models end in ":free" and change often; pick current ones at https://openrouter.ai/models
 # (filter by price: free). Empty means OpenRouter is not used.
-OPENROUTER_MODELS = ""
+OPENROUTER_MODELS = "nvidia/nemotron-3.5-super-vl:free,particle-ai/particle-1:free,baidu/ernie-5.5-flash-preview:free"
 # Addresses allowed to call this server. The first one is the fallback.
 # https://localhost is the installed phone app (Capacitor). localhost:3000 is development on this computer.
 # The website is deliberately not listed: Xpences is used only as the installed app.
