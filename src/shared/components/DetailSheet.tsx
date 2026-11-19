@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { useI18n } from '../i18n';
+import { lockScroll } from '../lib/scrollLock';
 
 /**
  * A sheet that slides up over the page with the full story behind a short Home card.
@@ -25,9 +26,8 @@ export default function DetailSheet({ open, onClose, icon, title, about, childre
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
+    const unlockScroll = lockScroll();
+    return () => { window.removeEventListener('keydown', onKey); unlockScroll(); };
   }, [open, onClose]);
 
   return createPortal(

@@ -64,7 +64,12 @@ export default function DateField({ value, onChange, ariaLabel, className }: Pro
           setMonth(startOfMonth(selected));
           setOpen(o => !o);
         }}
-        className={cn('text-left', className)}
+        // The calendar icon sits inside the button, so the box needs its own position and room for the icon
+        className={cn(
+          'relative text-left',
+          className || 'w-full h-12 px-4 bg-background/60 rounded-xl border border-card-border text-sm text-foreground outline-none focus:border-indigo-500',
+          'pl-11',
+        )}
       >
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Calendar size={18} /></span>
         {format(selected, 'd MMM yyyy', { locale: dateLocale })}

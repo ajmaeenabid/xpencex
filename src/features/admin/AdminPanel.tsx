@@ -14,6 +14,7 @@ import HealthBox from './HealthBox';
 import CommentsWindow from './CommentsWindow';
 import ErrorsWindow from './ErrorsWindow';
 import { confirmDialog } from '../../shared/components/Dialog';
+import { lockScroll } from '../../shared/lib/scrollLock';
 
 // The server refuses admin changes 10 minutes after confirming with Google
 const needsConfirm = (err: unknown) => err instanceof WorkerError && err.status === 401;
@@ -102,9 +103,8 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
     // While Comments is open, Escape belongs to it
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !commentsOpen && !errorsOpen) closePopup(); };
     window.addEventListener('keydown', onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
+    const unlockScroll = lockScroll();
+    return () => { window.removeEventListener('keydown', onKey); unlockScroll(); };
   }, [open, commentsOpen, errorsOpen]);
 
   const run = async (action: () => Promise<unknown>) => {

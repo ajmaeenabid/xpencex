@@ -14,6 +14,7 @@ import Select from '../../shared/components/Select';
 import RecurringCard from '../profile/RecurringCard';
 import CategoryRulesCard from '../categoryRules/CategoryRulesCard';
 import WarrantiesCard from '../warranties/WarrantiesCard';
+import { lockScroll } from '../../shared/lib/scrollLock';
 
 // The Expenses side panel: monthly budget, category budgets, recurring expenses and custom categories
 // (moved here from Profile). Search opens it with OPEN_EXPENSE_SETTINGS and then finds a card by its
@@ -45,9 +46,8 @@ export default function ExpenseSettingsDrawer({ open, onClose }: { open: boolean
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
+    const unlockScroll = lockScroll();
+    return () => { window.removeEventListener('keydown', onKey); unlockScroll(); };
   }, [open, onClose]);
 
   return createPortal(

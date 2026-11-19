@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ShieldCheck, X } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { isNative, openExternal, openInBrowser } from '../lib/nativeApp';
+import { lockScroll } from '../lib/scrollLock';
 
 /**
  * Opens the privacy policy in a window inside the app, in the app's language. The policy pages
@@ -19,9 +20,8 @@ export default function PrivacyLink() {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     window.addEventListener('keydown', onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
+    const unlockScroll = lockScroll();
+    return () => { window.removeEventListener('keydown', onKey); unlockScroll(); };
   }, [open]);
 
   return (

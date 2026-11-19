@@ -11,6 +11,7 @@ import { emptyToolValues } from './moneyTools';
 import ConverterPanel from './ConverterPanel';
 import { useExchangeRates } from './ratesService';
 import CalculatorPanel from './CalculatorPanel';
+import { lockScroll } from '../../shared/lib/scrollLock';
 
 interface Props {
   open: boolean;
@@ -43,9 +44,8 @@ export default function CalculatorSheet({ open, onClose, userCurrency, onSaveExp
   // The page behind doesn't scroll while open
   useEffect(() => {
     if (!open) return;
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = overflow; };
+    const unlockScroll = lockScroll();
+    return () => { unlockScroll(); };
   }, [open]);
 
   return createPortal(

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, X } from 'lucide-react';
 import { useI18n } from '../i18n';
+import { lockScroll } from '../lib/scrollLock';
 
 const iconButton = 'inline-flex items-center justify-center w-10 h-10 rounded-xl text-muted hover:text-foreground hover:bg-background/60 transition-colors';
 
@@ -45,9 +46,8 @@ export default function FullWindow({ open, atRoot, onClose, onBack, pageKey, ico
       if (atRoot) onClose(); else onBack();
     };
     window.addEventListener('keydown', onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
+    const unlockScroll = lockScroll();
+    return () => { window.removeEventListener('keydown', onKey); unlockScroll(); };
   }, [open, atRoot, onClose, onBack]);
 
   return createPortal(

@@ -20,6 +20,7 @@ import { useAuth } from '../../app/App';
 import SheetsExportButton from '../connect/SheetsExportButton';
 import { SavedBalanceLine, accountsTabs } from '../connect/exportTables';
 import { loadMine } from '../connect/exportData';
+import { lockScroll } from '../../shared/lib/scrollLock';
 
 // The pages inside the window; Back goes to the previous one
 type View =
@@ -63,9 +64,8 @@ export default function AccountsManager({ uid, accounts, symbol, openSignal }: P
       if (history.length > 1) back(); else closeWindow();
     };
     window.addEventListener('keydown', onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
+    const unlockScroll = lockScroll();
+    return () => { window.removeEventListener('keydown', onKey); unlockScroll(); };
   }, [open, history.length]);
 
   const toggleBalance = (id: string) => setRevealed(prev => {

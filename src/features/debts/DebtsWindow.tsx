@@ -17,6 +17,7 @@ import DebtForm, { KIND_TEXT } from './DebtForm';
 import { useAuth } from '../../app/App';
 import SheetsExportButton from '../connect/SheetsExportButton';
 import { debtsTabs } from '../connect/exportTables';
+import { lockScroll } from '../../shared/lib/scrollLock';
 
 type View =
   | { page: 'list' }
@@ -50,9 +51,8 @@ export default function DebtsWindow({ open, onClose, uid, accounts, debts, symbo
       if (history.length > 1) back(); else close();
     };
     window.addEventListener('keydown', onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
+    const unlockScroll = lockScroll();
+    return () => { window.removeEventListener('keydown', onKey); unlockScroll(); };
   }, [open, history.length]);
 
   const everyone = people(debts);

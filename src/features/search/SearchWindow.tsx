@@ -13,6 +13,7 @@ import { en } from '../../shared/i18n/en';
 import { PLACES, Place, SUGGESTED, searchPlaces } from './searchPlaces';
 import { Recent, addRecent, loadRecents, removeRecent, saveRecents } from './recentSearches';
 import { useAuth } from '../../app/App';
+import { lockScroll } from '../../shared/lib/scrollLock';
 
 const ICONS: Record<string, LucideIcon> = {
   add: Plus, expenses: List, chat: MessageSquare,
@@ -52,9 +53,8 @@ export default function SearchWindow({ open, onClose, onPick, onAsk }: {
     const focus = window.setTimeout(() => inputRef.current?.focus(), 60);
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { window.clearTimeout(focus); window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
+    const unlockScroll = lockScroll();
+    return () => { window.clearTimeout(focus); window.removeEventListener('keydown', onKey); unlockScroll(); };
   }, [open]);
 
   const title = (p: Place) => t(`search.${p.id}` as TKey);
