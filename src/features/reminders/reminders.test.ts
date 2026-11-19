@@ -120,6 +120,16 @@ describe('warranty reminders', () => {
     expect(ids.every(id => id >= 12000)).toBe(true);
   });
 
+  it('never gives two reminders the same id, however many there are', () => {
+    // This id made the 30-day and 7-day ids clash under the old hash, so only one was set (found on the phone)
+    const clash = { ...fan, id: 'Yb6k0QwKVk5ba2odCpbH' };
+    const many = Array.from({ length: 60 }, (_, i) => ({ ...fan, id: `w${i}`, name: `Item ${i}` }));
+    const goals = Array.from({ length: 20 }, (_, i) => ({ id: `g${i}`, name: `Goal ${i}`, dueDate: new Date(2027, 2, 1).toISOString(), progress: 0 }));
+    const plan = planReminders(DEFAULT_REMINDERS, { ...base, warranties: [clash, ...many], goals });
+    expect(only(plan)).toHaveLength(122);
+    expect(new Set(plan.map(r => r.id)).size).toBe(plan.length);
+  });
+
   it('skips a time that has passed, and stays quiet when switched off', () => {
     const soon = { ...fan, until: day(20) };
     expect(only(planReminders(DEFAULT_REMINDERS, { ...base, warranties: [soon] }))).toHaveLength(1);

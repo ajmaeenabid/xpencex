@@ -101,15 +101,15 @@ export function EarnedChart({ uid, expenses, symbol }: { uid: string; expenses: 
         </ResponsiveContainer>
       </div>
       {summary && (
-        <div className="grid grid-cols-2 gap-2 mt-4">
+        <div className={cn('grid gap-2 mt-4', summary.best && 'grid-cols-2')}>
           <div className="p-3 rounded-2xl bg-background/50">
             <p className="text-[12px] text-muted font-semibold">{t('income.avgSaved')}</p>
             <p className={cn('font-bold text-sm mt-1 tabular-nums', summary.average < 0 ? 'text-rose-500' : 'text-foreground')}>{money(summary.average)}</p>
           </div>
-          <div className="p-3 rounded-2xl bg-background/50">
+          {summary.best && <div className="p-3 rounded-2xl bg-background/50">
             <p className="text-[12px] text-muted font-semibold">{t('income.bestMonth', { month: monthName(summary.best.month, 'MMM yyyy') })}</p>
-            <p className={cn('font-bold text-sm mt-1 tabular-nums', summary.best.saved < 0 ? 'text-rose-500' : 'text-foreground')}>{money(summary.best.saved)}</p>
-          </div>
+            <p className="font-bold text-sm mt-1 tabular-nums text-foreground">{money(summary.best.saved)}</p>
+          </div>}
         </div>
       )}
     </div>

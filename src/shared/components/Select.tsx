@@ -22,6 +22,7 @@ interface Props {
 
 const LIST_MAX_HEIGHT = 264;
 const GAP = 6;
+const KEYBOARD_SETTLE_MS = 600; // how long the phone keyboard takes to slide away
 
 /**
  * The app's own dropdown, used instead of the browser's <select> so the list matches the theme
@@ -71,17 +72,25 @@ export default function Select({ value, onChange, options, id, ariaLabel, varian
     listRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)?.scrollIntoView({ block: 'nearest' });
   }, [open, activeIndex]);
 
-  // Close when tapping outside, or when the page scrolls or resizes underneath
+  // Close when tapping outside, or when the page scrolls or resizes underneath. On a phone, tapping the button
+  // while typing closes the keyboard first: the screen gets taller and the page may shift. That must not close
+  // the list (it took two taps to open), so a change of height only moves it, and so does a scroll just after opening.
   useEffect(() => {
     if (!open) return;
+    const openedAt = Date.now();
+    const width = window.innerWidth;
+    const settling = () => Date.now() - openedAt < KEYBOARD_SETTLE_MS;
     const onPointer = (e: PointerEvent) => {
       const target = e.target as Node;
       if (!listRef.current?.contains(target) && !triggerRef.current?.contains(target)) setOpen(false);
     };
     const onScroll = (e: Event) => {
-      if (!listRef.current?.contains(e.target as Node)) setOpen(false);
+      if (listRef.current?.contains(e.target as Node)) return;
+      if (settling()) place(); else setOpen(false);
     };
-    const onResize = () => setOpen(false);
+    const onResize = () => {
+      if (window.innerWidth === width) place(); else setOpen(false);
+    };
     document.addEventListener('pointerdown', onPointer);
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onResize);

@@ -95,7 +95,7 @@ function LabelSheet({ uid, total, expenses, incomes, money, onClose, onRenamed }
   };
 
   const remove = async () => {
-    if (await confirmDialog(t('labels.confirmRemove', { name: total.label }), { danger: true })) change(null);
+    if (await confirmDialog(t('labels.confirmRemove', { name: total.label }), { danger: true, okLabel: t('common.remove') })) change(null);
   };
 
   return (

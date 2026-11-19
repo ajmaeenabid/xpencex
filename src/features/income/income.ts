@@ -57,6 +57,8 @@ export function monthlySeries(incomes: Deposit[], expenses: Pick<Expense, 'amoun
 export function savingsSummary(series: { month: string; earned: number; spent: number }[]) {
   const full = series.slice(0, -1).filter(m => m.earned > 0 || m.spent > 0).map(m => ({ month: m.month, saved: round2(m.earned - m.spent) }));
   if (full.length === 0) return null;
-  const best = full.reduce((top, m) => (m.saved > top.saved ? m : top), full[0]);
+  const top = full.reduce((a, m) => (m.saved > a.saved ? m : a), full[0]);
+  // A "best month" that still lost money would read as praise, so there is none until some month saved
+  const best = top.saved > 0 ? top : null;
   return { average: round2(full.reduce((sum, m) => sum + m.saved, 0) / full.length), best };
 }

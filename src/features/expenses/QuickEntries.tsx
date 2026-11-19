@@ -27,7 +27,9 @@ export default function QuickEntries({ kind, form, onPick, symbol }: {
   const templates = useTemplates(user?.uid);
   const recent = useRecentForSuggestions(user?.uid, kind);
   const row = quickRow(templates, suggestions(recent, kind), kind);
-  const [editing, setEditing] = useState(false);
+  const [editingChosen, setEditing] = useState(false);
+  // Removing the last favourite empties the row, and with it the Done button, so editing ends by itself
+  const editing = editingChosen && row.length > 0;
   const [busy, setBusy] = useState(false);
   const money = (n: number) => `${symbol}${n.toLocaleString()}`;
 
@@ -48,7 +50,7 @@ export default function QuickEntries({ kind, form, onPick, symbol }: {
   };
 
   const remove = async (entry: QuickEntry) => {
-    if (!entry.templateId || !(await confirmDialog(t('quick.confirmRemove', { title: entry.title })))) return;
+    if (!entry.templateId || !(await confirmDialog(t('quick.confirmRemove', { title: entry.title }), { okLabel: t('common.remove') }))) return;
     deleteTemplate(entry.templateId).catch(err => console.error('Could not remove the favourite', err));
   };
 
@@ -59,7 +61,7 @@ export default function QuickEntries({ kind, form, onPick, symbol }: {
       <div className="flex items-center gap-2 px-1">
         <h2 id={`quick-${kind}`} className="flex-1 text-xs font-semibold text-muted">{t('quick.title')}</h2>
         {row.length > 0 && (
-          <button type="button" onClick={() => setEditing(e => !e)} className="inline-flex items-center gap-1 text-xs font-bold text-muted hover:text-foreground">
+          <button type="button" onClick={() => setEditing(!editing)} className="inline-flex items-center gap-1 text-xs font-bold text-muted hover:text-foreground">
             {editing ? <><Check size={13} /> {t('quick.done')}</> : <><Pencil size={13} /> {t('quick.edit')}</>}
           </button>
         )}

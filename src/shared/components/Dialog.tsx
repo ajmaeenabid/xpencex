@@ -13,7 +13,7 @@ type Request = {
   danger: boolean;
   tick?: string; // an extra tick box under the question
   ticked?: boolean; // whether that tick starts on
-  okLabel?: string; // instead of "Confirm"
+  okLabel?: string; // instead of "Confirm" (or "Delete" when danger is set)
   resolve: (answer: boolean, ticked?: boolean) => void;
 };
 
@@ -129,7 +129,7 @@ export function DialogHost() {
                   current.danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-700',
                 )}
               >
-                {current.okLabel || t(current.kind === 'alert' ? 'dialog.ok' : 'dialog.confirm')}
+                {current.okLabel || t(current.kind === 'alert' ? 'dialog.ok' : current.danger ? 'common.delete' : 'dialog.confirm')}
               </button>
             </div>
           </motion.div>

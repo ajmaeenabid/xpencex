@@ -4,9 +4,9 @@
 // 3. copies it to public/download/xpencex.apk and writes its size into version.json
 // Then publish the download page with `npm run release:site`.
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { findJava21 } from './java21.mjs';
 
 const root = join(import.meta.dirname, '..');
 const gradleFile = join(root, 'android', 'app', 'build.gradle');
@@ -45,19 +45,7 @@ if (!existsSync(join(root, 'android', 'keystore.properties'))) {
 }
 
 // 2. Find Java 21
-const isJava21 = (home) => {
-  try {
-    return /JAVA_VERSION="21[".]/.test(readFileSync(join(home, 'release'), 'utf8'));
-  } catch {
-    return false;
-  }
-};
-const candidates = [process.env.JAVA_HOME?.replace(/[\\/]+$/, '')];
-for (const dir of [join(homedir(), '.jdks'), 'C:\\Program Files\\Eclipse Adoptium', 'C:\\Program Files\\Java']) {
-  if (existsSync(dir)) for (const d of readdirSync(dir)) candidates.push(join(dir, d));
-}
-candidates.push('C:\\Program Files\\Android\\Android Studio\\jbr');
-const javaHome = candidates.find((c) => c && isJava21(c));
+const javaHome = findJava21();
 if (!javaHome) {
   stop('Java 21 was not found. In Android Studio, download it once: see "If the build fails" in docs/android-release.md.');
 }

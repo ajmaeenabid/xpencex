@@ -10,6 +10,10 @@ describe('savings summary', () => {
     expect(savingsSummary(series)).toEqual({ average: 600, best: { month: '2026-10', saved: 1500 } });
   });
 
+  it('has no best month while every month lost money', () => {
+    expect(savingsSummary([m('2026-09', 0, 200), m('2026-10', 100, 300), m('2026-11', 0, 0)])).toEqual({ average: -200, best: null });
+  });
+
   it('skips months with nothing recorded', () => {
     expect(savingsSummary([m('2026-08', 0, 0), m('2026-09', 500, 100), m('2026-10', 0, 0)])?.average).toBe(400);
   });

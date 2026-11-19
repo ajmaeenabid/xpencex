@@ -13,7 +13,7 @@
     "test:e2e": "playwright test",
     "test:rules": "node scripts/test-rules.mjs",
     "android:sync": "npm run build && node -e \"require('fs').rmSync('dist/download/xpencex.apk',{force:true})\" && npx cap sync android",
-    "android:apk": "npm run android:sync && cd android && gradlew.bat assembleRelease",
+    "android:apk": "node scripts/android-apk.mjs",
     "android:release": "node scripts/android-release.mjs",
     "android:open": "npx cap open android",
     "icons": "node scripts/make-icons.mjs",

@@ -92,7 +92,10 @@ const RESPONSE_STYLE = `
     - Then ALWAYS give the full answer below it. The summary sentence alone is never a complete reply.
     - Give the details as bullet lists. Start each bullet with a **bold label:** followed by the explanation.
     - When the answer involves money (expense breakdowns, cost estimates, budgets, comparisons, plans with costs),
-      use a Markdown table with clear columns (e.g. | Item | Cost | Note |) and a final **Total** row.
+      use a Markdown table with clear columns (e.g. | Item | Cost | Note |) and a final **Total** row. Every row,
+      the Total row too, starts and ends with | and has as many cells as the header (e.g. | **Total** | | ৳55 |).
+    - The codes in the lists you are given (E1, I1, A1, R1, G1 and so on) are only for commands. Never show them
+      to the user, in a table or anywhere else: name entries by their title, date and amount instead.
     - Put every paragraph, list item, heading and table row on its own line, with a blank line before and after a table.
     - For multi-part answers, cover every part. A 3-day plan must have **Day 1**, **Day 2** and **Day 3** headings,
       each with its activities, where to stay or eat, and that day's costs.

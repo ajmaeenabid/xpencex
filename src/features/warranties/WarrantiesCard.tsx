@@ -26,7 +26,7 @@ export default function WarrantiesCard() {
   const day = (iso: string) => format(new Date(iso), 'd MMM yyyy', { locale: dateLocale });
 
   const remove = async (expense: Expense) => {
-    if (!(await confirmDialog(t('warranty.confirmRemove', { name: expense.title }), { danger: true }))) return;
+    if (!(await confirmDialog(t('warranty.confirmRemove', { name: expense.title }), { danger: true, okLabel: t('common.remove') }))) return;
     try {
       await removeWarranty(expense.id);
     } catch (err) {

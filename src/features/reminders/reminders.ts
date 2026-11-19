@@ -123,11 +123,11 @@ const at = (day: Date, hhmm: string) => {
   const [h, m] = hhmm.split(':').map(Number);
   return setMinutes(setHours(startOfDay(day), h), m);
 };
-// Small fixed id ranges per kind, so the same reminder always gets the same id.
-// Warranties sit apart, because 9000-9999 holds the alerts that are sent at once.
+// A fixed id range per kind. Every plan replaces all pending reminders, so ids only need to be different within
+// one plan: each kind counts up from the start of its range. (Ids made from a short hash used to clash, and the
+// second reminder silently replaced the first.) Warranties sit apart, because 9000-9999 holds the alerts sent at once.
 const WARRANTY_ID_START = 12000;
-const idFor = (kind: ReminderKind, n: number) => (kind === 'warranty' ? WARRANTY_ID_START : REMINDER_KINDS.indexOf(kind) * 1000) + (n % 1000);
-const hash = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 500;
+const rangeStart = (kind: ReminderKind) => (kind === 'warranty' ? WARRANTY_ID_START : REMINDER_KINDS.indexOf(kind) * 1000);
 
 /** Days in a row, ending today or yesterday, that have at least one expense */
 export function streakDays(expenseDates: string[], now: Date): number {
@@ -143,6 +143,12 @@ export function planReminders(s: ReminderSettings, d: ReminderData): PlannedRemi
   const out: PlannedReminder[] = [];
   const { now } = d;
   const future = (r: PlannedReminder) => { if (r.at.getTime() > now.getTime()) out.push(r); };
+  const used: Partial<Record<ReminderKind, number>> = {};
+  const idFor = (kind: ReminderKind) => {
+    const n = used[kind] ?? 0;
+    used[kind] = n + 1;
+    return rangeStart(kind) + (n % 1000);
+  };
   const today = format(now, 'yyyy-MM-dd');
   const addedToday = d.expenseDates.some(x => format(new Date(x), 'yyyy-MM-dd') === today);
 
@@ -154,7 +160,7 @@ export function planReminders(s: ReminderSettings, d: ReminderData): PlannedRemi
       // A streak only holds for tonight (the next days depend on what gets added)
       const useStreak = s.on.streak && i === 0 && streak >= 3;
       if (!useStreak && !s.on.daily) continue;
-      future({ id: idFor('daily', i), at: at(day, s.time), kind: useStreak ? 'streak' : 'daily', text: useStreak ? { key: 'streak', days: streak } : { key: 'daily' }, tab: 'add' });
+      future({ id: idFor('daily'), at: at(day, s.time), kind: useStreak ? 'streak' : 'daily', text: useStreak ? { key: 'streak', days: streak } : { key: 'daily' }, tab: 'add' });
     }
   }
 
@@ -162,14 +168,14 @@ export function planReminders(s: ReminderSettings, d: ReminderData): PlannedRemi
   if (s.on.loan) {
     for (const loan of d.loans) {
       const due = new Date(loan.nextDueDate);
-      future({ id: idFor('loan', hash(loan.id)), at: at(subDays(due, 1), '20:00'), kind: 'loan', text: { key: 'loan', name: loan.name, amount: loan.installment }, tab: 'home' });
+      future({ id: idFor('loan'), at: at(subDays(due, 1), '20:00'), kind: 'loan', text: { key: 'loan', name: loan.name, amount: loan.installment }, tab: 'home' });
     }
   }
 
   // Samity payment day: that morning, at 9 AM
   if (s.on.samity) {
     for (const r of d.samityRounds.filter(r => differenceInCalendarDays(r.date, now) <= DAYS_AHEAD)) {
-      future({ id: idFor('samity', hash(`${r.id}${r.date.toISOString()}`)), at: at(r.date, '09:00'), kind: 'samity', text: { key: 'samity', name: r.name, amount: r.amount }, tab: 'home' });
+      future({ id: idFor('samity'), at: at(r.date, '09:00'), kind: 'samity', text: { key: 'samity', name: r.name, amount: r.amount }, tab: 'home' });
     }
   }
 
@@ -178,7 +184,7 @@ export function planReminders(s: ReminderSettings, d: ReminderData): PlannedRemi
     for (const g of d.goals.filter(g => g.dueDate && g.progress < 1)) {
       const due = new Date(g.dueDate!);
       for (const before of [30, 14, 3]) {
-        future({ id: idFor('goal', hash(`${g.id}${before}`)), at: at(subDays(due, before), '19:00'), kind: 'goal', text: { key: 'goal', name: g.name, days: before, percent: Math.round(g.progress * 100) }, tab: 'home' });
+        future({ id: idFor('goal'), at: at(subDays(due, before), '19:00'), kind: 'goal', text: { key: 'goal', name: g.name, days: before, percent: Math.round(g.progress * 100) }, tab: 'home' });
       }
     }
   }
@@ -188,7 +194,7 @@ export function planReminders(s: ReminderSettings, d: ReminderData): PlannedRemi
     for (const p of d.planned || []) {
       for (const before of [1, 0]) {
         future({
-          id: idFor('planned', hash(`${p.id}${before}`)),
+          id: idFor('planned'),
           at: at(subDays(new Date(p.date), before), '09:00'),
           kind: 'planned',
           text: { key: 'planned', name: p.name, amount: p.amount, income: p.income, today: before === 0 },
@@ -202,7 +208,7 @@ export function planReminders(s: ReminderSettings, d: ReminderData): PlannedRemi
   if (s.on.warranty) {
     for (const w of d.warranties || []) {
       for (const before of [30, 7]) {
-        future({ id: idFor('warranty', hash(`${w.id}${before}`)), at: at(subDays(new Date(w.until), before), '09:00'), kind: 'warranty', text: { key: 'warranty', name: w.name, days: before }, tab: 'expenses' });
+        future({ id: idFor('warranty'), at: at(subDays(new Date(w.until), before), '09:00'), kind: 'warranty', text: { key: 'warranty', name: w.name, days: before }, tab: 'expenses' });
       }
     }
   }
@@ -212,13 +218,13 @@ export function planReminders(s: ReminderSettings, d: ReminderData): PlannedRemi
     const daysToSunday = (7 - getDay(now)) % 7;
     const sunday = at(addDays(now, daysToSunday), '20:00');
     const change = d.lastWeekSpent > 0 ? (d.weekSpent - d.lastWeekSpent) / d.lastWeekSpent : null;
-    future({ id: idFor('weekly', 0), at: sunday, kind: 'weekly', text: { key: 'weekly', spent: d.weekSpent, change }, tab: 'reports' });
+    future({ id: idFor('weekly'), at: sunday, kind: 'weekly', text: { key: 'weekly', spent: d.weekSpent, change }, tab: 'reports' });
   }
 
   // Monthly report ready: the first day of the next money month at 10 AM, about the month that just ended
   if (s.on.monthly) {
     const next = moneyMonth(now, d.startDay, 1).start;
-    future({ id: idFor('monthly', 0), at: at(next, '10:00'), kind: 'monthly', text: { key: 'monthly', month: moneyMonthKey(now, d.startDay) }, tab: 'reports' });
+    future({ id: idFor('monthly'), at: at(next, '10:00'), kind: 'monthly', text: { key: 'monthly', month: moneyMonthKey(now, d.startDay) }, tab: 'reports' });
   }
 
   // Your own reminders: the next two times each one rings, however far ahead (rent on the 1st...)

@@ -14,6 +14,7 @@ import { cleanPerson } from '../debts/debts';
 import { findWallet, isCashOut } from '../accounts/cash';
 import { labelFields } from '../labels/labels';
 import { noteCategoryCorrection, useCategoryRules } from '../categoryRules/categoryRuleService';
+import { entryDate } from '../../shared/lib/entryDate';
 
 type AddMessage = (role: 'user' | 'assistant', content: string, type?: ChatMessage['type']) => string;
 
@@ -77,7 +78,7 @@ export function useConfirmActions({ user, messages, accounts, categories, curren
         const person = cleanPerson(gotBack.person);
         if (!person) return;
         writeDebt(batch, {
-          uid: user.uid, person, kind: 'gotBack', amount: income.amount, date: income.date || new Date().toISOString(),
+          uid: user.uid, person, kind: 'gotBack', amount: income.amount, date: entryDate(income.date),
           account, smsRef: sms?.ref, accountAlreadyMoved: syncTo !== undefined,
         });
         if (syncTo !== undefined) setBalance(batch, account, syncTo, 'smsBalance');
@@ -91,7 +92,7 @@ export function useConfirmActions({ user, messages, accounts, categories, curren
         accountId: account.id,
         accountName: accountDisplayName(account),
         amount: income.amount,
-        date: income.date || new Date().toISOString(),
+        date: entryDate(income.date),
         title: income.title,
         source: sms ? 'sms' : 'chat',
         ...(sms && { smsRef: sms.ref }),
@@ -142,7 +143,7 @@ export function useConfirmActions({ user, messages, accounts, categories, curren
       if (wallet && source && source.id !== wallet.id && isCashOut(expense.title || '')) {
         const fee = typeof expense.fee === 'number' && expense.fee > 0 ? expense.fee : 0;
         const moved = Math.round((amount - fee) * 100) / 100;
-        const date = expense.date || new Date().toISOString();
+        const date = entryDate(expense.date);
         if (syncTo !== undefined) setBalance(batch, source, syncTo, 'smsBalance');
         else changeBalance(batch, source, -moved, 'cashOut', expense.title);
         changeBalance(batch, wallet, moved, 'cashIn', expense.title);
@@ -172,7 +173,7 @@ export function useConfirmActions({ user, messages, accounts, categories, curren
         const sent = Math.round((amount - fee) * 100) / 100;
         const account = accounts.find(a => a.id === accountId);
         const synced = syncTo !== undefined && !!account;
-        const date = expense.date || new Date().toISOString();
+        const date = entryDate(expense.date);
         writeDebt(batch, {
           uid: user.uid, person, kind: 'lent', amount: sent, date, account,
           countAsSpending: lent.spending, smsRef: sms?.ref, accountAlreadyMoved: synced,
@@ -202,7 +203,7 @@ export function useConfirmActions({ user, messages, accounts, categories, curren
         title: expense.title,
         amount,
         category: expense.category,
-        date: expense.date || new Date().toISOString(),
+        date: entryDate(expense.date),
         notes: expense.notes || '',
         // The SMS fee, kept on its own so Reports can add fees up (it's already in the amount)
         ...(typeof expense.fee === 'number' && expense.fee > 0 && { fee: expense.fee }),

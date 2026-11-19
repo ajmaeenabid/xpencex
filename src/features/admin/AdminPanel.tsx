@@ -142,7 +142,7 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
   };
 
   const handleRemoveDevice = async (u: AdminUser, deviceId: string, label: string) => {
-    if (!(await confirmDialog(t('admin.confirmRemoveDevice', { device: label, user: displayName(u) }), { danger: true }))) return;
+    if (!(await confirmDialog(t('admin.confirmRemoveDevice', { device: label, user: displayName(u) }), { danger: true, okLabel: t('common.remove') }))) return;
     run(() => removeDevice(u.uid, deviceId));
   };
 
