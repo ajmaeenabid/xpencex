@@ -1,11 +1,11 @@
 {
-  "versionCode": 8,
-  "versionName": "1.0.7",
+  "versionCode": 9,
+  "versionName": "1.0.8",
   "sizeMb": 5,
   "notes": {
-    "en": "A security update: stronger protection for your account and data, clearer messages, and small fixes.",
-    "bn": "নিরাপত্তা আপডেট: আপনার অ্যাকাউন্ট ও তথ্যের জন্য আরও শক্ত সুরক্ষা, আরও পরিষ্কার বার্তা, আর ছোটখাটো সমাধান।"
+    "en": "New accounts now get a welcome email in their language, plus small fixes.",
+    "bn": "নতুন অ্যাকাউন্ট এখন নিজের ভাষায় একটি স্বাগত ইমেইল পায়, সাথে ছোটখাটো সমাধান।"
   },
   "certSha256": "4F:26:AD:EA:57:D6:21:05:BC:CF:61:AA:A4:86:17:BA:B9:C6:AD:F8:EA:7E:94:9D:BD:57:72:22:1D:E4:28:B1",
-  "apkSha256": "D3:94:4B:14:67:5B:55:15:F8:8C:87:E6:18:47:16:AB:33:5B:A5:CD:79:E5:9A:50:0A:C7:1C:68:24:B3:CE:18"
+  "apkSha256": "DF:C9:41:99:66:DE:2B:9F:3F:DA:7B:0B:3A:AC:10:43:95:01:E8:98:BA:2E:D4:80:79:D8:F4:58:52:F1:CA:64"
 }
