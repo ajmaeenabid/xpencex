@@ -1,5 +1,9 @@
 {
-  "versionCode": 6,
-  "versionName": "1.0.5",
-  "sizeMb": 8
+  "versionCode": 7,
+  "versionName": "1.0.6",
+  "sizeMb": 9,
+  "notes": {
+    "en": "A calmer Home with a side panel for extra cards, one Spending tab for expenses and reports, all settings in one place, temporary chats, and lots of fixes.",
+    "bn": "আরও গোছানো হোম আর বাড়তি কার্ডের জন্য পাশের প্যানেল, খরচ ও রিপোর্ট এক ট্যাবে, সব সেটিংস এক জায়গায়, অস্থায়ী চ্যাট, আর অনেক সমস্যার সমাধান।"
+  }
 }
