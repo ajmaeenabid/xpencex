@@ -9,9 +9,10 @@ import Select from '../../shared/components/Select';
 import type { Account } from '../../shared/types';
 import { accountDisplayName } from '../accounts/accounts';
 import { DatePreset, NO_FILTERS, TransactionFilters, activeCount } from './transactionFilters';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 const chip = (on: boolean) => cn('px-3 py-2 rounded-xl text-xs font-bold border transition-colors',
-  on ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-background/50 text-muted border-card-border');
+  on ? CHOICE_ON : 'bg-background/50 text-muted border-card-border');
 const field = 'w-full h-11 px-3 rounded-xl bg-background/60 border border-card-border text-sm text-foreground outline-none focus:border-indigo-500';
 
 const PRESETS: { id: DatePreset; label: TKey }[] = [

@@ -7,6 +7,7 @@ import { logoSvg } from '../../shared/brand/logoSvg';
 import { GoogleG, DriveLogo, SheetsLogo, CalendarLogo } from '../../shared/components/GoogleLogos';
 import { haptic } from '../../shared/components/BottomNav';
 import './welcome.css';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 // The welcome a brand-new account sees once, right after its first sign-in (the profile's `welcome` note).
 // Seven slides with small animations; Next and Skip all on each, Get started on the last.
@@ -35,7 +36,7 @@ export default function WelcomeSlides({ onDone }: { onDone: () => void }) {
             onClick={() => setLang(code)}
             aria-pressed={lang === code}
             className={cn('px-3.5 py-1.5 rounded-full text-sm font-semibold border transition-colors',
-              lang === code ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-card border-card-border text-foreground')}
+              lang === code ? CHOICE_ON : 'bg-card border-card-border text-foreground')}
           >
             {code === 'en' ? 'English' : 'বাংলা'}
           </button>

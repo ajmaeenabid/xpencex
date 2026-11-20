@@ -6,6 +6,7 @@ import type { Expense } from '../../shared/types';
 import { compareByCategory } from '../home/insights';
 import { useStartDay } from '../../app/useStartDay';
 import YearCompareView from './YearCompareView';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 /** Reports: this month so far against last month, or against the same month last year */
 export default function MonthCompareCard({ uid, expenses, symbol }: { uid: string; expenses: Expense[]; symbol: string }) {
@@ -20,7 +21,7 @@ export default function MonthCompareCard({ uid, expenses, symbol }: { uid: strin
       <div role="tablist" className="grid grid-cols-2 p-1 mb-4 rounded-xl bg-background/50 border border-card-border">
         {(['month', 'year'] as const).map(id => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
-            className={cn('py-2 rounded-lg text-xs font-bold transition-colors', tab === id ? 'bg-indigo-600 text-white' : 'text-muted')}>
+            className={cn('py-2 rounded-lg text-xs font-bold transition-colors', tab === id ? CHOICE_ON : 'text-muted')}>
             {t(id === 'month' ? 'compare.tabMonth' : 'compare.tabYear')}
           </button>
         ))}

@@ -22,6 +22,7 @@ import ConnectedAppsCard from '../connect/ConnectedAppsCard';
 import WidgetCard from '../widget/WidgetCard';
 import CurrencyCard from './CurrencyCard';
 import { OPEN_SETTINGS, SettingsPage, settingsSummary, takeSettingsRequest } from './settings';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 type Page = 'list' | SettingsPage;
 
@@ -114,7 +115,7 @@ export default function SettingsCard({ uid }: { uid: string }) {
                   role="radio"
                   aria-checked={isDarkMode === dark}
                   onClick={() => { if (isDarkMode !== dark) toggleDarkMode(); }}
-                  className={cn('px-3.5 py-1.5 rounded-full text-sm font-bold transition-colors', isDarkMode === dark ? 'bg-indigo-600 text-white' : 'text-muted')}
+                  className={cn('px-3.5 py-1.5 rounded-full text-sm font-bold transition-colors', isDarkMode === dark ? CHOICE_ON : 'text-muted')}
                 >
                   {t(dark ? 'settings.dark' : 'settings.light')}
                 </button>

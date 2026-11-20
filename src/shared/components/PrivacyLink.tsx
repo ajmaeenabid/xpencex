@@ -5,6 +5,7 @@ import { ShieldCheck, X } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { isNative, openExternal, openInBrowser } from '../lib/nativeApp';
 import { lockScroll } from '../lib/scrollLock';
+import { useBackClose } from '../lib/backButton';
 
 /**
  * Opens the privacy policy in a window inside the app, in the app's language. The policy pages
@@ -16,6 +17,8 @@ export default function PrivacyLink() {
   const { t, lang } = useI18n();
   const [open, setOpen] = useState(false);
 
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(open, () => setOpen(false));
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };

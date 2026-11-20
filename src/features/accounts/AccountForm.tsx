@@ -13,6 +13,7 @@ import Combobox from '../../shared/components/Combobox';
 import { saved } from '../../shared/lib/offlineSave';
 import { setBalance } from './accountService';
 import { round2 } from '../../../ai-server/src/balanceLines';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 export const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
 
@@ -128,7 +129,7 @@ export default function AccountForm({ uid, accounts, symbol, account, onSaved, o
                 onClick={() => set({ type: type.type, label: '' })}
                 className={cn(
                   'h-9 rounded-lg text-xs font-bold transition-colors disabled:cursor-not-allowed',
-                  form.type === type.type ? 'bg-indigo-600 text-white shadow-sm' : 'text-muted hover:text-foreground disabled:opacity-50'
+                  form.type === type.type ? CHOICE_ON : 'text-muted hover:text-foreground disabled:opacity-50'
                 )}
               >
                 {type.key ? t(type.key) : type.name}

@@ -188,51 +188,56 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
 
   return (
     <div className="space-y-2 pb-6">
-      <header className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-        <button
-          onClick={() => setPanelOpen(true)}
-          aria-label={t('homeCards.open')}
-          title={t('homeCards.open')}
-          className="shrink-0 w-12 h-12 bg-card rounded-2xl shadow-soft border border-card-border flex items-center justify-center text-indigo-600 dark:text-indigo-400"
-        >
-          <PanelLeft size={20} />
-        </button>
-        <div className="min-w-0">
+      {/* Row 1: the side panel button on the left, the card and theme buttons on the right.
+          Row 2: the greeting and the date, below them (chosen 2026-11-20) */}
+      <header className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <button
+            onClick={() => setPanelOpen(true)}
+            aria-label={t('homeCards.open')}
+            title={t('homeCards.open')}
+            className="shrink-0 w-12 h-12 bg-card rounded-2xl shadow-soft border border-card-border flex items-center justify-center text-indigo-600 dark:text-indigo-400"
+          >
+            <PanelLeft size={20} />
+          </button>
+          <div className="flex items-center gap-2">
+            <span data-tour="move-cards"><RearrangeButton layout={layout} /></span>
+            {/* Quick light / dark switch */}
+            <motion.button
+              data-tour="theme"
+              onClick={toggleDarkMode}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.9 }}
+              aria-label={isDarkMode ? t('theme.toLight') : t('theme.toDark')}
+              title={isDarkMode ? t('theme.toLight') : t('theme.toDark')}
+              className="w-12 h-12 bg-card rounded-2xl shadow-soft border border-card-border flex items-center justify-center text-indigo-600 dark:text-indigo-400 overflow-hidden"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={isDarkMode ? 'moon' : 'sun'}
+                  initial={{ rotate: -90, scale: 0.5, opacity: 0 }}
+                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                  exit={{ rotate: 90, scale: 0.5, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {isDarkMode ? <Moon size={22} /> : <Sun size={22} />}
+                </motion.span>
+              </AnimatePresence>
+            </motion.button>
+          </div>
+        </div>
+        <div className="min-w-0 px-1">
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             {t('home.hi')} <span className="text-indigo-600 dark:text-indigo-400">{profile?.name?.split(' ')[0] || t('home.user')}</span>
           </h1>
           <p className="text-muted text-sm font-medium">{format(new Date(), 'EEEE, d MMMM', { locale: dateLocale })}</p>
         </div>
-        </div>
-        <div className="flex items-center gap-2">
-        <span data-tour="move-cards"><RearrangeButton layout={layout} /></span>
-        {/* Quick light / dark switch */}
-        <motion.button
-          data-tour="theme"
-          onClick={toggleDarkMode}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.9 }}
-          aria-label={isDarkMode ? t('theme.toLight') : t('theme.toDark')}
-          title={isDarkMode ? t('theme.toLight') : t('theme.toDark')}
-          className="w-12 h-12 bg-card rounded-2xl shadow-soft border border-card-border flex items-center justify-center text-indigo-600 dark:text-indigo-400 overflow-hidden"
-        >
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.span
-              key={isDarkMode ? 'moon' : 'sun'}
-              initial={{ rotate: -90, scale: 0.5, opacity: 0 }}
-              animate={{ rotate: 0, scale: 1, opacity: 1 }}
-              exit={{ rotate: 90, scale: 0.5, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {isDarkMode ? <Moon size={22} /> : <Sun size={22} />}
-            </motion.span>
-          </AnimatePresence>
-        </motion.button>
-        </div>
       </header>
 
-      <SearchBar onOpen={() => setSearchOpen(true)} />
+      {/* More room around the search box than between the other rows, so it stands out (chosen 2026-11-20) */}
+      <div className="py-2">
+        <SearchBar onOpen={() => setSearchOpen(true)} />
+      </div>
 
       {/* The cards below can be moved with the button at the top; the header stays */}
       <RearrangeList layout={layout} className="space-y-2" sections={homeOnly([

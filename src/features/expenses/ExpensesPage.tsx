@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import SpendingSwitch from '../spending/SpendingSwitch';
+import { PagerStill } from '../../shared/components/SidePager';
 import type { SpendingSide } from '../spending/spending';
 import { db } from '../../shared/firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteField } from 'firebase/firestore';
@@ -35,6 +36,7 @@ import { alertDialog, confirmDialog } from '../../shared/components/Dialog';
 import { useStartDay } from '../../app/useStartDay';
 import { EntryLabels } from '../labels/LabelField';
 import { hasLabel, recentLabels } from '../labels/labels';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 // The category chip that shows only income (not a real category name)
 const INCOME_CHIP = '__income';
@@ -177,57 +179,60 @@ export default function ExpensesPage({ onEdit, onSide }: { onEdit: (expense: Exp
 
   return (
     <div className="space-y-2 pb-6">
-      <header className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-        <button
-          onClick={() => setSettingsOpen(true)}
-          title={t('expenses.settings')}
-          aria-label={t('expenses.settings')}
-          className="shrink-0 w-10 h-10 bg-card rounded-xl shadow-soft border border-card-border flex items-center justify-center text-indigo-600 dark:text-indigo-400"
-        >
-          <PanelLeft size={18} />
-        </button>
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight truncate">{t('spending.title')}</h1>
-          <p className="text-indigo-600 dark:text-indigo-400 font-bold text-xs">{t('expenses.count', { count: filteredExpenses.length })}</p>
-        </div>
-        </div>
-        <div className="flex items-center gap-2">
-        <button
-          onClick={() => setReceiptsOpen(true)}
-          title={t('receipts.title')}
-          aria-label={t('receipts.title')}
-          className="w-10 h-10 bg-card rounded-xl shadow-soft border border-card-border flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors"
-        >
-          <ReceiptIcon size={18} />
-        </button>
-        <button
-          onClick={async () => {
-            try {
-              downloadFile(`xpences-transactions-${format(new Date(), 'yyyy-MM-dd')}.csv`, toCSV(await allMatching(), profile?.currency || 'BDT'), 'text/csv;charset=utf-8');
-            } catch (err) {
-              console.error('Could not export transactions:', err);
-              alertDialog(t('expenses.exportFailed'));
-            }
-          }}
-          disabled={nothingToExport}
-          title={t('expenses.export')}
-          aria-label={t('expenses.export')}
-          className="w-10 h-10 bg-card rounded-xl shadow-soft border border-card-border flex items-center justify-center text-slate-400 hover:text-indigo-600 disabled:opacity-40 transition-colors"
-        >
-          <Download size={18} />
-        </button>
-        <SheetsExportButton
-          variant="icon"
-          disabled={nothingToExport}
-          build={async () => ({
-            title: t('sheets.titleExpenses', { date: format(new Date(), 'd MMM yyyy', { locale: dateLocale }) }),
-            tabs: [{ title: tabTitle(t('sheet.tabExpenses')), rows: expenseRows(await allMatching(), profile?.currency || 'BDT', t, cat => categoryLabel(t, cat)) }],
-          })}
-        />
-        </div>
-      </header>
-      <SpendingSwitch side="expenses" onSide={onSide} />
+      {/* The title row and switch stay still while the pages slide below them (chosen 2026-11-20) */}
+      <PagerStill className="space-y-2">
+        <header className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={() => setSettingsOpen(true)}
+            title={t('expenses.settings')}
+            aria-label={t('expenses.settings')}
+            className="shrink-0 w-10 h-10 bg-card rounded-xl shadow-soft border border-card-border flex items-center justify-center text-indigo-600 dark:text-indigo-400"
+          >
+            <PanelLeft size={18} />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight truncate">{t('spending.title')}</h1>
+            <p className="text-indigo-600 dark:text-indigo-400 font-bold text-xs">{t('expenses.count', { count: filteredExpenses.length })}</p>
+          </div>
+          </div>
+          <div className="flex items-center gap-2">
+          <button
+            onClick={() => setReceiptsOpen(true)}
+            title={t('receipts.title')}
+            aria-label={t('receipts.title')}
+            className="w-10 h-10 bg-card rounded-xl shadow-soft border border-card-border flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors"
+          >
+            <ReceiptIcon size={18} />
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                downloadFile(`xpences-transactions-${format(new Date(), 'yyyy-MM-dd')}.csv`, toCSV(await allMatching(), profile?.currency || 'BDT'), 'text/csv;charset=utf-8');
+              } catch (err) {
+                console.error('Could not export transactions:', err);
+                alertDialog(t('expenses.exportFailed'));
+              }
+            }}
+            disabled={nothingToExport}
+            title={t('expenses.export')}
+            aria-label={t('expenses.export')}
+            className="w-10 h-10 bg-card rounded-xl shadow-soft border border-card-border flex items-center justify-center text-slate-400 hover:text-indigo-600 disabled:opacity-40 transition-colors"
+          >
+            <Download size={18} />
+          </button>
+          <SheetsExportButton
+            variant="icon"
+            disabled={nothingToExport}
+            build={async () => ({
+              title: t('sheets.titleExpenses', { date: format(new Date(), 'd MMM yyyy', { locale: dateLocale }) }),
+              tabs: [{ title: tabTitle(t('sheet.tabExpenses')), rows: expenseRows(await allMatching(), profile?.currency || 'BDT', t, cat => categoryLabel(t, cat)) }],
+            })}
+          />
+          </div>
+        </header>
+        <SpendingSwitch side="expenses" onSide={onSide} />
+      </PagerStill>
 
       {/* Search & Filter */}
       <div className="space-y-2">
@@ -273,7 +278,7 @@ export default function ExpensesPage({ onEdit, onSide }: { onEdit: (expense: Exp
               onClick={() => setFilterCategory(cat)}
               className={`px-5 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
                 filterCategory === cat
-                  ? 'bg-indigo-600 text-white shadow-vibrant'
+                  ? CHOICE_ON
                   : 'bg-card text-muted border border-card-border'
               }`}
             >

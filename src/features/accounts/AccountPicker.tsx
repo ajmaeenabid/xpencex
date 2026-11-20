@@ -3,6 +3,7 @@ import { Account } from '../../shared/types';
 import { CASH_ID, CASH_NAME, accountDisplayName, isMobile } from './accounts';
 import { cn } from '../../shared/lib/utils';
 import { useI18n } from '../../shared/i18n';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 interface Props {
   accounts: Account[];
@@ -43,15 +44,15 @@ export default function AccountPicker({ accounts, value, onChange, symbol, compa
               'shrink-0 flex items-center gap-2 rounded-2xl border-2 text-left transition-all',
               compact ? 'px-3 py-2' : 'px-3.5 py-2.5',
               selected
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-vibrant'
+                ? CHOICE_ON
                 : 'bg-background/50 text-foreground border-transparent hover:border-card-border'
             )}
           >
-            <Icon size={compact ? 14 : 16} className={selected ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'} />
+            <Icon size={compact ? 14 : 16} className="text-indigo-600 dark:text-indigo-400" />
             <span className="flex flex-col">
               <span className={cn('font-bold whitespace-nowrap', compact ? 'text-[12px]' : 'text-xs')}>{title}</span>
               {balance !== null && (
-                <span className={cn('text-[11px] font-semibold tabular-nums', selected ? 'text-white/80' : balance < 0 ? 'text-rose-500' : 'text-muted')}>
+                <span className={cn('text-[11px] font-semibold tabular-nums', selected ? 'text-indigo-700/80 dark:text-indigo-200/80' : balance < 0 ? 'text-rose-500' : 'text-muted')}>
                   {symbol}{balance.toLocaleString()}
                 </span>
               )}

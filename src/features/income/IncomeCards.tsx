@@ -15,6 +15,7 @@ import { windowStart } from '../expenses/expenseQueries';
 import IncomeForm from './IncomeForm';
 import { useStartDay } from '../../app/useStartDay';
 import { moneyMonth } from '../../shared/lib/moneyMonth';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 const card = 'bg-card p-6 rounded-3xl shadow-sm border border-card-border';
 
@@ -80,7 +81,7 @@ export function EarnedChart({ uid, expenses, symbol }: { uid: string; expenses: 
         <div role="radiogroup" aria-label={t('income.chartMonths')} className="shrink-0 flex p-1 rounded-xl bg-background/50 border border-card-border">
           {([6, 12] as const).map(n => (
             <button key={n} type="button" role="radio" aria-checked={months === n} onClick={() => setMonths(n)}
-              className={cn('px-2.5 py-1 rounded-lg text-xs font-bold transition-colors', months === n ? 'bg-indigo-600 text-white' : 'text-muted')}>
+              className={cn('px-2.5 py-1 rounded-lg text-xs font-bold transition-colors', months === n ? CHOICE_ON : 'text-muted')}>
               {t('income.chartMonthCount', { count: n })}
             </button>
           ))}

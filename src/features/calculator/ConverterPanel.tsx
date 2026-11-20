@@ -16,6 +16,8 @@ import {
 import { MoneyToolId } from './moneyTools';
 import { Keypad, NumberField, ResultRow, useKeyboard } from './ConverterParts';
 import MoneyToolPanel from './MoneyToolPanel';
+import { CHOICE_ON } from '../../shared/lib/choice';
+import { useBackClose } from '../../shared/lib/backButton';
 
 const CURRENCY_OPTIONS = MAJOR_CURRENCIES.map(c => ({ value: c.code, label: `${c.code} (${c.symbol})` }));
 const symbolOf = (code: string) => MAJOR_CURRENCIES.find(c => c.code === code)?.symbol || code;
@@ -49,6 +51,8 @@ export default function ConverterPanel(props: Props) {
   const { t } = useI18n();
   const openTool = (tool: ConverterTool | null) => setState(s => ({ ...s, tool }));
 
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(true, () => (state.tool ? openTool(null) : onClose()));
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || (e.target as HTMLElement)?.closest('[role="listbox"],[role="combobox"]')) return;
@@ -400,7 +404,7 @@ function Switch({ label, value, options, onChange }: {
           onClick={() => onChange(option.value)}
           className={cn(
             'h-9 rounded-lg text-sm font-bold transition-colors',
-            value === option.value ? 'bg-indigo-600 text-white' : 'text-muted hover:text-foreground',
+            value === option.value ? CHOICE_ON : 'text-muted hover:text-foreground',
           )}
         >
           {option.label}

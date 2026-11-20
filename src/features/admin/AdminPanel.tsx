@@ -15,6 +15,8 @@ import CommentsWindow from './CommentsWindow';
 import ErrorsWindow from './ErrorsWindow';
 import { confirmDialog } from '../../shared/components/Dialog';
 import { lockScroll } from '../../shared/lib/scrollLock';
+import { CHOICE_ON } from '../../shared/lib/choice';
+import { useBackClose } from '../../shared/lib/backButton';
 
 // The server refuses admin changes 10 minutes after confirming with Google
 const needsConfirm = (err: unknown) => err instanceof WorkerError && err.status === 401;
@@ -98,6 +100,8 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
   };
 
   // Close with the Escape key, and stop the page behind from scrolling
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(open, closePopup);
   useEffect(() => {
     if (!open) return;
     // While Comments is open, Escape belongs to it
@@ -393,7 +397,7 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
                         role="tab"
                         aria-selected={view === id}
                         onClick={() => setView(id)}
-                        className={cn('flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-colors', view === id ? 'bg-indigo-600 text-white' : 'text-muted hover:text-foreground')}
+                        className={cn('flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-colors', view === id ? CHOICE_ON : 'text-muted hover:text-foreground')}
                       >
                         <Icon size={14} /> {label}
                       </button>
@@ -422,7 +426,7 @@ export default function AdminPanel({ open, onClose }: { open: boolean; onClose: 
                           aria-pressed={filter === id}
                           className={cn(
                             'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors',
-                            filter === id ? 'bg-indigo-600 text-white border-indigo-600' : 'text-muted border-card-border hover:text-foreground'
+                            filter === id ? CHOICE_ON : 'text-muted border-card-border hover:text-foreground'
                           )}
                         >
                           {id === 'requests' && <Smartphone size={12} />} {label}

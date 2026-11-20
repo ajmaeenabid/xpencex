@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { lockScroll } from '../lib/scrollLock';
+import { useBackClose } from '../lib/backButton';
 
 /**
  * A sheet that slides up over the page with the full story behind a short Home card.
@@ -22,6 +23,8 @@ export default function DetailSheet({ open, onClose, icon, title, about, childre
 
   // Above the full-screen windows (z-60) it can open from, below dialogs (z-100).
   // Close with Escape, and stop the page behind from scrolling
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(open, onClose);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };

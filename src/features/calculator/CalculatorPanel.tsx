@@ -6,6 +6,7 @@ import { useI18n } from '../../shared/i18n';
 import { CalcState, Key, evaluate, formatExpr, formatNumber, press, toPlain, usesScience } from './calculator';
 import { HistoryEntry, addHistory, isWorthKeeping, loadHistory, saveHistory } from './history';
 import { clearKey, digitKey, equalsKey, functionKey, operatorKey } from './keyStyles';
+import { useBackClose } from '../../shared/lib/backButton';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -71,6 +72,8 @@ export default function CalculatorPanel({ state, setState, uid, onClose, onSaveE
     copiedTimer.current = window.setTimeout(() => setCopied(false), 2000);
   };
 
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(true, onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') return onClose();

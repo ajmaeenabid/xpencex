@@ -6,6 +6,7 @@ import { cn } from '../../shared/lib/utils';
 import { useI18n, TFunction, TKey } from '../../shared/i18n';
 import type { Expense, Receipt } from '../../shared/types';
 import ReceiptsGallery from '../receipts/ReceiptsGallery';
+import { useBackClose } from '../../shared/lib/backButton';
 
 // Sidebar sections, newest first, like the Claude app
 function groupChats(chats: Chat[], t: TFunction) {
@@ -51,6 +52,8 @@ export default function ChatDrawer({
   tab: 'chats' | 'receipts';
   setTab: (tab: 'chats' | 'receipts') => void;
 }) {
+  // The phone's back button closes it (src/shared/lib/backButton.ts)
+  useBackClose(sidebarOpen, () => setSidebarOpen(false));
   const { t } = useI18n();
   const groups = groupChats(chats, t);
 

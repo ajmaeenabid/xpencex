@@ -13,7 +13,7 @@ import { processDueDeposits } from '../features/accounts/accountService';
 import { processDueLoansNow } from '../features/accounts/loanService';
 import LoginPage from '../features/auth/LoginPage';
 import AccessScreen from '../features/auth/AccessScreens';
-import { DeviceStatus, openDevice, signOutAndForget } from '../features/auth/deviceService';
+import { DeviceStatus, openDevice, signOutAndForget, signOutNoteFor } from '../features/auth/deviceService';
 import { savedLoginClaims } from '../features/auth/savedLogin';
 import PinLock, { useBackgroundLock } from '../features/pin/PinLock';
 import { isPinLocked } from '../features/pin/pin';
@@ -39,8 +39,10 @@ import ReminderAsk, { markAsked, wasAsked } from '../features/reminders/Reminder
 import { onReminderTap, remindersAllowed } from '../features/reminders/reminderService';
 import { processDueIncome } from '../features/income/incomeService';
 import { setErrorScreen } from '../shared/lib/errorReports';
-import { isSpendingTab, lastSpendingSide, rememberSpendingSide } from '../features/spending/spending';
-import { useSwipe } from '../shared/lib/swipe';
+import { SpendingSide, isSpendingTab, lastSpendingSide, rememberSpendingSide } from '../features/spending/spending';
+import SidePager, { SidePagerHandle } from '../shared/components/SidePager';
+import { cn } from '../shared/lib/utils';
+import { handleBack } from '../shared/lib/backButton';
 
 const lightTheme = {
   background: '#FFF8F2',
@@ -95,7 +97,13 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   // Spending (Expenses and Reports in one bottom bar tab): remember the side last shown, and swipe between them
   useEffect(() => { if (isSpendingTab(activeTab)) rememberSpendingSide(activeTab); }, [activeTab]);
-  const spendingSwipe = useSwipe(direction => setActiveTab(direction === 'left' ? 'reports' : 'expenses'), isSpendingTab(activeTab));
+  // Expenses and Reports sit side by side and slide (src/shared/components/SidePager.tsx, chosen 2026-11-20).
+  // The page's own switch slides first; the tab changes once the move has finished.
+  const spendingPager = useRef<SidePagerHandle>(null);
+  const slideSpending = (side: SpendingSide) => {
+    if (spendingPager.current && isSpendingTab(activeTab)) spendingPager.current.slideTo(side === 'reports' ? 1 : 0);
+    else setActiveTab(side);
+  };
   const openExpenseSettings = () => { setActiveTab('expenses'); window.setTimeout(() => window.dispatchEvent(new Event(OPEN_EXPENSE_SETTINGS)), 120); };
   // Bumped by Home's "Manage" links so Profile opens straight into the My Accounts window.
   // Reset to 0 on any bottom-bar tab change, so a later visit to Profile shows its rows instead.
@@ -230,6 +238,7 @@ export default function App() {
 
   const checkAccess = async (uid: string) => {
     const status = await openDevice();
+    if (status === 'paused') return signOutAndForget({ note: 'paused' });
     if (status === 'approved') await enterApp(uid);
     setAccess(status);
   };
@@ -258,7 +267,7 @@ export default function App() {
           openDevice()
             .then(async (status) => {
               if (status === 'approved') await enterApp(user.uid);
-              else if (status !== 'offline') await signOutAndForget({ removed: true });
+              else if (status !== 'offline') await signOutAndForget({ note: signOutNoteFor(status) });
             })
             .catch(err => console.error('Background device check failed:', err));
           return;
@@ -283,7 +292,7 @@ export default function App() {
     const verify = async () => {
       lastCheck = Date.now();
       const status = await openDevice();
-      if (!stopped && status !== 'approved' && status !== 'offline') await signOutAndForget({ removed: true });
+      if (!stopped && status !== 'approved' && status !== 'offline') await signOutAndForget({ note: signOutNoteFor(status) });
     };
 
     user.getIdTokenResult().then(({ claims }) => {
@@ -306,7 +315,7 @@ export default function App() {
       const status = await openDevice();
       if (stopped) return;
       if (status === 'approved') setSessionKey(n => n + 1);
-      else if (status !== 'offline') await signOutAndForget({ removed: true });
+      else if (status !== 'offline') await signOutAndForget({ note: signOutNoteFor(status) });
     });
 
     return () => {
@@ -350,6 +359,27 @@ export default function App() {
       openLink((await CapApp.getLaunchUrl())?.url);
       handle = await CapApp.addListener('appUrlOpen', e => openLink(e.url));
     }).catch(err => console.error('Widget link listener failed:', err));
+    return () => { handle?.remove(); };
+  }, []);
+
+  // The phone's back button (chosen 2026-11-20): it closes the newest open window (src/shared/lib/backButton.ts).
+  // With nothing open it goes to Home, and from Home it puts the app in the background, keeping its place.
+  const tabForBack = useRef(activeTab);
+  tabForBack.current = activeTab;
+  useEffect(() => {
+    if (!isNative()) return;
+    let handle: { remove: () => Promise<void> } | null = null;
+    import('@capacitor/app').then(async ({ App: CapApp }) => {
+      handle = await CapApp.addListener('backButton', () => {
+        if (handleBack()) return;
+        if (tabForBack.current !== 'home') {
+          setEditingExpense(null); setEditingIncome(null); setPrefillAmount(null); setPrefillPeople(null);
+          setActiveTab('home');
+        } else {
+          CapApp.minimizeApp().catch(err => console.error('Could not put the app in the background:', err));
+        }
+      });
+    }).catch(err => console.error('Back button listener failed:', err));
     return () => { handle?.remove(); };
   }, []);
 
@@ -415,7 +445,7 @@ export default function App() {
           onAskAi={text => { setChatDraft(text); setActiveTab('chat'); }}
         />
       );
-      case 'expenses': return <ExpensesPage onEdit={(exp) => { setEditingExpense(exp); setActiveTab('add'); }} onSide={setActiveTab} />;
+      case 'expenses': return <ExpensesPage onEdit={(exp) => { setEditingExpense(exp); setActiveTab('add'); }} onSide={slideSpending} />;
       case 'add': return (
         <AddExpensePage
           key={editingExpense?.id || editingIncome?.id || `new-${prefillAmount ?? ''}-${prefillPeople ?? ''}`}
@@ -426,7 +456,7 @@ export default function App() {
           onComplete={() => { setEditingExpense(null); setEditingIncome(null); setPrefillAmount(null); setPrefillPeople(null); setActiveTab('expenses'); }}
         />
       );
-      case 'reports': return <LazyPart><ReportsPage onSide={setActiveTab} onOpenPanel={openExpenseSettings} /></LazyPart>;
+      case 'reports': return <LazyPart><ReportsPage onSide={slideSpending} onOpenPanel={openExpenseSettings} /></LazyPart>;
       case 'chat': return null; // rendered below, outside the page transition
       case 'profile': return <ProfilePage openAccountsSignal={openAccountsSignal} />;
       default: return <HomePage onViewAll={() => setActiveTab('expenses')} />;
@@ -451,19 +481,33 @@ export default function App() {
       <div key={sessionKey} inert={pinLocked} className={`min-h-screen bg-background text-foreground font-sans pb-24 transition-colors duration-300 relative overflow-x-clip`}>
         {/* The soft colour glows behind everything are drawn by body::before in index.css */}
         <div className="relative z-10">
-          {/* Opened pages stay ready and are only shown or hidden, with a quick fade (see KEPT_PAGES) */}
-          {visited.map(tab => (
-            <motion.div
-              key={tab}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: activeTab === tab ? 1 : 0 }}
-              transition={PAGE_FADE}
-              className={activeTab === tab ? 'max-w-md mx-auto px-4 pt-6' : 'hidden'}
-              {...(isSpendingTab(tab) ? spendingSwipe : {})}
-            >
-              {renderPage(tab)}
-            </motion.div>
-          ))}
+          {/* Opened pages stay ready and are only shown or hidden, with a quick fade (see KEPT_PAGES).
+              Expenses and Reports are one page holding both, side by side. */}
+          {[...new Set(visited.map(tab => (isSpendingTab(tab) ? 'spending' : tab)))].map(page => {
+            const shown = page === 'spending' ? isSpendingTab(activeTab) : activeTab === page;
+            return (
+              <motion.div
+                key={page}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: shown ? 1 : 0 }}
+                transition={PAGE_FADE}
+                className={shown ? cn('max-w-md mx-auto pt-6', page !== 'spending' && 'px-4') : 'hidden'}
+              >
+                {page === 'spending' ? (
+                  <SidePager
+                    ref={spendingPager}
+                    side={(isSpendingTab(activeTab) ? activeTab : lastSpendingSide()) === 'reports' ? 1 : 0}
+                    onSettle={side => setActiveTab(side ? 'reports' : 'expenses')}
+                    enabled={isSpendingTab(activeTab)}
+                    scrollOf={side => scrollByTab.current[side ? 'reports' : 'expenses'] ?? 0}
+                    paneClassName="px-4"
+                  >
+                    {[renderPage('expenses'), renderPage('reports')]}
+                  </SidePager>
+                ) : renderPage(page)}
+              </motion.div>
+            );
+          })}
           {activeTab === 'add' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={PAGE_FADE} className="max-w-md mx-auto px-4 pt-6">
               {renderPage('add')}

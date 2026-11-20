@@ -14,6 +14,7 @@ import { PLACES, Place, SUGGESTED, searchPlaces } from './searchPlaces';
 import { Recent, addRecent, loadRecents, removeRecent, saveRecents } from './recentSearches';
 import { useAuth } from '../../app/App';
 import { lockScroll } from '../../shared/lib/scrollLock';
+import { useBackClose } from '../../shared/lib/backButton';
 
 const ICONS: Record<string, LucideIcon> = {
   add: Plus, expenses: List, chat: MessageSquare,
@@ -46,6 +47,8 @@ export default function SearchWindow({ open, onClose, onPick, onAsk }: {
   const keepRecents = (next: Recent[]) => { setRecents(next); if (uid) saveRecents(uid, next); };
 
   // Starts empty each time, with the keyboard up; Escape closes; the page behind doesn't scroll
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(open, onClose);
   useEffect(() => {
     if (!open) return;
     setQuery('');

@@ -15,6 +15,7 @@ import { useReceiptExpenses } from './useReceipts';
 import ReceiptThumb from './ReceiptThumb';
 import ReceiptViewer, { ReceiptDetails } from './ReceiptViewer';
 import ReceiptsBackupSwitch from './ReceiptsBackupSwitch';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 /**
  * Every receipt, like a phone gallery: how many of the 100 are used, filter chips, a 3-column grid,
@@ -121,7 +122,7 @@ export default function ReceiptsGallery({ receipts, expenses, onOpenExpense }: {
             aria-pressed={filter === f.id}
             className={cn(
               'px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors',
-              filter === f.id ? 'bg-indigo-600 text-white' : 'bg-background/60 text-muted border border-card-border',
+              filter === f.id ? CHOICE_ON : 'bg-background/60 text-muted border border-card-border',
             )}
           >
             {t(f.label)}

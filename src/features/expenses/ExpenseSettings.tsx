@@ -15,6 +15,7 @@ import RecurringCard from '../profile/RecurringCard';
 import CategoryRulesCard from '../categoryRules/CategoryRulesCard';
 import WarrantiesCard from '../warranties/WarrantiesCard';
 import { lockScroll } from '../../shared/lib/scrollLock';
+import { useBackClose } from '../../shared/lib/backButton';
 
 // The Expenses side panel: monthly budget, category budgets, recurring expenses and custom categories
 // (moved here from Profile). Search opens it with OPEN_EXPENSE_SETTINGS and then finds a card by its
@@ -42,6 +43,8 @@ export default function ExpenseSettingsDrawer({ open, onClose }: { open: boolean
   const categories = useCustomCategories(user?.uid);
 
   // Close with Escape; the page behind doesn't scroll
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(open, onClose);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };

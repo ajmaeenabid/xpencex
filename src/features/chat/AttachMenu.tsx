@@ -4,6 +4,7 @@ import { Camera, FileText, Image as ImageIcon, X } from 'lucide-react';
 import { useI18n } from '../../shared/i18n';
 import { FILE_PICKER_ACCEPT, IMAGE_PICKER_ACCEPT } from './attachments';
 import { keepTyping } from '../../shared/lib/keyboard';
+import { useBackClose } from '../../shared/lib/backButton';
 
 type InputRef = React.RefObject<HTMLInputElement | null>;
 
@@ -19,6 +20,8 @@ export default function AttachMenu({
   setAttachMenuOpen: (open: boolean) => void;
   openPicker: (input: InputRef) => void;
 }) {
+  // The phone's back button closes it (src/shared/lib/backButton.ts)
+  useBackClose(attachMenuOpen, () => setAttachMenuOpen(false));
   const { t } = useI18n();
   return (
     <>

@@ -4,11 +4,14 @@ import { format } from 'date-fns';
 import { Mail, Phone, X } from 'lucide-react';
 import { useI18n, TKey } from '../../shared/i18n';
 import { CHECKED_ON, WRONG_SEND, WrongSendProvider, telLink } from './wrongSend';
+import { useBackClose } from '../../shared/lib/backButton';
 
 const STEPS: TKey[] = ['wrongSend.step1', 'wrongSend.step2', 'wrongSend.step3', 'wrongSend.step4', 'wrongSend.step5'];
 
 /** "Sent to the wrong number?": the provider's helpline to call straight away, and safe steps */
 export default function WrongSendSheet({ provider, onClose }: { provider: WrongSendProvider | null; onClose: () => void }) {
+  // The phone's back button closes it (src/shared/lib/backButton.ts)
+  useBackClose(!!provider, onClose);
   const { t, dateLocale } = useI18n();
   const info = provider ? WRONG_SEND[provider] : null;
 

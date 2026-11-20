@@ -21,6 +21,7 @@ import SheetsExportButton from '../connect/SheetsExportButton';
 import { SavedBalanceLine, accountsTabs } from '../connect/exportTables';
 import { loadMine } from '../connect/exportData';
 import { lockScroll } from '../../shared/lib/scrollLock';
+import { useBackClose } from '../../shared/lib/backButton';
 
 // The pages inside the window; Back goes to the previous one
 type View =
@@ -57,6 +58,8 @@ export default function AccountsManager({ uid, accounts, symbol, openSignal }: P
   useEffect(() => { if (openSignal) openWindow(); }, [openSignal]);
 
   // Escape goes back a page, or closes; the page behind doesn't scroll while open
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(open, () => (history.length > 1 ? back() : closeWindow()));
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

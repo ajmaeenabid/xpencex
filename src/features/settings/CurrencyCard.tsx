@@ -6,6 +6,7 @@ import { db } from '../../shared/firebase';
 import { MAJOR_CURRENCIES } from '../../shared/constants';
 import { useI18n } from '../../shared/i18n';
 import { saved } from '../../shared/lib/offlineSave';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 /** The currency amounts are shown in (moved here from Profile; it lives on the Settings window's Currency page) */
 export default function CurrencyCard() {
@@ -46,7 +47,7 @@ export default function CurrencyCard() {
               onClick={() => choose(curr.code)}
               className={`p-3 rounded-xl text-sm font-bold border transition-all ${
                 profile?.currency === curr.code
-                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  ? CHOICE_ON
                   : 'bg-background/50 text-muted border-card-border'
               }`}
             >

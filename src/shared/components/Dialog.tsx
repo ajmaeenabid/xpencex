@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { useI18n } from '../i18n';
 import { cn } from '../lib/utils';
+import { useBackClose } from '../lib/backButton';
 
 // The app's own pop-up questions, used instead of the browser's confirm() and alert(), which
 // the phone draws in its own style and the app can't theme.
@@ -67,6 +68,8 @@ export function DialogHost() {
 
   useEffect(() => { setTicked(!!current?.ticked); }, [current]);
 
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(!!current, () => answer(false));
   useEffect(() => {
     if (!current) return;
     answerRef.current?.focus();

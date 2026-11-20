@@ -9,6 +9,7 @@ import { TKey, useI18n } from '../../shared/i18n';
 import { cn } from '../../shared/lib/utils';
 import { lockScroll } from '../../shared/lib/scrollLock';
 import { DAILY_CARDS, HomeCard, PANEL_CARDS } from './homeCards';
+import { useBackClose } from '../../shared/lib/backButton';
 
 const ICONS: Record<HomeCard, LucideIcon> = {
   budget: Wallet, accounts: Landmark, earned: TrendingUp, spending: Gauge, planned: CalendarClock, charts: BarChart3, recent: Clock,
@@ -30,6 +31,8 @@ export default function HomePanel({ open, onClose, on, alerts, onToggle, onOpenC
 }) {
   const { t } = useI18n();
 
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(open, onClose);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
