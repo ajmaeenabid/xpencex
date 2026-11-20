@@ -1,4 +1,5 @@
 import { google, encodeFields } from './google';
+import { MailEnv, mailLanguage, sendWelcomeEmail } from './welcomeEmail';
 import { adminUids } from './admin';
 import type { AdminEnv } from './admin';
 import { OPEN_REQUESTS_LIMIT, canAskAgain, isActiveDevice, cleanUsername, deviceLabelFrom, mayAutoApprove, isValidUsername, usernameKey, verifyDeviceProof } from './deviceRules';
@@ -96,7 +97,11 @@ export function usernameProfileFields(uid: string, username: string, newProfile:
 }
 
 /** Sets or changes the username. Each name has one usernames/{name} document, which keeps names unique. */
-export async function handleUsername(uid: string, claims: Record<string, unknown>, body: Record<string, unknown>, env: AdminEnv, json: Json) {
+/**
+ * Saves the username. A brand-new account's first one also sends the welcome email (src/welcomeEmail.ts), in the
+ * background through `later` (the Worker's waitUntil), so saving never waits on Gmail and never fails because of it.
+ */
+export async function handleUsername(uid: string, claims: Record<string, unknown>, body: Record<string, unknown>, env: AdminEnv & MailEnv, json: Json, later?: (job: Promise<unknown>) => void) {
   if (!env.FIREBASE_SERVICE_ACCOUNT) return json({ error: 'The server is not set up.' }, 500);
   const g = google(env.FIREBASE_SERVICE_ACCOUNT, env.FIREBASE_PROJECT_ID);
   const username = cleanUsername(body.username);
@@ -127,6 +132,12 @@ export async function handleUsername(uid: string, claims: Record<string, unknown
   } catch (err) {
     if (err instanceof Error && /ALREADY_EXISTS|FAILED_PRECONDITION/.test(err.message)) return json({ error: 'taken' }, 409);
     throw err;
+  }
+  if (!mine && later) {
+    const email = typeof claims.email === 'string' ? claims.email : login?.email || '';
+    later(sendWelcomeEmail(env, email, username, mailLanguage(body.lang, username))
+      .then((sent) => { if (sent) console.log('Welcome email sent'); })
+      .catch((err) => console.error('Welcome email failed', err)));
   }
   return json({ username });
 }

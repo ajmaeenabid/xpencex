@@ -35,6 +35,11 @@ interface Env {
   REQUESTS_PER_MINUTE?: string;
   REQUESTS_PER_DAY?: string;
   ACTIVITY_ALERT_PER_HOUR?: string;
+  // The welcome email (src/welcomeEmail.ts): secrets GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN
+  GMAIL_CLIENT_ID?: string;
+  GMAIL_CLIENT_SECRET?: string;
+  GMAIL_REFRESH_TOKEN?: string;
+  MAIL_FROM_ADDRESS?: string;
   LIVE_MODEL?: string;
   LIVE_SECONDS?: string;
   ALLOWED_ORIGINS: string;
@@ -154,7 +159,7 @@ const isPart = (p: any) =>
   p && (typeof p.text === 'string' || (typeof p.inlineData?.data === 'string' && typeof p.inlineData?.mimeType === 'string'));
 
 /** Answers one request; fetch below adds the safety headers to whatever this returns */
-async function handle(request: Request, env: Env): Promise<Response> {
+async function handle(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const cors = corsHeaders(request, env);
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
@@ -215,7 +220,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
   try {
     // A device that isn't approved can only do these two things
     if (path.startsWith('/device/')) return await handleDevice(path, uid, body, request.headers.get('User-Agent') || '', env, json);
-    if (path === '/account/username') return await handleUsername(uid, claims, body, env, json);
+    if (path === '/account/username') return await handleUsername(uid, claims, body, env, json, (job) => ctx.waitUntil(job));
     // Errors can happen before a device is approved (sign-in and waiting screens), so a Google sign-in is enough
     if (path === '/errors/report') {
       if (!env.FIREBASE_SERVICE_ACCOUNT) return json({ ok: true });
@@ -337,8 +342,8 @@ async function handle(request: Request, env: Env): Promise<Response> {
 
 export default {
   // Every reply gets the safety headers (src/safety.ts)
-  async fetch(request: Request, env: Env): Promise<Response> {
-    return withSafetyHeaders(await handle(request, env));
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return withSafetyHeaders(await handle(request, env, ctx));
   },
 
   // Runs on the schedule in wrangler.toml: takes every user's loan installments that have come due,
