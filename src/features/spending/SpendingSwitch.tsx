@@ -1,12 +1,18 @@
-import { motion } from 'motion/react';
+import { useRef } from 'react';
 import { List, PieChart } from 'lucide-react';
 import { useI18n } from '../../shared/i18n';
 import { cn } from '../../shared/lib/utils';
 import { SpendingSide } from './spending';
+import { usePagerProgress } from '../../shared/components/SidePager';
+import SwitchPill, { useNearSide } from '../../shared/components/SwitchPill';
 
 /** "Expenses | Reports" at the top of the Spending tab, in the same style as the chat's "Chats | Agent space" */
 export default function SpendingSwitch({ side, onSide }: { side: SpendingSide; onSide: (side: SpendingSide) => void }) {
   const { t } = useI18n();
+  // The glow moves with the pages, even mid-swipe (SidePager); outside the pager it just sits on `side`
+  const progress = usePagerProgress();
+  const near = useNearSide(progress, side === 'reports' ? 1 : 0);
+  const refs = [useRef<HTMLButtonElement>(null), useRef<HTMLButtonElement>(null)] as const;
   const tabs = [
     { id: 'expenses' as const, label: t('spending.expenses'), icon: List },
     { id: 'reports' as const, label: t('spending.reports'), icon: PieChart },
@@ -16,14 +22,16 @@ export default function SpendingSwitch({ side, onSide }: { side: SpendingSide; o
       <div
         role="tablist"
         aria-label={t('spending.switch')}
-        className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-card/40 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-[0_2px_12px_rgba(0,0,0,0.06)]"
+        className="relative inline-flex items-center gap-0.5 p-0.5 rounded-full bg-card/40 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-[0_2px_12px_rgba(0,0,0,0.06)]"
       >
-        {tabs.map(tab => {
-          const on = side === tab.id;
+        {progress && <SwitchPill progress={progress} tabs={[refs[0], refs[1]]} />}
+        {tabs.map((tab, i) => {
+          const on = progress ? near === i : side === tab.id;
           const Icon = tab.icon;
           return (
             <button
               key={tab.id}
+              ref={refs[i]}
               role="tab"
               aria-selected={on}
               onClick={() => onSide(tab.id)}
@@ -32,13 +40,8 @@ export default function SpendingSwitch({ side, onSide }: { side: SpendingSide; o
                 on ? 'text-indigo-700 dark:text-indigo-200' : 'text-muted hover:text-foreground',
               )}
             >
-              {/* Each page has its own copy of the switch, so the glow fades in rather than sliding across */}
-              {on && (
-                <motion.span
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="absolute inset-0 -z-10 rounded-full bg-indigo-500/15 dark:bg-indigo-400/20 ring-1 ring-indigo-500/25 dark:ring-indigo-300/25"
-                />
+              {!progress && on && (
+                <span className="absolute inset-0 -z-10 rounded-full bg-indigo-500/15 dark:bg-indigo-400/20 ring-1 ring-indigo-500/25 dark:ring-indigo-300/25" />
               )}
               <Icon size={14} />
               {tab.label}

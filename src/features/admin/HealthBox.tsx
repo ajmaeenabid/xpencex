@@ -1,12 +1,13 @@
 import { formatDistanceToNow } from 'date-fns';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../shared/lib/utils';
 import { useI18n, TKey } from '../../shared/i18n';
-import { AdminHealth, HEALTH_JOBS } from './admin';
+import { ActivityView, AdminHealth, HEALTH_JOBS } from './admin';
 
 const JOB_NAME: Record<keyof AdminHealth, TKey> = {
   loans: 'admin.healthLoans',
   rates: 'admin.healthRates',
+  activity: 'admin.healthActivity',
 };
 
 /** When the server's hourly jobs last ran, with a red warning if one failed or stopped running */
@@ -32,6 +33,28 @@ export default function HealthBox({ health }: { health: AdminHealth }) {
           </div>
         );
       })}
+      {health.activity && <ActivityLine activity={health.activity} />}
+    </div>
+  );
+}
+
+/** New items in the last hour across the app: a quiet line, red above the limit (chosen 2026-11-20) */
+function ActivityLine({ activity }: { activity: ActivityView }) {
+  const { t } = useI18n();
+  const { added, busiest, limit, over } = activity;
+  const text = added === null
+    ? t('admin.activityWaiting')
+    : over
+      ? t('admin.activityOver', {
+        count: added.toLocaleString(),
+        limit: limit.toLocaleString(),
+        busiest: busiest.map(b => `${b.kind} ${b.count.toLocaleString()}`).join(', '),
+      })
+      : t('admin.activityLine', { count: added.toLocaleString() });
+  return (
+    <div role={over ? 'alert' : undefined} className={cn('flex items-start gap-2 text-xs font-medium pt-2 border-t border-card-border', over ? 'text-rose-600 dark:text-rose-400' : 'text-muted')}>
+      {over ? <AlertTriangle size={14} className="shrink-0 mt-px" /> : <Activity size={14} className="shrink-0 mt-px" />}
+      <p>{text}</p>
     </div>
   );
 }

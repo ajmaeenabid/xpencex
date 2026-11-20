@@ -30,6 +30,7 @@ import { ruleCategoryFor } from '../categoryRules/categoryRules';
 import { noteCategoryCorrection, useCategoryRules } from '../categoryRules/categoryRuleService';
 import WarrantyField from '../warranties/WarrantyField';
 import { warrantyTooEarly } from '../warranties/warranties';
+import { CHOICE_ON, CHOICE_ON_INCOME } from '../../shared/lib/choice';
 
 interface AddExpensePageProps {
   onComplete: () => void;
@@ -66,7 +67,7 @@ function ModeSwitch({ mode, setMode }: { mode: 'expense' | 'income'; setMode: (m
     <div role="tablist" className="grid grid-cols-2 p-1 rounded-2xl bg-card border border-card-border shadow-soft">
       {(['expense', 'income'] as const).map(m => (
         <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
-          className={`py-2.5 rounded-xl text-sm font-bold transition-colors ${mode === m ? (m === 'income' ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white') : 'text-muted'}`}>
+          className={`py-2.5 rounded-xl text-sm font-bold transition-colors ${mode === m ? (m === 'income' ? CHOICE_ON_INCOME : CHOICE_ON) : 'text-muted'}`}>
           {t(m === 'income' ? 'income.tab' : 'expense.tab')}
         </button>
       ))}
@@ -348,11 +349,11 @@ function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSw
                     onClick={() => { setCategory(cat.name); setPickedCategory(true); }}
                     className={`p-4 rounded-[1.5rem] text-[11px] font-bold border-2 transition-all flex flex-col items-center gap-3 ${
                       isSelected
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-vibrant'
+                        ? CHOICE_ON
                         : 'bg-background/50 text-muted border-transparent hover:border-card-border'
                     }`}
                   >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? 'bg-white/20' : cat.color}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cat.color}`}>
                       <Icon size={20} />
                     </div>
                     <span className="truncate w-full text-center tracking-tight">{categoryLabel(t, cat.name)}</span>
@@ -478,7 +479,7 @@ function ExpenseForm({ onComplete, expense, prefillAmount, prefillPeople, modeSw
                       type="button"
                       onClick={() => setRepeat(opt)}
                       className={`py-2 rounded-xl text-xs font-bold capitalize transition-all ${
-                        repeat === opt ? 'bg-indigo-600 text-white' : 'bg-card text-muted border border-card-border'
+                        repeat === opt ? CHOICE_ON : 'bg-card text-muted border border-card-border'
                       }`}
                     >
                       {opt === 'none' ? t('add.repeat.none') : opt === 'weekly' ? t('add.repeat.weekly') : t('add.repeat.monthly')}

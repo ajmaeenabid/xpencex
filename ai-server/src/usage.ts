@@ -64,6 +64,58 @@ export function firstBlocked(kinds: LimitKind[], limits: Record<LimitKind, numbe
   return kinds.find((kind) => (used[kind] || 0) >= limits[kind]) || null;
 }
 
+// ---------------------------------------------------------------------------
+// Request limits: how often one person may call this server at all, whatever the route.
+// They stop a script from using up the free daily database reads (each request checks the device pass).
+// ---------------------------------------------------------------------------
+
+export interface RequestLimitEnv {
+  REQUESTS_PER_MINUTE?: string;
+  REQUESTS_PER_DAY?: string;
+}
+
+export const requestLimits = (env: RequestLimitEnv) => ({
+  perMinute: Number(env.REQUESTS_PER_MINUTE) || 60,
+  perDay: Number(env.REQUESTS_PER_DAY) || 2000,
+});
+
+const MINUTE_MS = 60_000;
+
+/** One minute's count, starting at the first request in it */
+export type MinuteWindow = { start: number; count: number };
+/** One day's count (Bangladesh time) */
+export type DayCount = { day: string; count: number };
+
+export type RequestCheck =
+  | { ok: true; minute: MinuteWindow; today: DayCount }
+  | { ok: false; reason: 'minute' | 'day'; retryAfter: number };
+
+/**
+ * Whether one more request fits, and the counts after it. A refused request uses nothing.
+ * `countMinute` false skips the per-minute limit (receipt photos: a gallery loads many at once).
+ */
+export function checkRequest(
+  minute: MinuteWindow | undefined,
+  today: DayCount | undefined,
+  { now, day, perMinute, perDay, countMinute }: { now: number; day: string; perMinute: number; perDay: number; countMinute: boolean },
+): RequestCheck {
+  const dayCount = today?.day === day ? today.count : 0;
+  if (dayCount >= perDay) return { ok: false, reason: 'day', retryAfter: 3600 };
+
+  const current = minute && now - minute.start < MINUTE_MS ? minute : { start: now, count: 0 };
+  if (countMinute && current.count >= perMinute) {
+    return { ok: false, reason: 'minute', retryAfter: Math.max(1, Math.ceil((current.start + MINUTE_MS - now) / 1000)) };
+  }
+  return {
+    ok: true,
+    minute: countMinute ? { start: current.start, count: current.count + 1 } : current,
+    today: { day, count: dayCount + 1 },
+  };
+}
+
+export const TOO_FAST_MESSAGE = "You're going a bit fast. Please wait a minute and try again.";
+export const DAY_FULL_MESSAGE = "You've used today's limit for online features. It resets at midnight. You can still add expenses.";
+
 // Only what a conversation needs may pass from the app to Gemini; the server alone chooses the setup
 export const isAllowedLiveMessage = (data: unknown) =>
   typeof data === 'string' && (data.startsWith('{"realtimeInput"') || data.startsWith('{"toolResponse"'));

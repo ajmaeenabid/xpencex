@@ -11,6 +11,7 @@ import type { Deposit, Expense } from '../../shared/types';
 import { LoadingSpot } from '../../shared/components/LazyPart';
 import { useIncome } from '../income/incomeService';
 import { YearMode, compareYears, lastYearMonth } from './yearCompare';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 type Loaded = { expenses: Expense[]; incomes: Deposit[] } | 'loading' | 'failed';
 
@@ -85,7 +86,7 @@ export default function YearCompareView({ uid, expenses, symbol }: { uid: string
       <div role="radiogroup" aria-label={t('compare.compareWith')} className="grid grid-cols-2 gap-2">
         {(['sameDays', 'wholeMonth'] as const).map(m => (
           <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)}
-            className={cn('h-9 rounded-xl text-xs font-bold border transition-colors', mode === m ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-background/50 text-muted border-card-border')}>
+            className={cn('h-9 rounded-xl text-xs font-bold border transition-colors', mode === m ? CHOICE_ON : 'bg-background/50 text-muted border-card-border')}>
             {t(m === 'sameDays' ? 'compare.sameDays' : 'compare.wholeMonth')}
           </button>
         ))}

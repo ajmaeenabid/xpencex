@@ -1,7 +1,7 @@
 import { google, encodeFields } from './google';
 import { adminUids } from './admin';
 import type { AdminEnv } from './admin';
-import { OPEN_REQUESTS_LIMIT, canAskAgain, cleanUsername, deviceLabelFrom, mayAutoApprove, isValidUsername, usernameKey, verifyDeviceProof } from './deviceRules';
+import { OPEN_REQUESTS_LIMIT, canAskAgain, isActiveDevice, cleanUsername, deviceLabelFrom, mayAutoApprove, isValidUsername, usernameKey, verifyDeviceProof } from './deviceRules';
 
 // ---------------------------------------------------------------------------
 // Which devices may use an account.
@@ -25,8 +25,9 @@ type Json = (body: unknown, status?: number) => Response;
 /** Every route except /device/* needs a pass from a device that is still approved */
 export async function deviceIsApproved(uid: string, claims: Record<string, unknown>, env: AdminEnv) {
   if (typeof claims.deviceId !== 'string' || !claims.deviceId || !env.FIREBASE_SERVICE_ACCOUNT) return false;
-  const device = await google(env.FIREBASE_SERVICE_ACCOUNT, env.FIREBASE_PROJECT_ID).getDoc('devices', claims.deviceId);
-  return device?.uid === uid;
+  // getTyped, not getDoc: `paused` is a true/false value, which getDoc would read as text
+  const device = await google(env.FIREBASE_SERVICE_ACCOUNT, env.FIREBASE_PROJECT_ID).getTyped('devices', claims.deviceId);
+  return isActiveDevice(device?.data, uid);
 }
 
 export async function handleDevice(path: string, uid: string, body: Record<string, unknown>, userAgent: string, env: DeviceEnv, json: Json) {
@@ -41,7 +42,10 @@ export async function handleDevice(path: string, uid: string, body: Record<strin
   const names = await g.listByUid('usernames', uid);
   if (names.length === 0) return json({ status: 'needsUsername' });
 
-  if ((await g.getDoc('devices', deviceId))?.uid === uid) {
+  const device = (await g.getTyped('devices', deviceId))?.data;
+  // A suspended account's phones are paused: the app signs out and says the account is paused
+  if (device?.uid === uid && device.paused === true) return json({ status: 'paused' });
+  if (isActiveDevice(device, uid)) {
     // Accounts approved before the history existed get it now (see mayAutoApprove)
     if (path === '/device/open') await rememberFirstDevice(g, uid).catch((err) => console.error('Could not save device history', err));
     return approved();

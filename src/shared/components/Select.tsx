@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useBackClose } from '../lib/backButton';
 
 export interface SelectOption {
   value: string;
@@ -30,6 +31,8 @@ const KEYBOARD_SETTLE_MS = 600; // how long the phone keyboard takes to slide aw
  */
 export default function Select({ value, onChange, options, id, ariaLabel, variant = 'field', className }: Props) {
   const [open, setOpen] = useState(false);
+  // The phone's back button closes the list first (src/shared/lib/backButton.ts)
+  useBackClose(open, () => setOpen(false));
   const [activeIndex, setActiveIndex] = useState(0);
   const [position, setPosition] = useState<{ left: number; width: number; top?: number; bottom?: number }>({ left: 0, width: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);

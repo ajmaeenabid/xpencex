@@ -18,6 +18,7 @@ import { useAuth } from '../../app/App';
 import SheetsExportButton from '../connect/SheetsExportButton';
 import { debtsTabs } from '../connect/exportTables';
 import { lockScroll } from '../../shared/lib/scrollLock';
+import { useBackClose } from '../../shared/lib/backButton';
 
 type View =
   | { page: 'list' }
@@ -44,6 +45,8 @@ export default function DebtsWindow({ open, onClose, uid, accounts, debts, symbo
   const money = (n: number) => `${symbol}${Math.abs(n).toLocaleString()}`;
 
   // Escape goes back a page, or closes; the page behind doesn't scroll while open
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(open, () => (history.length > 1 ? back() : close()));
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

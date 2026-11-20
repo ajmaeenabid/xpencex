@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { usernameProblem } from './username';
 // The server's own rules, shared with the app
 import {
-  canAskAgain, cleanUsername, deviceIdFor, deviceLabelFrom, firstDeviceNeedsApproval, isFreshGoogleSignIn, isValidUsername,
+  canAskAgain, cleanUsername, deviceIdFor, deviceLabelFrom, firstDeviceNeedsApproval, isFreshGoogleSignIn, isReservedUsername, isValidUsername,
   proofMessage, usernameKey, verifyDeviceProof,
 } from '../../../ai-server/src/deviceRules';
 
@@ -86,6 +86,18 @@ describe('usernames', () => {
     for (const name of ['ab', 'has space', '_abid', 'a'.repeat(21), 'abid@mail', 'a/b', '01712345678', 'Admin', 'XPENCEX']) {
       expect(isValidUsername(name), name).toBe(false);
     }
+  });
+
+  it('refuses other alphabets and names that mix English and Bangla letters', () => {
+    // Russian а and о, Greek ο, and an English-Bangla mix
+    for (const name of ['аdmin', 'rоhim', 'abοd', 'rahimরহিম', 'আবিদabid']) expect(isValidUsername(name), name).toBe(false);
+    // Digits of either kind go with either alphabet
+    for (const name of ['rahim২৩', 'রহিম23', 'rahim_bd', 'রহিম.বিডি']) expect(isValidUsername(name), name).toBe(true);
+  });
+
+  it('catches look-alikes of reserved names', () => {
+    for (const name of ['adm1n', 'ADMlN', 'supp0rt', 'xpence5', 'ad.min', 'x_pences', '0fficia1']) expect(isReservedUsername(name), name).toBe(true);
+    for (const name of ['rahim2', 'admin2', 'helper', 'abid']) expect(isReservedUsername(name), name).toBe(false);
   });
 
   it('treats capital letters as the same name', () => {

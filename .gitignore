@@ -19,6 +19,7 @@ coverage/
 *service-account*.json
 ai-server/node_modules/
 ai-server/.wrangler/
+download-site/.wrangler/
 
 
 # Firebase VS Code extension working files

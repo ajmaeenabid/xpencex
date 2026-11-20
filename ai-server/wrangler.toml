@@ -10,6 +10,13 @@ DAILY_LIMIT = "30"
 DAILY_VOICE_LIMIT = "5"
 DAILY_FILE_LIMIT = "3"
 DAILY_LIVE_LIMIT = "3"
+# How often one person may call this server at all (every route, chosen 2026-11-20). They stop a script from
+# using up the free daily database reads. Receipt photos skip the minute limit but count for the day.
+REQUESTS_PER_MINUTE = "60"
+REQUESTS_PER_DAY = "2000"
+# The admin panel turns red when more new items than this were added across the app in one hour
+# (src/activity.ts, chosen 2026-11-20). It counts new items only, not edits.
+ACTIVITY_ALERT_PER_HOUR = "1000"
 # Longest live chat in seconds. If you change this, also change MAX_LIVE_SECONDS in src/features/chat/limits.ts.
 LIVE_SECONDS = "60"
 LIVE_MODEL = "gemini-3.8-live"

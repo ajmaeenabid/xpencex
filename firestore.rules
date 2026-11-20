@@ -134,9 +134,11 @@ service cloud.firestore {
     // Signing in with Google is not enough: the login must carry the pass the AI server gives an
     // approved device, and that device must still be listed. Removing it locks the device out at once.
     function isAuthenticated() {
+      // The device must still be listed and not paused (Suspend pauses every phone of the account, so it
+      // is locked out at once). get() costs the same one read as exists(), and fails when it isn't listed.
       return request.auth != null &&
              'deviceId' in request.auth.token &&
-             exists(/databases/$(database)/documents/devices/$(request.auth.token.deviceId));
+             get(/databases/$(database)/documents/devices/$(request.auth.token.deviceId)).data.get('paused', false) != true;
     }
 
     function isOwner(userId) {
@@ -160,7 +162,8 @@ service cloud.firestore {
     }
 
     function isValidDateString(dateStr) {
-      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+      // 40 at most: an ISO date is 24 characters, and nothing can be stuffed in after it
+      return dateStr is string && dateStr.size() <= 40 && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
     }
 
     function isPositive(val) {
@@ -220,6 +223,67 @@ service cloud.firestore {
              (!('lastAt' in b) || isValidDateString(b.lastAt));
     }
 
+    // ---- Allowed fields (security review item 7, 2026-11-20) ----
+    // A new item may have only these fields. An edit may not add or change any other field, but a field
+    // from an older app version may stay or be removed, so old items never become impossible to edit.
+    // src/shared/allowedFields.ts holds the same lists (backup restore drops anything else); a test keeps them equal.
+    function expenseFields() {
+      return ['uid', 'title', 'amount', 'category', 'date', 'notes', 'split', 'recurringId', 'plannedId', 'loanId',
+              'accountId', 'accountName', 'smsRef', 'fee', 'debtId', 'createdAt', 'feeling', 'receiptId', 'labels',
+              'warrantyUntil', 'categoryKept'];
+    }
+    function accountFields() {
+      return ['uid', 'type', 'name', 'label', 'holderName', 'balance', 'deposit', 'nextDepositDate', 'createdAt',
+              'historySum', 'countedAt'];
+    }
+    function depositFields() {
+      return ['uid', 'accountId', 'accountName', 'amount', 'date', 'title', 'source', 'smsRef', 'category', 'notes',
+              'ruleId', 'transfer', 'labels'];
+    }
+    function incomeRuleFields() {
+      return ['uid', 'title', 'amount', 'category', 'day', 'nextDate', 'notes', 'accountId', 'accountName', 'createdAt'];
+    }
+    function recurringFields() {
+      return ['uid', 'title', 'amount', 'category', 'frequency', 'nextDate', 'notes', 'accountId', 'accountName', 'createdAt'];
+    }
+    function categoryFields() {
+      return ['uid', 'name', 'icon', 'createdAt'];
+    }
+    function chatFields() {
+      return ['uid', 'title', 'messages', 'createdAt', 'updatedAt', 'pinned'];
+    }
+    function loanFields() {
+      return ['uid', 'accountId', 'accountName', 'name', 'lender', 'total', 'remaining', 'installment', 'day',
+              'nextDueDate', 'status', 'paidCount', 'lastPaidAt', 'lastPaidAmount', 'lastPaidNegative', 'createdAt'];
+    }
+
+    // A new item: listed fields only
+    function onlyFields(allowed) {
+      return request.resource.data.keys().hasOnly(allowed);
+    }
+
+    // An edit: nothing outside the list is added or changed (old fields may stay or go)
+    function onlyKnownChanges(allowed) {
+      let changes = request.resource.data.diff(resource.data);
+      return changes.addedKeys().hasOnly(allowed) && changes.changedKeys().hasOnly(allowed);
+    }
+
+    // True when this write creates the item or adds or changes `field`. The checks added on 2026-11-20 use it,
+    // so a field saved differently by an older app version doesn't make the whole item impossible to edit.
+    function touched(field) {
+      return resource == null || field in request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // A short id from the app or the AI server
+    function isOptionalId(data, field) {
+      return !(field in data) || !touched(field) || (data[field] is string && data[field].size() <= 100);
+    }
+
+    // createdAt: an ISO date, as most items save it
+    function isOptionalCreatedAt(data) {
+      return !('createdAt' in data) || !touched('createdAt') || isValidDateString(data.createdAt);
+    }
+
     // Up to 3 short labels on an expense or income (src/features/labels/labels.ts)
     function isValidLabels(data) {
       return !('labels' in data) || (data.labels is list && data.labels.size() <= 3 &&
@@ -247,7 +311,10 @@ service cloud.firestore {
              (!('categoryKept' in data) || data.categoryKept is bool) &&
              (!('feeling' in data) || data.feeling in ['worth', 'regret']) &&
              // Set by the AI server when a receipt is added (ai-server/src/receipts.ts); kept when the expense is edited
-             (!('receiptId' in data) || (data.receiptId is string && data.receiptId.size() <= 100));
+             (!('receiptId' in data) || (data.receiptId is string && data.receiptId.size() <= 100)) &&
+             isOptionalId(data, 'recurringId') && isOptionalId(data, 'loanId') && isOptionalCreatedAt(data) &&
+             (!('split' in data) || !touched('split') || (data.split is map && data.split.keys().hasOnly(['total', 'people']) &&
+               data.split.total is number && data.split.people is int && data.split.people >= 1 && data.split.people <= 100));
     }
 
     // Festival funds: a savings goal for an occasion (src/features/funds/funds.ts)
@@ -314,7 +381,9 @@ service cloud.firestore {
              )) &&
              (!('nextDepositDate' in data) || isValidDateString(data.nextDepositDate)) &&
              (!('historySum' in data) || data.historySum is number) &&
-             (!('countedAt' in data) || isValidDateString(data.countedAt));
+             (!('countedAt' in data) || isValidDateString(data.countedAt)) &&
+             isOptionalCreatedAt(data) &&
+             (!('deposit' in data) || !touched('deposit') || data.deposit.keys().hasOnly(['amount', 'day']));
     }
 
     // One line of an account's balance history (see ai-server/src/balanceLines.ts)
@@ -464,14 +533,18 @@ service cloud.firestore {
              data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
              data.frequency in ['weekly', 'monthly'] &&
              isValidDateString(data.nextDate) &&
-             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+             isOptionalId(data, 'accountId') &&
+             (!('accountName' in data) || !touched('accountName') || (data.accountName is string && data.accountName.size() <= 120)) &&
+             isOptionalCreatedAt(data);
     }
 
     function isValidCategory(data) {
       return data.keys().hasAll(['uid', 'name']) &&
              data.uid == request.auth.uid &&
              data.name is string && data.name.size() >= 1 && data.name.size() <= 50 &&
-             (!('icon' in data) || (data.icon is string && data.icon.size() <= 50));
+             (!('icon' in data) || (data.icon is string && data.icon.size() <= 50)) &&
+             isOptionalCreatedAt(data);
     }
 
     function isValidChat(data) {
@@ -480,6 +553,7 @@ service cloud.firestore {
              data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
              data.messages is list && data.messages.size() <= 500 &&
              (!('pinned' in data) || data.pinned is bool) &&
+             (!('createdAt' in data) || !touched('createdAt') || data.createdAt is number) &&
              data.updatedAt is number;
     }
 
@@ -497,7 +571,11 @@ service cloud.firestore {
              isValidDateString(data.nextDueDate) &&
              data.status in ['active', 'paid', 'stopped'] &&
              data.paidCount is int && data.paidCount >= 0 &&
-             isValidDateString(data.createdAt);
+             isValidDateString(data.createdAt) &&
+             // Written by the AI server when it takes an installment (ai-server/src/loans.ts)
+             (!('lastPaidAt' in data) || !touched('lastPaidAt') || isValidDateString(data.lastPaidAt)) &&
+             (!('lastPaidAmount' in data) || !touched('lastPaidAmount') || data.lastPaidAmount is number) &&
+             (!('lastPaidNegative' in data) || !touched('lastPaidNegative') || data.lastPaidNegative is bool);
     }
 
     // A new loan starts unpaid, against one of the user's own accounts
@@ -529,52 +607,52 @@ service cloud.firestore {
 
     match /expenses/{expenseId} {
       allow read: if isDocOwner();
-      allow create: if isAuthenticated() && isValidExpense(request.resource.data);
-      allow update: if isDocOwner() && isValidExpense(request.resource.data) && uidNotModified();
+      allow create: if isAuthenticated() && isValidExpense(request.resource.data) && onlyFields(expenseFields());
+      allow update: if isDocOwner() && isValidExpense(request.resource.data) && onlyKnownChanges(expenseFields()) && uidNotModified();
       allow delete: if isDocOwner();
     }
 
     match /incomeRules/{ruleId} {
       allow read: if isDocOwner();
-      allow create: if isAuthenticated() && isValidIncomeRule(request.resource.data);
-      allow update: if isDocOwner() && isValidIncomeRule(request.resource.data) && uidNotModified();
+      allow create: if isAuthenticated() && isValidIncomeRule(request.resource.data) && onlyFields(incomeRuleFields());
+      allow update: if isDocOwner() && isValidIncomeRule(request.resource.data) && onlyKnownChanges(incomeRuleFields()) && uidNotModified();
       allow delete: if isDocOwner();
     }
 
     // The person's own income categories, kept apart from expense categories
     match /incomeCategories/{categoryId} {
       allow read: if isDocOwner();
-      allow create: if isAuthenticated() && isValidCategory(request.resource.data);
+      allow create: if isAuthenticated() && isValidCategory(request.resource.data) && onlyFields(categoryFields());
       allow delete: if isDocOwner();
     }
 
     match /recurring/{ruleId} {
       allow read: if isDocOwner();
-      allow create: if isAuthenticated() && isValidRecurring(request.resource.data);
-      allow update: if isDocOwner() && isValidRecurring(request.resource.data) && uidNotModified();
+      allow create: if isAuthenticated() && isValidRecurring(request.resource.data) && onlyFields(recurringFields());
+      allow update: if isDocOwner() && isValidRecurring(request.resource.data) && onlyKnownChanges(recurringFields()) && uidNotModified();
       allow delete: if isDocOwner();
     }
 
     match /categories/{categoryId} {
       allow read: if isDocOwner();
-      allow create: if isAuthenticated() && isValidCategory(request.resource.data);
-      allow update: if isDocOwner() && isValidCategory(request.resource.data) && uidNotModified();
+      allow create: if isAuthenticated() && isValidCategory(request.resource.data) && onlyFields(categoryFields());
+      allow update: if isDocOwner() && isValidCategory(request.resource.data) && onlyKnownChanges(categoryFields()) && uidNotModified();
       allow delete: if isDocOwner();
     }
 
     match /accounts/{accountId} {
       allow read: if isDocOwner();
-      allow create: if isAuthenticated() && isValidAccount(request.resource.data);
-      allow update: if isDocOwner() && isValidAccount(request.resource.data) && uidNotModified();
+      allow create: if isAuthenticated() && isValidAccount(request.resource.data) && onlyFields(accountFields());
+      allow update: if isDocOwner() && isValidAccount(request.resource.data) && onlyKnownChanges(accountFields()) && uidNotModified();
       allow delete: if isDocOwner();
     }
 
     // Deposits are a history log: created automatically, never edited
     match /deposits/{depositId} {
       allow read: if isDocOwner();
-      allow create: if isAuthenticated() && isValidDeposit(request.resource.data);
+      allow create: if isAuthenticated() && isValidDeposit(request.resource.data) && onlyFields(depositFields());
       // Income can be edited (amount, account, category...); the uid can't change
-      allow update: if isDocOwner() && isValidDeposit(request.resource.data) && uidNotModified();
+      allow update: if isDocOwner() && isValidDeposit(request.resource.data) && onlyKnownChanges(depositFields()) && uidNotModified();
       allow delete: if isDocOwner();
     }
 
@@ -660,16 +738,16 @@ service cloud.firestore {
 
     match /chats/{chatId} {
       allow read: if isDocOwner();
-      allow create: if isAuthenticated() && isValidChat(request.resource.data);
-      allow update: if isDocOwner() && isValidChat(request.resource.data) && uidNotModified();
+      allow create: if isAuthenticated() && isValidChat(request.resource.data) && onlyFields(chatFields());
+      allow update: if isDocOwner() && isValidChat(request.resource.data) && onlyKnownChanges(chatFields()) && uidNotModified();
       allow delete: if isDocOwner();
     }
 
     // Deleted only together with the account it belongs to
     match /loans/{loanId} {
       allow read: if isDocOwner();
-      allow create: if isAuthenticated() && isValidLoan(request.resource.data) && isNewLoan(request.resource.data);
-      allow update: if isDocOwner() && isValidLoan(request.resource.data) && uidNotModified() && isLoanEdit();
+      allow create: if isAuthenticated() && isValidLoan(request.resource.data) && onlyFields(loanFields()) && isNewLoan(request.resource.data);
+      allow update: if isDocOwner() && isValidLoan(request.resource.data) && onlyKnownChanges(loanFields()) && uidNotModified() && isLoanEdit();
       allow delete: if isDocOwner();
     }
 

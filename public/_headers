@@ -1,5 +1,20 @@
 # Download rules for the website (Cloudflare reads this file)
 
+# Safety headers for every page of the website (security review item 5, 2026-11-20). They only apply to the
+# website: the phone app loads its files from inside the APK, so its own rule is a separate step.
+# - Content-Security-Policy: only our own scripts run; styles and fonts may also come from Google Fonts
+#   (Hind Siliguri, src/app/index.css); inline styles are allowed (the opening screen and privacy pages use them)
+# - frame-ancestors 'self' / SAMEORIGIN: other sites can't show our pages inside theirs (clickjacking),
+#   but the privacy policy can still open inside our own page (PrivacyLink.tsx)
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+
 # The app file downloads as an Android app, never from an old saved copy
 /download/xpencex.apk
   Content-Type: application/vnd.android.package-archive

@@ -5,6 +5,7 @@ import { useI18n } from '../../shared/i18n';
 import { cn } from '../../shared/lib/utils';
 import DateField from '../../shared/components/DateField';
 import { WARRANTY_PRESETS, warrantyEnd, warrantyOnDay } from './warranties';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 type Mode = 'none' | 'date' | (typeof WARRANTY_PRESETS)[number];
 
@@ -43,7 +44,7 @@ export default function WarrantyField({ purchaseDay, value, onChange }: {
       <div className="flex flex-wrap gap-2">
         {chips.map(chip => (
           <button key={chip.id} type="button" onClick={() => pick(chip.id)} aria-pressed={mode === chip.id}
-            className={cn('px-3 py-2 rounded-xl text-xs font-bold border transition-colors', mode === chip.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-background/50 text-muted border-card-border')}>
+            className={cn('px-3 py-2 rounded-xl text-xs font-bold border transition-colors', mode === chip.id ? CHOICE_ON : 'bg-background/50 text-muted border-card-border')}>
             {chip.label}
           </button>
         ))}

@@ -5,6 +5,7 @@ import type { Locale } from 'date-fns';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useI18n } from '../i18n';
+import { useBackClose } from '../lib/backButton';
 
 interface Props {
   value: string; // yyyy-MM-dd
@@ -34,6 +35,8 @@ export default function DateField({ value, onChange, ariaLabel, className }: Pro
   const today = new Date();
   const days = monthGrid(month, dateLocale);
 
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(open, () => setOpen(false));
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

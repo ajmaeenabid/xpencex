@@ -13,6 +13,7 @@ import {
   ALL_CATEGORIES, MAX_FILTER_NAME, SavedFilter, SavedFilterProblem, applySaved, cleanFilterName, isFiltering, isShowing, readFilters, savedFilterProblem,
 } from './savedFilters';
 import { NO_FILTERS, TransactionFilters } from './transactionFilters';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 const HOLD_MS = 500;
 const PROBLEM_TEXT: Record<SavedFilterProblem, TKey> = {
@@ -77,7 +78,7 @@ export default function SavedFilterRow({ uid, filters, category, accountIds, onA
             onContextMenu={e => { e.preventDefault(); stopHold(); held.current = true; setSheet({ editing: item }); }}
             aria-pressed={showing?.id === item.id}
             className={cn('shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap border select-none transition-colors',
-              showing?.id === item.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-card text-foreground border-card-border')}
+              showing?.id === item.id ? CHOICE_ON : 'bg-card text-foreground border-card-border')}
           >
             <Bookmark size={13} /> {item.name}
           </button>

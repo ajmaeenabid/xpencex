@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { PartyPopper } from 'lucide-react';
 import { useI18n } from '../../shared/i18n';
+import { useBackClose } from '../../shared/lib/backButton';
 
 const SHOW_MS = 4000;
 const COLOURS = ['bg-amber-400', 'bg-indigo-500', 'bg-emerald-400', 'bg-rose-400'];
@@ -17,6 +18,8 @@ const PIECES = Array.from({ length: 36 }, (_, i) => ({
 
 /** The one-time "goal reached" moment. Tap anywhere to close. No confetti when the phone is set to reduce motion. */
 export default function GoalCelebration({ name, onDone }: { name: string; onDone: () => void }) {
+  // The phone's back button closes it (src/shared/lib/backButton.ts)
+  useBackClose(true, onDone);
   const { t } = useI18n();
   const still = useReducedMotion();
   useEffect(() => {

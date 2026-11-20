@@ -5,8 +5,8 @@ import { ChatMessage, Expense, AccountType } from '../../shared/types';
 import { processInput, processAudioInput, processAttachment, transcribeVoice, ChatTurn } from './aiService';
 import { blockedBy, chatUsage } from './limits';
 import { ReplyLanguage, scriptLanguage } from './language';
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { useSwipe } from '../../shared/lib/swipe';
+import { motion, AnimatePresence, useMotionValue } from 'motion/react';
+import SidePager, { SidePagerHandle } from '../../shared/components/SidePager';
 import { X, Sparkles, ShieldAlert, PanelLeft, SquarePen } from 'lucide-react';
 import { MAJOR_CURRENCIES } from '../../shared/constants';
 import { parseTransactionSms, maskSensitive } from '../../shared/lib/smsParser';
@@ -146,10 +146,15 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
   // Agent space: every action the AI prepares becomes a task there; the chat keeps one short line for it
   const tasks = useTasks(user?.uid);
   const [view, setView] = useState<'chats' | 'agent'>('chats');
+  // Moves between Chats and Agent space by sliding (src/shared/components/SidePager.tsx)
+  const chatPager = useRef<SidePagerHandle>(null);
+  // The pages' position, which the switch's glow follows (so it never lags behind the pages)
+  const pagerProgress = useMotionValue<number>(0);
+  const slideView = (next: 'chats' | 'agent') => {
+    if (chatPager.current) chatPager.current.slideTo(next === 'agent' ? 1 : 0);
+    else setView(next);
+  };
   const waitingCount = tasks.filter(task => task.status === 'waiting').length;
-  // Each view slides in from the side it lives on: Chats on the left, Agent space on the right
-  const reduceMotion = useReducedMotion();
-  const slide = reduceMotion ? 0 : 28;
   const makeTask = (action: AgentAction, words: string | undefined, replyLang: ReplyLanguage) => {
     if (!user) return;
     const title = taskTitle(words, tIn(replyLang)('agent.taskFallback'));
@@ -275,12 +280,12 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
       if (!chat) { alertDialog(t('agent.space.chatGone')); return; }
       openChat(chat);
     }
-    setView('chats');
+    slideView('chats');
     window.setTimeout(() => document.getElementById(`task-${task.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350);
   };
   /** "Review" on a chat line: Agent space, scrolled to that task's card */
   const reviewTask = (taskId: string) => {
-    setView('agent');
+    slideView('agent');
     window.setTimeout(() => document.getElementById(`agent-task-${taskId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
   };
   const seeIt = (placeId: string) => {
@@ -528,14 +533,22 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
     tasks, onReviewTask: reviewTask, onSeeIt: seeIt, onRetryTask: retryTask,
   };
 
-  // Swipe left for Agent space, right for Chats (not while the history drawer is open or a message is being edited)
-  const swipeHandlers = useSwipe(direction => setView(direction === 'left' ? 'agent' : 'chats'), !sidebarOpen && !editingId);
+  // How tall the floating message box is, so the message list leaves that much room at its end
+  const composerRef = useRef<HTMLDivElement>(null);
+  const [composerHeight, setComposerHeight] = useState(120);
+  useEffect(() => {
+    const box = composerRef.current;
+    if (!box || typeof ResizeObserver === 'undefined') return;
+    const watch = new ResizeObserver(() => setComposerHeight(box.offsetHeight));
+    watch.observe(box);
+    return () => watch.disconnect();
+  }, []);
+
 
   return (
     // The screen minus the phone's status and navigation bars, the space above (pt-6) and the bottom bar
     // (6rem). While typing, the bottom bar is hidden, so the message box sits just above the keyboard.
     <div
-      {...swipeHandlers}
       className={cn('relative flex flex-col overflow-hidden', keyboardOpen ? 'h-[calc(100dvh-var(--sat)-2.25rem)]' : 'h-[calc(100dvh-var(--sat)-var(--sab)-7.5rem)]')}
     >
       {/* Chat history drawer */}
@@ -574,7 +587,7 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
         onLeaveTemporary={leaveTemporaryChat}
       />
 
-      <ChatSwitch view={view} setView={setView} waiting={waitingCount} />
+      <ChatSwitch view={view} setView={slideView} waiting={waitingCount} progress={pagerProgress} />
 
       {saveError && (
         <div role="alert" className="mb-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-semibold">
@@ -582,128 +595,136 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
         </div>
       )}
 
-      {view === 'agent' && (
-        <motion.div
-          initial={{ x: slide, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.22, ease: 'easeOut' }}
-          className="flex-1 min-h-0 flex flex-col"
-        >
-        <AgentSpace
-          tasks={tasks}
-          chatTitle={id => chats.find(c => c.id === id)?.title}
-          agent={agent}
-          accounts={accounts}
-          currencySymbol={currencySymbol}
-          onConfirm={confirmTask}
-          onCancel={cancelTask}
-          onGoToChat={goToChat}
-          onSeeIt={seeIt}
-        />
-        </motion.div>
-      )}
 
-      <motion.div
-        ref={scrollRef}
-        initial={false}
-        animate={view === 'chats' ? { x: 0, opacity: 1 } : { x: -slide, opacity: 0 }}
-        transition={{ duration: 0.22, ease: 'easeOut' }}
-        className={cn('flex-1 overflow-y-auto px-1 py-3 space-y-6 no-scrollbar', view === 'agent' && 'hidden')}
+      {/* Chats and Agent space side by side: they slide like pages and follow the finger (chosen 2026-11-20) */}
+      <SidePager
+        ref={chatPager}
+        side={view === 'agent' ? 1 : 0}
+        onSettle={side => setView(side ? 'agent' : 'chats')}
+        progress={pagerProgress}
+        enabled={!sidebarOpen && !editingId}
+        className="flex-1 min-h-0"
+        trackClassName="h-full items-stretch"
+        paneClassName="h-full"
       >
-        {messages.length === 0 && (
-          <ChatWelcome firstName={firstName} handleSend={handleSend} />
-        )}
+        <div className="relative h-full flex flex-col">
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto px-1 pt-3 space-y-6 no-scrollbar"
+            style={{ paddingBottom: composerHeight + 12 }}
+          >
 
-        <AnimatePresence mode="popLayout">
-          {messages.map((msg, index) => (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`flex flex-wrap ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {index === memoryStart && memoryLine}
-              <MessageItem
-                msg={msg}
-                editingId={editingId}
-                setEditingId={setEditingId}
-                editValue={editValue}
-                setEditValue={setEditValue}
-                blockSecret={blockSecret}
-                saveEdit={saveEdit}
-                openSteps={openSteps}
-                setOpenSteps={setOpenSteps}
-                photoPreviews={photoPreviews}
-                busy={busy}
-                setMessages={setMessages}
-                answerAgain={answerAgain}
-                cards={cards}
-              />
-            </motion.div>
-          ))}
-        </AnimatePresence>
+            {messages.length === 0 && (
+              <ChatWelcome firstName={firstName} handleSend={handleSend} />
+            )}
 
-        {memoryStart === messages.length && memoryLine}
+            <AnimatePresence mode="popLayout">
+              {messages.map((msg, index) => (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex flex-wrap ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  {index === memoryStart && memoryLine}
+                  <MessageItem
+                    msg={msg}
+                    editingId={editingId}
+                    setEditingId={setEditingId}
+                    editValue={editValue}
+                    setEditValue={setEditValue}
+                    blockSecret={blockSecret}
+                    saveEdit={saveEdit}
+                    openSteps={openSteps}
+                    setOpenSteps={setOpenSteps}
+                    photoPreviews={photoPreviews}
+                    busy={busy}
+                    setMessages={setMessages}
+                    answerAgain={answerAgain}
+                    cards={cards}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
 
-        {loading && (
-          <div className="flex items-center gap-2 px-1" role="status" aria-live="polite">
-            <motion.span
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }}
-              className="text-indigo-600 dark:text-indigo-400"
-            >
-              <Sparkles size={16} />
-            </motion.span>
-            <span className="status-shimmer text-sm font-semibold">{t(status)}…</span>
+            {memoryStart === messages.length && memoryLine}
+
+            {loading && (
+              <div className="flex items-center gap-2 px-1" role="status" aria-live="polite">
+                <motion.span
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }}
+                  className="text-indigo-600 dark:text-indigo-400"
+                >
+                  <Sparkles size={16} />
+                </motion.span>
+                <span className="status-shimmer text-sm font-semibold">{t(status)}…</span>
+              </div>
+            )}
           </div>
-        )}
-      </motion.div>
 
-      <div className={cn('px-4 pb-4 pt-2', view === 'agent' && 'hidden')}>
-        <ChatNotices
-          secretWarning={secretWarning}
-          setSecretWarning={setSecretWarning}
-          limitNote={limitNote}
-          setLimitNote={setLimitNote}
-          limitNoteVars={limitNoteVars}
-        />
-        <AttachMenu
-          cameraInputRef={cameraInputRef}
-          galleryInputRef={galleryInputRef}
-          filesInputRef={filesInputRef}
-          handleFilePicked={handleFilePicked}
-          attachMenuOpen={attachMenuOpen}
-          setAttachMenuOpen={setAttachMenuOpen}
-          openPicker={openPicker}
-        />
-        <ChatComposer
-          isRecording={isRecording}
-          isPaused={isPaused}
-          recordingSeconds={recordingSeconds}
-          startRecording={() => startVoiceRecording(sendVoice)}
-          pauseRecording={pauseRecording}
-          resumeRecording={resumeRecording}
-          stopRecording={stopRecording}
-          liveState={liveState}
-          liveSeconds={liveSeconds}
-          liveCaption={liveCaption}
-          liveRef={liveRef}
-          startLive={startLive}
-          attachment={attachment}
-          removeAttachment={removeAttachment}
-          setAttachMenuOpen={setAttachMenuOpen}
-          input={input}
-          setInput={setInput}
-          textareaRef={textareaRef}
-          handleSend={handleSend}
-          blockSecret={blockSecret}
-          loading={loading}
-          explainIfBlocked={explainIfBlocked}
-          fileBlocked={fileBlocked}
-          voiceBlocked={voiceBlocked}
-          liveBlocked={liveBlocked}
-        />
-      </div>
+          {/* The message box floats over the messages, with no band of its own around it (chosen 2026-11-20):
+              the list gets that much room at its end, so the last message still scrolls clear of the box */}
+          <div ref={composerRef} className={cn('absolute inset-x-0 bottom-0 px-4 pb-4 pt-2 pointer-events-none [&>*]:pointer-events-auto')}>
+            <ChatNotices
+              secretWarning={secretWarning}
+              setSecretWarning={setSecretWarning}
+              limitNote={limitNote}
+              setLimitNote={setLimitNote}
+              limitNoteVars={limitNoteVars}
+            />
+            <AttachMenu
+              cameraInputRef={cameraInputRef}
+              galleryInputRef={galleryInputRef}
+              filesInputRef={filesInputRef}
+              handleFilePicked={handleFilePicked}
+              attachMenuOpen={attachMenuOpen}
+              setAttachMenuOpen={setAttachMenuOpen}
+              openPicker={openPicker}
+            />
+            <ChatComposer
+              isRecording={isRecording}
+              isPaused={isPaused}
+              recordingSeconds={recordingSeconds}
+              startRecording={() => startVoiceRecording(sendVoice)}
+              pauseRecording={pauseRecording}
+              resumeRecording={resumeRecording}
+              stopRecording={stopRecording}
+              liveState={liveState}
+              liveSeconds={liveSeconds}
+              liveCaption={liveCaption}
+              liveRef={liveRef}
+              startLive={startLive}
+              attachment={attachment}
+              removeAttachment={removeAttachment}
+              setAttachMenuOpen={setAttachMenuOpen}
+              input={input}
+              setInput={setInput}
+              textareaRef={textareaRef}
+              handleSend={handleSend}
+              blockSecret={blockSecret}
+              loading={loading}
+              explainIfBlocked={explainIfBlocked}
+              fileBlocked={fileBlocked}
+              voiceBlocked={voiceBlocked}
+              liveBlocked={liveBlocked}
+            />
+          </div>
+        </div>
+        <div className="h-full flex flex-col">
+          <AgentSpace
+            tasks={tasks}
+            chatTitle={id => chats.find(c => c.id === id)?.title}
+            agent={agent}
+            accounts={accounts}
+            currencySymbol={currencySymbol}
+            onConfirm={confirmTask}
+            onCancel={cancelTask}
+            onGoToChat={goToChat}
+            onSeeIt={seeIt}
+          />
+        </div>
+      </SidePager>
     </div>
   );
 }

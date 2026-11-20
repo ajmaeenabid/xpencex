@@ -144,6 +144,8 @@ function DeviceScreen({ status, recheck }: { status: 'new' | 'pending' | 'refuse
 export default function AccessScreen({ status, recheck }: { status: Exclude<DeviceStatus, 'approved'>; recheck: () => Promise<void> }) {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
+  // A paused (suspended) account is being signed out, and the login page then says why
+  if (status === 'paused') return null;
   if (status === 'needsUsername') return <UsernameScreen recheck={recheck} />;
   if (status !== 'offline') return <DeviceScreen status={status} recheck={recheck} />;
   return (

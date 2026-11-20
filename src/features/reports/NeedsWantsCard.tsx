@@ -16,6 +16,7 @@ import { btnPrimary } from '../accounts/ui';
 import { IconBox } from '../home/TapCard';
 import { useOwnCategories } from '../planned/plannedService';
 import { SpendingGroup, SpendingType, SpendingTypes, compareGroups, groupChange, groupOf } from './needsWants';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 const GROUP_TEXT: Record<SpendingGroup, TKey> = { need: 'needs.needs', want: 'needs.wants', unsorted: 'needs.unsorted' };
 // Checked for colour blindness and contrast against each theme's card
@@ -110,7 +111,7 @@ function SortSheet({ uid, own, expenses, onClose }: { uid: string; own: Spending
     const on = groupOf(name, draft) === type;
     return (
       <button type="button" onClick={() => setDraft(prev => ({ ...prev, [name]: type }))} aria-pressed={on}
-        className={cn('px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors', on ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-card text-muted border-card-border')}>
+        className={cn('px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors', on ? CHOICE_ON : 'bg-card text-muted border-card-border')}>
         {t(type === 'need' ? 'needs.need' : 'needs.want')}
       </button>
     );

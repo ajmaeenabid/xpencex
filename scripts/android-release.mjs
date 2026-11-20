@@ -1,12 +1,13 @@
 // One-step Android release: `npm run android:release`
 // 1. checks the version numbers in android/app/build.gradle, public/download/version.json and package.json match
 // 2. builds the app and the signed app file (with Java 21, which Capacitor needs)
-// 3. copies it to public/download/xpencex.apk and writes its size into version.json
+// 3. copies it to public/download/xpencex.apk and writes its size and fingerprints into version.json
 // Then publish the download page with `npm run release:site`.
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { findJava21 } from './java21.mjs';
+import { apkFingerprints } from './apk-fingerprints.mjs';
 
 const root = join(import.meta.dirname, '..');
 const gradleFile = join(root, 'android', 'app', 'build.gradle');
@@ -65,6 +66,8 @@ if (!existsSync(builtApk)) stop(`The app file was not made: ${builtApk}`);
 copyFileSync(builtApk, publicApk);
 const sizeMb = Math.max(1, Math.round(statSync(publicApk).size / 1024 / 1024));
 info.sizeMb = sizeMb;
+// The codes the download page shows so people can check the file is genuine (scripts/apk-fingerprints.mjs)
+Object.assign(info, apkFingerprints(publicApk));
 writeFileSync(versionFile, JSON.stringify(info, null, 2) + '\n');
 
 console.log(

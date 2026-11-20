@@ -11,7 +11,8 @@ import { clearWidget } from '../widget/widget';
 
 // How this device gets permission to use the account. The rules are on the server (ai-server/src/devices.ts).
 
-export type DeviceStatus = 'approved' | 'pending' | 'new' | 'refused' | 'needsUsername' | 'offline';
+// paused: the admin suspended the account, so the app signs out and says so
+export type DeviceStatus = 'approved' | 'pending' | 'new' | 'refused' | 'needsUsername' | 'paused' | 'offline';
 
 const DB_NAME = 'xpencex-device';
 const STORE = 'keys';
@@ -94,12 +95,14 @@ export const saveUsername = (username: string) => callWorker<{ username: string 
 
 export const usernameWasTaken = (err: unknown) => err instanceof WorkerError && err.status === 409;
 
-const REMOVED_NOTE = 'xpencex.deviceRemoved';
+// Why the phone was signed out, shown once on the login page ('1' is the older way of saying removed)
+const SIGN_OUT_NOTE = 'xpencex.deviceRemoved';
+export type SignOutNote = 'removed' | 'paused';
 
 /** Signs out and removes this account's saved copy of the data from this device. */
-export async function signOutAndForget({ removed = false } = {}) {
+export async function signOutAndForget({ note }: { note?: SignOutNote } = {}) {
   try {
-    if (removed) localStorage.setItem(REMOVED_NOTE, '1');
+    if (note) localStorage.setItem(SIGN_OUT_NOTE, note);
     sessionStorage.clear();
   } catch {
     // storage can be blocked; signing out still works
@@ -119,13 +122,16 @@ export async function signOutAndForget({ removed = false } = {}) {
   window.location.reload();
 }
 
-/** True once, on the login page right after the admin removed this device */
-export function takeRemovedNote() {
+/** Why this phone was just signed out (removed or paused by the admin), once, on the login page */
+export function takeSignOutNote(): SignOutNote | null {
   try {
-    const removed = localStorage.getItem(REMOVED_NOTE) === '1';
-    localStorage.removeItem(REMOVED_NOTE);
-    return removed;
+    const note = localStorage.getItem(SIGN_OUT_NOTE);
+    localStorage.removeItem(SIGN_OUT_NOTE);
+    return note === 'paused' ? 'paused' : note ? 'removed' : null;
   } catch {
-    return false;
+    return null;
   }
 }
+
+/** The note for a device status that ends the session (anything but approved or offline) */
+export const signOutNoteFor = (status: DeviceStatus): SignOutNote => (status === 'paused' ? 'paused' : 'removed');

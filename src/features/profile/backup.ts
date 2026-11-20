@@ -1,5 +1,6 @@
 // Backup file: plain rules, no database calls. A backup is one JSON file with all of a user's data,
 // optionally locked with a password (AES-GCM, with a key made from the password by PBKDF2).
+import { keepAllowedFields } from '../../shared/allowedFields';
 
 export const BACKUP_COLLECTIONS = ['accounts', 'balanceHistory', 'expenses', 'deposits', 'recurring', 'categories', 'loans', 'debts', 'funds', 'samities', 'chats', 'incomeRules', 'incomeCategories', 'reminders', 'templates', 'planned', 'categoryRules', 'shoppingLists', 'savedFilters'] as const;
 export type BackupCollection = (typeof BACKUP_COLLECTIONS)[number];
@@ -104,7 +105,8 @@ export function planRestore(backup: BackupData, uid: string, existing: Partial<R
       if (!item || typeof item !== 'object' || typeof item.id !== 'string' || !ID.test(item.id)) { invalid++; continue; }
       if (existing[c]?.has(item.id)) { skipped++; continue; }
       const { id, ...data } = item;
-      write[c].push({ id, data: { ...data, uid } });
+      // Fields the app no longer uses are left out, so firestore.rules accept the item (src/shared/allowedFields.ts)
+      write[c].push({ id, data: { ...keepAllowedFields(c, data), uid } });
     }
   }
   return { write, skipped, invalid };

@@ -18,6 +18,7 @@ import { incomeCategoryLabel } from '../income/incomeText';
 import { PLANNED_REPEATS, Planned, PlannedKind, PlannedProblem, PlannedRepeat, plannedProblem } from './planned';
 import { addPlanned, deletePlanned, updatePlanned, useOwnCategories } from './plannedService';
 import { REPEAT_TEXT } from './plannedText';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 const PROBLEM_TEXT: Record<PlannedProblem, TKey> = {
   full: 'planned.problem.full',
@@ -103,7 +104,7 @@ export default function PlannedForm({ uid, plan, count, accounts, symbol, onDone
             role="radio"
             aria-checked={kind === k}
             onClick={() => switchKind(k)}
-            className={cn('h-11 rounded-xl text-sm font-bold border transition-colors', kind === k ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-card text-foreground border-card-border')}
+            className={cn('h-11 rounded-xl text-sm font-bold border transition-colors', kind === k ? CHOICE_ON : 'bg-card text-foreground border-card-border')}
           >
             {t(k === 'income' ? 'planned.kindIncome' : 'planned.kindExpense')}
           </button>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { usernameProfileFields } from './devices';
-import { mayAutoApprove } from './deviceRules';
+import { isActiveDevice, mayAutoApprove, withPaused } from './deviceRules';
 
 describe('usernameProfileFields', () => {
   it('starts a new profile on the welcome slides', () => {
@@ -36,5 +36,23 @@ describe('mayAutoApprove', () => {
   it("always lets the admin's own first device in", () => {
     expect(mayAutoApprove({ ...base, isAdmin: true, setting: 'true', everHadDevice: true })).toBe(true);
     expect(mayAutoApprove({ ...base, isAdmin: true, deviceCount: 1 })).toBe(false);
+  });
+});
+
+describe('paused devices (Suspend)', () => {
+  const device = { id: 'd1', uid: 'alice', label: 'Phone', at: '2026-11-20' };
+
+  it('lets in only an unpaused device of the same person', () => {
+    expect(isActiveDevice(device, 'alice')).toBe(true);
+    expect(isActiveDevice({ ...device, paused: true }, 'alice')).toBe(false);
+    expect(isActiveDevice(device, 'bob')).toBe(false);
+    expect(isActiveDevice(null, 'alice')).toBe(false);
+  });
+
+  it('adds the pause on suspend and leaves the field out on restore', () => {
+    expect(withPaused(device, true)).toEqual({ ...device, paused: true });
+    expect(withPaused({ ...device, paused: true }, false)).toEqual(device);
+    // listByUid reads every field as text, so an old pause can arrive as ''
+    expect(withPaused({ ...device, paused: '' }, true)).toEqual({ ...device, paused: true });
   });
 });

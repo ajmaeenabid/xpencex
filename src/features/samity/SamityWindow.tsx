@@ -17,6 +17,7 @@ import { samityTabs } from '../connect/exportTables';
 import { EmptyState, Steps } from '../funds/FundsWindow';
 import { Samity, payoutAmount, roundDate, samityStatus } from './samity';
 import { createSamity, deleteSamity, payRound, receivePayout, undoPayout, undoRound } from './samityService';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 type Page = { page: 'list' } | { page: 'samity'; id: string } | { page: 'new' };
 
@@ -372,7 +373,7 @@ function NewSamity({ busy, symbol, money, day, onCreate }: {
               {(['monthly', 'weekly'] as const).map(f => (
                 <button key={f} onClick={() => setFrequency(f)} aria-pressed={frequency === f} className={cn(
                   'h-12 rounded-xl text-sm font-bold border transition-colors',
-                  frequency === f ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-card text-foreground border-card-border',
+                  frequency === f ? CHOICE_ON : 'bg-card text-foreground border-card-border',
                 )}>
                   {t(f === 'weekly' ? 'samity.weekly' : 'samity.monthly')}
                 </button>

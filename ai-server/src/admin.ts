@@ -1,12 +1,14 @@
 import { google, AuthUser, encodeFields } from './google';
 import { deleteErrorReports, listErrorReports } from './errorReports';
-import { isFreshGoogleSignIn } from './deviceRules';
+import { isFreshGoogleSignIn, withPaused } from './deviceRules';
 import { healthView } from './health';
+import { activityLimit, activityView } from './activity';
 
 export interface AdminEnv {
   FIREBASE_PROJECT_ID: string;
   FIREBASE_SERVICE_ACCOUNT?: string;
   ADMIN_UIDS?: string;
+  ACTIVITY_ALERT_PER_HOUR?: string;
 }
 
 type Json = (body: unknown, status?: number) => Response;
@@ -95,7 +97,8 @@ export async function handleAdmin(path: string, callerUid: string, claims: Recor
   // When the hourly jobs last ran, and whether they failed
   if (path === '/admin/health') {
     const health = await g.getTyped('meta', 'health');
-    return json({ health: healthView(health?.data ?? null) });
+    const data = health?.data ?? null;
+    return json({ health: { ...healthView(data), activity: activityView(data, activityLimit(env)) } });
   }
 
   // Error reports from people's phones (src/errorReports.ts), newest first, with the username only
@@ -172,7 +175,7 @@ export async function handleAdmin(path: string, callerUid: string, claims: Recor
     const mine = new Set((await g.listByUid('devices', uid)).map((d) => d.id));
     if (replace.some((id) => !mine.has(id) || id === claims.deviceId)) return json({ error: 'Bad request.' }, 400);
     await g.commit([
-      { update: { name: g.docName('devices', requestId), fields: encodeFields({ id: requestId, uid, label: request.label, at: new Date().toISOString() }) } },
+      { update: { name: g.docName('devices', requestId), fields: encodeFields(withPaused({ id: requestId, uid, label: request.label, at: new Date().toISOString() }, target.disabled === true)) } },
       // From now on this account's new devices always need approval (see mayAutoApprove in deviceRules.ts)
       { update: { name: g.docName('deviceHistory', uid), fields: encodeFields({ uid, firstDeviceAt: new Date().toISOString() }) } },
       { delete: g.docName('deviceRequests', requestId) },
@@ -197,7 +200,18 @@ export async function handleAdmin(path: string, callerUid: string, claims: Recor
 
   if (path === '/admin/suspend') {
     const suspended = body.suspended === true;
+    // Pausing the phones locks the person out at once: firestore.rules and this server refuse paused
+    // devices, while a login already on the phone would otherwise work for up to an hour.
+    // On suspend the phones are paused first, on restore the login comes back first.
+    const pauseAll = async () => {
+      const devices = await g.listByUid('devices', uid);
+      if (devices.length) {
+        await g.commit(devices.map((d) => ({ update: { name: g.docName('devices', String(d.id)), fields: encodeFields(withPaused(d, suspended)) } })));
+      }
+    };
+    if (suspended) await pauseAll();
     await g.updateUser(uid, { disableUser: suspended, signOutEverywhere: suspended });
+    if (!suspended) await pauseAll();
     await record(suspended ? 'suspended' : 'restored', target, username);
     return json({ ok: true });
   }

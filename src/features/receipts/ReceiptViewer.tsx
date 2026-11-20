@@ -7,6 +7,7 @@ import { isNative, shareBinaryFile } from '../../shared/lib/nativeApp';
 import { bytesToBase64 } from '../chat/liveAudio';
 import { openReceipt, ReceiptError } from './receiptService';
 import { receiptProblemKey } from './receiptFile';
+import { useBackClose } from '../../shared/lib/backButton';
 
 /** What the viewer shows about the receipt's expense: its details, or that it has none */
 export type ReceiptDetails = { title: string; amount: string; date: string } | 'none';
@@ -22,6 +23,8 @@ export default function ReceiptViewer({ receiptId, onClose, onDelete, details, o
   details?: ReceiptDetails;
   onOpenExpense?: () => void;
 }) {
+  // The phone's back button closes it (src/shared/lib/backButton.ts)
+  useBackClose(true, onClose);
   const { t } = useI18n();
   const [file, setFile] = useState<{ blob: Blob; url: string } | null>(null);
   const [problem, setProblem] = useState('');

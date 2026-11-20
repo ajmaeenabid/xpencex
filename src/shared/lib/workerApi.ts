@@ -4,7 +4,8 @@ import { auth } from '../firebase';
 const BASE = ((import.meta.env.VITE_AI_WORKER_URL as string | undefined) || '').replace(/\/+$/, '');
 
 export class WorkerError extends Error {
-  constructor(public status: number, message: string) {
+  // tooMany: the server's own request limit (too fast this minute, or the day is full), not an AI limit
+  constructor(public status: number, message: string, public tooMany = false) {
     super(message);
   }
 }
@@ -32,6 +33,6 @@ export async function workerFetch(path: string, body: BodyInit, contentType: str
 export async function callWorker<T>(path: string, body: object = {}, options: { signedIn?: boolean } = {}): Promise<T> {
   const res = await workerFetch(path, JSON.stringify(body), 'application/json', options);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new WorkerError(res.status, data.error || res.statusText);
+  if (!res.ok) throw new WorkerError(res.status, data.error || res.statusText, typeof data.tooMany === 'string');
   return data as T;
 }

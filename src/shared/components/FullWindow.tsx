@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, X } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { lockScroll } from '../lib/scrollLock';
+import { useBackClose } from '../lib/backButton';
 
 const iconButton = 'inline-flex items-center justify-center w-10 h-10 rounded-xl text-muted hover:text-foreground hover:bg-background/60 transition-colors';
 
@@ -39,6 +40,8 @@ export default function FullWindow({ open, atRoot, onClose, onBack, pageKey, ico
 }) {
   const { t } = useI18n();
 
+  // The phone's back button does the same (src/shared/lib/backButton.ts)
+  useBackClose(open, () => (atRoot ? onClose() : onBack()));
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

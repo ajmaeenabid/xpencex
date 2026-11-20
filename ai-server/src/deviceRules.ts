@@ -67,6 +67,19 @@ export function mayAutoApprove({ deviceCount, everHadDevice, isAdmin, setting }:
   return !everHadDevice && !firstDeviceNeedsApproval(setting);
 }
 
+/**
+ * A device record that still lets its phone in: it belongs to this person and isn't paused.
+ * Suspend pauses every device of the account (admin.ts) and firestore.rules refuse paused ones too.
+ */
+export const isActiveDevice = (device: Record<string, unknown> | null | undefined, uid: string) =>
+  !!device && device.uid === uid && device.paused !== true;
+
+/** The same device record, paused or not (the field is left out when not paused) */
+export function withPaused<T extends Record<string, unknown>>(device: T, paused: boolean): T {
+  const { paused: _old, ...rest } = device;
+  return (paused ? { ...rest, paused: true } : rest) as T;
+}
+
 export const canAskAgain = (decidedAt: string | undefined, now = Date.now()) =>
   !decidedAt || now - Date.parse(decidedAt) >= REQUEST_LIMIT_SECONDS * 1000;
 
@@ -82,13 +95,29 @@ export function isFreshGoogleSignIn(claims: Record<string, unknown>, now = Date.
 // ---------------------------------------------------------------------------
 const RESERVED = ['admin', 'administrator', 'xpencex', 'xpences', 'support', 'help', 'moderator', 'official', 'system'];
 const USERNAME = /^[\p{L}\p{N}][\p{L}\p{M}\p{N}_.]{2,19}$/u;
+// Letters from one alphabet only, English or Bangla (chosen 2026-11-20), so look-alike letters from other
+// alphabets (a Russian "а" in "аdmin") can't be used. Digits (0-9 or ০-৯), _ and . go with either.
+const ENGLISH_NAME = /^[a-zA-Z0-9০-৯_.]+$/;
+const BANGLA_NAME = /^[ঀ-৿0-9_.]+$/;
 
 export const cleanUsername = (name: unknown) => (typeof name === 'string' ? name.normalize('NFC').trim() : '');
 
 /** Two usernames that differ only by capital letters count as the same one */
 export const usernameKey = (name: string) => cleanUsername(name).toLowerCase();
 
-export const isReservedUsername = (name: string) => RESERVED.includes(usernameKey(name));
+/**
+ * The name with look-alikes made the same (0 = o, 1 and l = i, 5 = s) and _ . removed, so "adm1n",
+ * "supp0rt", "xpence5" and "ad.min" are caught like the real word. Used only for reserved names.
+ */
+export const lookAlikeKey = (name: string) =>
+  usernameKey(name).replace(/[_.]/g, '').replace(/0/g, 'o').replace(/[1l]/g, 'i').replace(/5/g, 's');
 
-/** 3 to 20 letters or numbers (any language), plus _ and . and no long numbers such as a phone number */
-export const isValidUsername = (name: string) => USERNAME.test(name) && !/\p{N}{6,}/u.test(name) && !isReservedUsername(name);
+const RESERVED_KEYS = RESERVED.map(lookAlikeKey);
+export const isReservedUsername = (name: string) => RESERVED_KEYS.includes(lookAlikeKey(name));
+
+/**
+ * 3 to 20 letters or numbers, all English or all Bangla, plus _ and . and no long numbers such as a
+ * phone number. Names saved before 2026-11-20 may not fit; they are kept until changed.
+ */
+export const isValidUsername = (name: string) =>
+  USERNAME.test(name) && (ENGLISH_NAME.test(name) || BANGLA_NAME.test(name)) && !/\p{N}{6,}/u.test(name) && !isReservedUsername(name);

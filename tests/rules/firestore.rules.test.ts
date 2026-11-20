@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 import {
   assertFails, assertSucceeds, initializeTestEnvironment, RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 
@@ -68,6 +68,20 @@ describe('the device pass', () => {
     await assertFails(getDoc(doc(nobody(), 'expenses/e-alice')));
     await assertFails(setDoc(doc(aliceNoPass(), 'expenses/new'), expense('alice')));
   });
+
+  it('locks out a suspended account at once: its paused device sees and changes nothing', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'devices/dev-alice'), { id: 'dev-alice', uid: 'alice', label: 'Phone', at: DATE, paused: true });
+    });
+    await assertFails(getDoc(doc(alice(), 'expenses/e-alice')));
+    await assertFails(getDoc(doc(alice(), 'devices/dev-alice')));
+    await assertFails(setDoc(doc(alice(), 'expenses/new'), expense('alice')));
+    // Restore takes the pause off, and the same phone works again without a new approval
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'devices/dev-alice'), { id: 'dev-alice', uid: 'alice', label: 'Phone', at: DATE });
+    });
+    await assertSucceeds(getDoc(doc(alice(), 'expenses/e-alice')));
+  });
 });
 
 describe("other people's data", () => {
@@ -114,6 +128,58 @@ describe('expenses', () => {
 
   it("can't be moved to another person", async () => {
     await assertFails(updateDoc(doc(alice(), 'expenses/e-alice'), { uid: 'bob' }));
+  });
+
+  // Security review item 7: no extra fields stuffed in, but old items stay editable
+  it('accept every field the app writes, and nothing else', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'expenses/full'), expense('alice', {
+      notes: '', split: { total: 900, people: 2 }, recurringId: 'r1', plannedId: 'p1', accountId: 'a1', accountName: 'Cash',
+      smsRef: 's1', fee: 5, createdAt: DATE, labels: ['Eid'], warrantyUntil: DATE, feeling: 'worth', categoryKept: true,
+    })));
+    await assertFails(setDoc(doc(alice(), 'expenses/stuffed'), expense('alice', { junk: 'x'.repeat(1000) })));
+    await assertFails(setDoc(doc(alice(), 'expenses/bigDate'), expense('alice', { createdAt: `${DATE}${'x'.repeat(100)}` })));
+    await assertFails(setDoc(doc(alice(), 'expenses/badSplit'), expense('alice', { split: { total: 900, people: 2, junk: 1 } })));
+    await assertFails(updateDoc(doc(alice(), 'expenses/e-alice'), { junk: 'x' }));
+  });
+
+  it('keep an old item with a leftover field editable', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'expenses/old'), expense('alice', { oldField: 'from 2025', createdAt: 1700000000 }));
+    });
+    // Editing other fields works, and the leftover can be removed, but not changed
+    await assertSucceeds(updateDoc(doc(alice(), 'expenses/old'), { title: 'Dinner' }));
+    await assertFails(updateDoc(doc(alice(), 'expenses/old'), { oldField: 'changed' }));
+    await assertSucceeds(updateDoc(doc(alice(), 'expenses/old'), { oldField: deleteField() }));
+  });
+});
+
+describe('field lists on the other kinds', () => {
+  it('let the app save what it saves today', async () => {
+    const db = alice();
+    await assertSucceeds(setDoc(doc(db, 'categories/c1'), { uid: 'alice', name: 'Pets', icon: 'Tag', createdAt: DATE }));
+    await assertSucceeds(setDoc(doc(db, 'incomeCategories/c1'), { uid: 'alice', name: 'Tuition' }));
+    await assertSucceeds(setDoc(doc(db, 'recurring/r1'), {
+      uid: 'alice', title: 'Rent', amount: 9000, category: 'Housing', notes: '', frequency: 'monthly', nextDate: DATE,
+      accountId: 'a1', accountName: 'Cash', createdAt: DATE,
+    }));
+    await assertSucceeds(setDoc(doc(db, 'accounts/a1'), {
+      uid: 'alice', type: 'cash', name: 'Cash', label: 'Wallet', balance: 100, historySum: 100, createdAt: DATE, countedAt: DATE,
+    }));
+    await assertSucceeds(setDoc(doc(db, 'deposits/d1'), { uid: 'alice', amount: 500, date: DATE, title: 'Salary', source: 'manual', transfer: false }));
+    await assertSucceeds(setDoc(doc(db, 'incomeRules/i1'), {
+      uid: 'alice', title: 'Salary', amount: 500, category: 'Salary', notes: '', day: 5, nextDate: DATE, createdAt: DATE,
+    }));
+    await assertSucceeds(setDoc(doc(db, 'chats/new-chat'), { uid: 'alice', title: 'Hi', messages: [], createdAt: 1, updatedAt: 1 }));
+    await assertSucceeds(updateDoc(doc(db, 'chats/c-alice'), { pinned: true }));
+  });
+
+  it('refuse extra fields on each of them', async () => {
+    const db = alice();
+    await assertFails(setDoc(doc(db, 'categories/c2'), { uid: 'alice', name: 'Pets', junk: 1 }));
+    await assertFails(setDoc(doc(db, 'incomeCategories/c2'), { uid: 'alice', name: 'Tuition', junk: 1 }));
+    await assertFails(setDoc(doc(db, 'deposits/d2'), { uid: 'alice', amount: 500, date: DATE, junk: 1 }));
+    await assertFails(setDoc(doc(db, 'chats/c2'), { uid: 'alice', title: 'Hi', messages: [], updatedAt: 1, junk: 1 }));
+    await assertFails(updateDoc(doc(db, 'chats/c-alice'), { junk: 1 }));
   });
 });
 

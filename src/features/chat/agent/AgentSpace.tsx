@@ -1,4 +1,6 @@
-import { motion } from 'motion/react';
+import { useRef } from 'react';
+import { motion, MotionValue } from 'motion/react';
+import SwitchPill, { useNearSide } from '../../../shared/components/SwitchPill';
 import { AlertCircle, ArrowUpRight, CheckCircle2, Clock, History, Inbox, MessageSquare, RotateCw, TimerOff, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Account } from '../../../shared/types';
@@ -21,8 +23,15 @@ const placeExists = (id?: string) => !!id && OPEN_PLACES.some(p => p.id === id);
 const smallButton = 'shrink-0 inline-flex items-center gap-1 h-8 px-3 rounded-full text-xs font-bold transition-colors';
 
 /** "Chats | Agent space" at the top of the chat, with how many tasks are waiting */
-export function ChatSwitch({ view, setView, waiting }: { view: 'chats' | 'agent'; setView: (v: 'chats' | 'agent') => void; waiting: number }) {
+export function ChatSwitch({ view, setView, waiting, progress }: {
+  view: 'chats' | 'agent';
+  setView: (v: 'chats' | 'agent') => void;
+  waiting: number;
+  progress?: MotionValue<number>; // the pages' position (SidePager): the glow moves with them, even mid-swipe
+}) {
   const { t } = useI18n();
+  const near = useNearSide(progress ?? null, view === 'agent' ? 1 : 0);
+  const refs = [useRef<HTMLButtonElement>(null), useRef<HTMLButtonElement>(null)] as const;
   const tabs = [
     { id: 'chats' as const, label: t('agent.space.tabChats'), icon: MessageSquare },
     { id: 'agent' as const, label: t('agent.space.tabAgent'), icon: Inbox },
@@ -32,14 +41,16 @@ export function ChatSwitch({ view, setView, waiting }: { view: 'chats' | 'agent'
     <div
       role="tablist"
       aria-label={t('agent.space.switchLabel')}
-      className="self-center inline-flex items-center gap-0.5 p-0.5 mb-2 rounded-full shrink-0 bg-card/40 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-[0_2px_12px_rgba(0,0,0,0.06)]"
+      className="relative self-center inline-flex items-center gap-0.5 p-0.5 mb-2 rounded-full shrink-0 bg-card/40 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-[0_2px_12px_rgba(0,0,0,0.06)]"
     >
-      {tabs.map(tab => {
-        const on = view === tab.id;
+      {progress && <SwitchPill progress={progress} tabs={[refs[0], refs[1]]} />}
+      {tabs.map((tab, i) => {
+        const on = progress ? near === i : view === tab.id;
         const Icon = tab.icon;
         return (
           <button
             key={tab.id}
+            ref={refs[i]}
             role="tab"
             aria-selected={on}
             onClick={() => setView(tab.id)}
@@ -48,7 +59,7 @@ export function ChatSwitch({ view, setView, waiting }: { view: 'chats' | 'agent'
               on ? 'text-indigo-700 dark:text-indigo-200' : 'text-muted hover:text-foreground',
             )}
           >
-            {on && (
+            {!progress && on && (
               <motion.span
                 layoutId="chat-switch-pill"
                 className="absolute inset-0 -z-10 rounded-full bg-indigo-500/15 dark:bg-indigo-400/20 ring-1 ring-indigo-500/25 dark:ring-indigo-300/25"

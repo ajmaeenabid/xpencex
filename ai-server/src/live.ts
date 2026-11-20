@@ -61,8 +61,8 @@ export interface LiveEnv {
 }
 
 export interface LiveDeps {
-  // Checks the login and the device pass
-  signIn: (token: string) => Promise<{ uid: string } | { error: 'auth' | 'device' }>;
+  // Checks the login and the device pass ('busy': too many requests this minute or today)
+  signIn: (token: string) => Promise<{ uid: string } | { error: 'auth' | 'device' | 'busy' }>;
   // Uses one of today's live sessions; returns the updated limits, or null when none are left
   take: (uid: string) => Promise<LimitsView | null>;
   refund: (uid: string) => Promise<void>;

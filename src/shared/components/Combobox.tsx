@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../lib/utils';
+import { useBackClose } from '../lib/backButton';
 
 interface Props {
   id?: string;
@@ -36,6 +37,8 @@ export default function Combobox({ id, value, onChange, options, placeholder, di
   const listId = useId();
   const matches = matchingOptions(options, value);
   const showing = open && matches.length > 0;
+  // The phone's back button closes the list first (src/shared/lib/backButton.ts)
+  useBackClose(showing, () => setOpen(false));
 
   const place = () => {
     const rect = inputRef.current?.getBoundingClientRect();

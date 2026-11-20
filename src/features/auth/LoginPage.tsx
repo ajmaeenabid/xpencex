@@ -5,9 +5,10 @@ import { logoDataUri } from '../../shared/brand/logoSvg';
 import { auth } from '../../shared/firebase';
 import { useI18n } from '../../shared/i18n';
 import { isNativeApp, signInWasCancelled, signInWithGoogle } from './googleSignIn';
-import { takeRemovedNote } from './deviceService';
+import { takeSignOutNote } from './deviceService';
 import PrivacyLink from '../../shared/components/PrivacyLink';
 import { GoogleG } from '../../shared/components/GoogleLogos';
+import { CHOICE_ON } from '../../shared/lib/choice';
 
 /** Google's own "G" mark, which their sign-in rules ask apps to show on the button */
 export const GoogleMark = () => <GoogleG size={22} />;
@@ -18,7 +19,7 @@ export default function LoginPage() {
   // The short technical reason, shown small under the message so a screenshot says what went wrong
   const [errorCode, setErrorCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const [removed] = useState(takeRemovedNote);
+  const [signOutNote] = useState(takeSignOutNote);
 
   const showError = (err: any) => {
     if (signInWasCancelled(err)) return;
@@ -58,7 +59,7 @@ export default function LoginPage() {
             key={code}
             onClick={() => setLang(code)}
             aria-pressed={lang === code}
-            className={`px-3 py-1.5 rounded-full transition-colors ${lang === code ? 'bg-indigo-600 text-white' : 'text-muted hover:text-foreground'}`}
+            className={`px-3 py-1.5 rounded-full transition-colors ${lang === code ? CHOICE_ON : 'text-muted hover:text-foreground'}`}
           >
             {code === 'en' ? 'English' : 'বাংলা'}
           </button>
@@ -89,7 +90,7 @@ export default function LoginPage() {
           <p className="text-sm text-muted font-medium">{t('login.body')}</p>
         </div>
 
-        {removed && <p role="status" className="text-amber-700 dark:text-amber-300 text-xs font-bold px-1">{t('login.deviceRemoved')}</p>}
+        {signOutNote && <p role="status" className="text-amber-700 dark:text-amber-300 text-xs font-bold px-1">{t(signOutNote === 'paused' ? 'login.accountPaused' : 'login.deviceRemoved')}</p>}
 
         {error && (
           <div role="alert" className="px-1 space-y-0.5">
