@@ -27,6 +27,9 @@ export function categoryLabel(t: TFunction, name: string): string {
   return key in en ? t(key) : name;
 }
 
+/** The language the app shows now (outside React, e.g. to tell the server) */
+export const currentLanguage = (): Language => readSaved();
+
 function readSaved(): Language {
   try {
     return localStorage.getItem(STORAGE_KEY) === 'bn' ? 'bn' : 'en';

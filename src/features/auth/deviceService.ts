@@ -8,6 +8,7 @@ import { forgetNativeGoogle } from './googleSignIn';
 import { forgetAllReceiptCopies } from '../receipts/receiptService';
 import { clearReminders } from '../reminders/reminderService';
 import { clearWidget } from '../widget/widget';
+import { currentLanguage } from '../../shared/i18n';
 
 // How this device gets permission to use the account. The rules are on the server (ai-server/src/devices.ts).
 
@@ -91,7 +92,8 @@ export async function openDevice(): Promise<DeviceStatus> {
 export const askForDevice = () => ask('/device/request');
 
 /** Saves the username on the server, which keeps names unique. Throws 'taken' or 'invalid' as a WorkerError. */
-export const saveUsername = (username: string) => callWorker<{ username: string }>('/account/username', { username });
+// The language goes along so a brand-new account's welcome email is in it (ai-server/src/welcomeEmail.ts)
+export const saveUsername = (username: string) => callWorker<{ username: string }>('/account/username', { username, lang: currentLanguage() });
 
 export const usernameWasTaken = (err: unknown) => err instanceof WorkerError && err.status === 409;
 
