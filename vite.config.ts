@@ -3,8 +3,11 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
 import { createHash } from 'crypto';
-import {defineConfig, type Plugin} from 'vite';
+import {defineConfig, loadEnv, type Plugin} from 'vite';
 import { logoSvg } from './src/shared/brand/logoSvg';
+import { appCsp } from './src/shared/csp';
+import { SITE_URL } from './src/shared/release';
+import firebaseConfig from './firebase-config.json';
 
 /**
  * Puts the opening screen into index.html: the logo in the middle of the cream screen, the same as the
@@ -57,9 +60,24 @@ function swPrecache(): Plugin {
   };
 }
 
-export default defineConfig(() => {
+/** Adds the app's safety rule (src/shared/csp.ts) to the built index.html. Not in `npm run dev`. */
+function contentSecurityPolicy(aiServer: string | undefined): Plugin {
   return {
-    plugins: [react(), tailwindcss(), swPrecache(), bootScreen()],
+    name: 'xpences-csp',
+    apply: 'build',
+    transformIndexHtml(html) {
+      if (!aiServer) console.warn('VITE_AI_WORKER_URL is not set: the safety rule leaves the AI server out');
+      const policy = appCsp({ aiServer, authDomain: firebaseConfig.authDomain, site: SITE_URL });
+      return html.replace('<head>', `<head>
+    <meta http-equiv="Content-Security-Policy" content="${policy}" />`);
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), 'VITE_');
+  return {
+    plugins: [react(), tailwindcss(), swPrecache(), bootScreen(), contentSecurityPolicy(env.VITE_AI_WORKER_URL)],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

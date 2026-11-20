@@ -35,8 +35,18 @@ export interface JobHealth {
   late: boolean;
 }
 
-export const HEALTH_JOBS = ['loans', 'rates'] as const;
-export type AdminHealth = Record<(typeof HEALTH_JOBS)[number], JobHealth>;
+export const HEALTH_JOBS = ['loans', 'rates', 'activity'] as const;
+
+/** New items added across the app in the last hour (see ai-server/src/activity.ts) */
+export interface ActivityView {
+  at: string | null;
+  added: number | null; // null until the server has counted twice
+  busiest: { kind: string; count: number }[];
+  limit: number;
+  over: boolean;
+}
+
+export type AdminHealth = Record<(typeof HEALTH_JOBS)[number], JobHealth> & { activity?: ActivityView };
 
 // A notice the server leaves in a user's Profile when the admin changes their account
 export interface AccountNotice {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyParts, firstBlocked, isAllowedLiveMessage, dailyLimits, limitsView, MAX_FILE_BYTES } from './usage';
+import { checkRequest, classifyParts, firstBlocked, isAllowedLiveMessage, dailyLimits, limitsView, requestLimits, MAX_FILE_BYTES } from './usage';
 import { bdDay } from './loanDates';
 
 const b64 = (bytes: number) => 'A'.repeat(Math.ceil((bytes * 4) / 3));
@@ -54,5 +54,44 @@ describe('live relay', () => {
     expect(isAllowedLiveMessage('{"toolResponse":{}}')).toBe(true);
     expect(isAllowedLiveMessage('{"setup":{"model":"other"}}')).toBe(false);
     expect(isAllowedLiveMessage(new ArrayBuffer(4))).toBe(false);
+  });
+});
+
+describe('request limits', () => {
+  const opts = (over: Partial<Parameters<typeof checkRequest>[2]> = {}) =>
+    ({ now: 100_000, day: '2026-11-20', perMinute: 3, perDay: 5, countMinute: true, ...over });
+
+  it('uses 60 a minute and 2,000 a day unless wrangler.toml says otherwise', () => {
+    expect(requestLimits({})).toEqual({ perMinute: 60, perDay: 2000 });
+    expect(requestLimits({ REQUESTS_PER_MINUTE: '10', REQUESTS_PER_DAY: '50' })).toEqual({ perMinute: 10, perDay: 50 });
+  });
+
+  it('counts the first request of a new minute and a new day', () => {
+    expect(checkRequest(undefined, undefined, opts())).toEqual({
+      ok: true, minute: { start: 100_000, count: 1 }, today: { day: '2026-11-20', count: 1 },
+    });
+  });
+
+  it('refuses once the minute is full and says how long to wait', () => {
+    const result = checkRequest({ start: 80_000, count: 3 }, { day: '2026-11-20', count: 3 }, opts());
+    expect(result).toEqual({ ok: false, reason: 'minute', retryAfter: 40 });
+  });
+
+  it('starts a fresh minute once 60 seconds have passed', () => {
+    const result = checkRequest({ start: 40_000, count: 3 }, { day: '2026-11-20', count: 3 }, opts());
+    expect(result).toMatchObject({ ok: true, minute: { start: 100_000, count: 1 } });
+  });
+
+  it('refuses once the day is full, even with room in the minute', () => {
+    expect(checkRequest(undefined, { day: '2026-11-20', count: 5 }, opts())).toMatchObject({ ok: false, reason: 'day' });
+  });
+
+  it('starts a fresh day at midnight', () => {
+    expect(checkRequest(undefined, { day: '2026-11-19', count: 5 }, opts())).toMatchObject({ ok: true, today: { count: 1 } });
+  });
+
+  it('lets receipt photos past a full minute but still counts them for the day', () => {
+    const result = checkRequest({ start: 80_000, count: 3 }, { day: '2026-11-20', count: 2 }, opts({ countMinute: false }));
+    expect(result).toEqual({ ok: true, minute: { start: 80_000, count: 3 }, today: { day: '2026-11-20', count: 3 } });
   });
 });

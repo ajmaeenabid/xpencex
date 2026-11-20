@@ -206,6 +206,17 @@ export function google(serviceAccountJson: string, projectId: string) {
     /** Full path of a document, or of a new one with a random id */
     docName: (collectionId: string, id: string = crypto.randomUUID().replace(/-/g, '')) => `${dbPath}/${collectionId}/${id}`,
 
+    /**
+     * How many documents a collection holds, without reading them: Firestore bills about one read
+     * per 1,000 documents counted (src/activity.ts uses it every hour)
+     */
+    async count(collectionId: string): Promise<number> {
+      const rows = await call<{ result?: { aggregateFields?: { n?: { integerValue?: string } } } }[]>(`${dbApi}:runAggregationQuery`, {
+        structuredAggregationQuery: { structuredQuery: { from: [{ collectionId }] }, aggregations: [{ alias: 'n', count: {} }] },
+      });
+      return Number(rows.find((r) => r.result)?.result?.aggregateFields?.n?.integerValue ?? 0);
+    },
+
     /** Runs a query and returns documents with every field type */
     async query(structuredQuery: unknown): Promise<TypedDoc[]> {
       const rows = await call<{ document?: { name: string; updateTime: string; fields?: Record<string, Value> } }[]>(`${dbApi}:runQuery`, { structuredQuery });

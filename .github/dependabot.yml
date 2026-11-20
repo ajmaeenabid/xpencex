@@ -1,0 +1,39 @@
+# Dependabot: GitHub opens a pull request when a package we use gets a security fix (chosen 2026-11-20).
+# Only security fixes: ordinary version updates are off (open-pull-requests-limit: 0).
+# Security fixes arrive when a problem is announced; the schedule below is required but only affects
+# ordinary updates. Each folder's fixes are grouped into one pull request.
+# Needs "Dependabot alerts" and "Dependabot security updates" turned on in the GitHub repo:
+# Settings > Advanced Security (or Code security).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      app-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /ai-server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      ai-server-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # The GitHub Actions in .github/workflows, locked to exact commits (security review item 11).
+  # Dependabot moves the lock when an action gets a security fix.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      actions-security:
+        applies-to: security-updates
+        patterns: ["*"]

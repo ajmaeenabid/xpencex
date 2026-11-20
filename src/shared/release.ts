@@ -11,6 +11,9 @@ export interface ReleaseInfo {
   versionName: string; // shown to people, e.g. "1.0.0"
   sizeMb?: number;
   notes?: { en?: string; bn?: string };
+  // Shown on the download page so people can check the file is genuine (scripts/apk-fingerprints.mjs)
+  certSha256?: string; // the signing key's fingerprint, the same for every version
+  apkSha256?: string; // this version's file
 }
 
 /** True when the website has a newer app than the one installed */

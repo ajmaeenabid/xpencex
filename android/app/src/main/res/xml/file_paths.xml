@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Files the app may hand to other apps through its FileProvider (sharing a CSV, backup or PDF).
+     Only the app's own cache folder, where src/shared/lib/nativeApp.ts writes them (Directory.Cache).
+     The template's external-path "." (all of shared storage) was removed: security review item 8, 2026-11-20. -->
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <external-path name="my_images" path="." />
     <cache-path name="my_cache_images" path="." />
 </paths>

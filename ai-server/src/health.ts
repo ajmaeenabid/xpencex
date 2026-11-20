@@ -4,8 +4,9 @@ import { google, encodeFields, Plain } from './google';
 // server can read or write it (firestore.rules has no rule for it), and the admin panel shows it.
 
 type Google = ReturnType<typeof google>;
-export type Job = 'loans' | 'rates';
-export const JOBS: Job[] = ['loans', 'rates'];
+// activity: the hourly count of new items (src/activity.ts)
+export type Job = 'loans' | 'rates' | 'activity';
+export const JOBS: Job[] = ['loans', 'rates', 'activity'];
 
 // The cron runs every hour, so more than this means at least one run was missed
 const LATE_MS = 2 * 60 * 60 * 1000;

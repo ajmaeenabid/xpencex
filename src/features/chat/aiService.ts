@@ -12,7 +12,8 @@ import { ACTION_RULES, cleanCategoryName } from "./agent/actions";
 const AI_URL = import.meta.env.VITE_AI_WORKER_URL as string | undefined;
 
 class AiError extends Error {
-  constructor(public status: number, message: string) {
+  // tooMany: the server's own request limit, which explains itself (see WorkerError)
+  constructor(public status: number, message: string, public tooMany = false) {
     super(message);
   }
 }
@@ -45,7 +46,7 @@ async function generate(parts: Part[], schema?: object): Promise<Generated> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     if (body.limits) limitsListener?.(body.limits);
-    throw new AiError(res.status, body.error || res.statusText);
+    throw new AiError(res.status, body.error || res.statusText, typeof body.tooMany === 'string');
   }
   const body = await res.json();
   if (body.limits) limitsListener?.(body.limits);
@@ -64,7 +65,7 @@ export async function transcribeVoice(audioData: string, mimeType: string): Prom
     return { words: typeof body.text === 'string' ? body.text : '' };
   } catch (error) {
     if (error instanceof WorkerError && error.status === 429) {
-      return { reply: { type: 'chat', content: friendly(new AiError(429, error.message), '') } };
+      return { reply: { type: 'chat', content: friendly(new AiError(429, error.message, error.tooMany), '') } };
     }
     return { words: '' };
   }
@@ -73,6 +74,7 @@ export async function transcribeVoice(audioData: string, mimeType: string): Prom
 // A used-up daily limit deserves a clear message; everything else gets the generic one
 const friendly = (error: unknown, fallback: string) => {
   if (!(error instanceof AiError)) return fallback;
+  if (error.status === 429 && error.tooMany && error.message) return error.message;
   if (error.status === 429) return "You've reached today's limit. It resets at midnight. You can still add expenses manually.";
   if (error.status === -1) return "I can't reach the AI server right now. Check your internet connection and try again.";
   // The server explains these itself (every model busy, out of quota, or retired), so show its words

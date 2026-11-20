@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Download, ShieldCheck, Smartphone, WifiOff } from 'lucide-react';
+import { Download, ShieldAlert, ShieldCheck, Smartphone, WifiOff } from 'lucide-react';
 import { useI18n } from '../../shared/i18n';
 import LanguageToggle from '../../shared/components/LanguageToggle';
 import PrivacyLink from '../../shared/components/PrivacyLink';
-import { APK_PATH, ReleaseInfo, VERSION_PATH } from '../../shared/release';
+import { APK_PATH, ReleaseInfo, SITE_URL, VERSION_PATH } from '../../shared/release';
 
 /**
  * What a browser shows at the website: Xpences is only used as the installed Android app,
@@ -51,6 +51,12 @@ export default function DownloadPage() {
           {notes && <p className="text-sm text-foreground/80 font-medium">{notes}</p>}
         </div>
 
+        {/* Fake copies of the app could be passed around in groups and chats, so say where the real one lives */}
+        <p className="flex items-start gap-3 p-4 rounded-2xl bg-card border border-indigo-200 dark:border-indigo-900 text-sm font-semibold leading-relaxed">
+          <ShieldAlert size={18} className="shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
+          {t('download.official', { site: new URL(SITE_URL).host })}
+        </p>
+
         <section className="space-y-3">
           <h2 className="font-bold text-lg">{t('download.howTitle')}</h2>
           <ol className="space-y-3">
@@ -69,8 +75,29 @@ export default function DownloadPage() {
           <Fact Icon={ShieldCheck} text={t('download.safe')} />
         </section>
 
+        {release?.certSha256 && (
+          <details className="p-4 rounded-2xl bg-card border border-card-border text-sm">
+            <summary className="font-bold cursor-pointer">{t('download.checkTitle')}</summary>
+            <div className="mt-3 space-y-3 text-muted font-medium leading-relaxed">
+              <p>{t('download.checkIntro')}</p>
+              <Code label={t('download.certLabel')} value={release.certSha256} />
+              {release.apkSha256 && <Code label={t('download.fileLabel')} value={release.apkSha256} />}
+              <p>{t('download.checkHow')}</p>
+            </div>
+          </details>
+        )}
+
         <footer className="text-center text-sm"><PrivacyLink /></footer>
       </div>
+    </div>
+  );
+}
+
+function Code({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold">{label}</p>
+      <p className="mt-1 font-mono text-xs text-foreground break-all select-all">{value}</p>
     </div>
   );
 }
