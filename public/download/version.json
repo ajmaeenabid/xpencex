@@ -1,9 +1,11 @@
 {
-  "versionCode": 7,
-  "versionName": "1.0.6",
-  "sizeMb": 9,
+  "versionCode": 8,
+  "versionName": "1.0.7",
+  "sizeMb": 5,
   "notes": {
-    "en": "A calmer Home with a side panel for extra cards, one Spending tab for expenses and reports, all settings in one place, temporary chats, and lots of fixes.",
-    "bn": "আরও গোছানো হোম আর বাড়তি কার্ডের জন্য পাশের প্যানেল, খরচ ও রিপোর্ট এক ট্যাবে, সব সেটিংস এক জায়গায়, অস্থায়ী চ্যাট, আর অনেক সমস্যার সমাধান।"
-  }
+    "en": "A security update: stronger protection for your account and data, clearer messages, and small fixes.",
+    "bn": "নিরাপত্তা আপডেট: আপনার অ্যাকাউন্ট ও তথ্যের জন্য আরও শক্ত সুরক্ষা, আরও পরিষ্কার বার্তা, আর ছোটখাটো সমাধান।"
+  },
+  "certSha256": "4F:26:AD:EA:57:D6:21:05:BC:CF:61:AA:A4:86:17:BA:B9:C6:AD:F8:EA:7E:94:9D:BD:57:72:22:1D:E4:28:B1",
+  "apkSha256": "D3:94:4B:14:67:5B:55:15:F8:8C:87:E6:18:47:16:AB:33:5B:A5:CD:79:E5:9A:50:0A:C7:1C:68:24:B3:CE:18"
 }
