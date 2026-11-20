@@ -9,7 +9,7 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { useAuth } from '../../app/App';
 import { Expense } from '../../shared/types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Banknote, Wallet, Clock, Tag, Landmark, Smartphone, ChevronRight, Sun, Moon, Eye, EyeOff, Calculator } from 'lucide-react';
+import { Banknote, Wallet, Clock, Tag, Landmark, Smartphone, ChevronRight, Sun, Moon, Eye, EyeOff, Calculator, PanelLeft } from 'lucide-react';
 import { CalculatorSheet, SpendingCharts } from '../../app/lazyParts';
 import LazyPart, { LoadingSpot } from '../../shared/components/LazyPart';
 import { format, startOfWeek } from 'date-fns';
@@ -26,7 +26,7 @@ import SpendingCard from './SpendingCard';
 import { RearrangeButton, RearrangeList, useRearrange } from '../../shared/components/Rearrange';
 import RunwayCard from './RunwayCard';
 import DebtsCard from '../debts/DebtsCard';
-import CashCard from './CashCard';
+import CashCheck from './CashCheck';
 import FundsCard from '../funds/FundsCard';
 import SamityCard from '../samity/SamityCard';
 import UpcomingCard from '../planned/UpcomingCard';
@@ -34,11 +34,21 @@ import ShoppingCard from '../shopping/ShoppingCard';
 import UnsortedCard, { useUnsortedExpenses } from '../expenses/UnsortedCard';
 
 // Movable cards, in their default order
-const HOME_SECTIONS = ['budget', 'saveNudge', 'unsorted', 'earned', 'spending', 'accounts', 'cash', 'runway', 'planned', 'shopping', 'debts', 'funds', 'samity', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
-import { useI18n, categoryLabel } from '../../shared/i18n';
+const HOME_SECTIONS = ['budget', 'saveNudge', 'unsorted', 'earned', 'spending', 'accounts', 'runway', 'planned', 'shopping', 'debts', 'funds', 'samity', 'calculator', 'loan', 'insights', 'categoryBudgets', 'charts', 'recent'];
+import { useI18n, categoryLabel, TKey } from '../../shared/i18n';
 import { CARD_SUB, CARD_TITLE } from '../../shared/lib/cardText';
 import SearchWindow, { SearchBar } from '../search/SearchWindow';
 import type { Place } from '../search/searchPlaces';
+import { PLACES } from '../search/searchPlaces';
+import { doc, updateDoc } from 'firebase/firestore';
+import { saved } from '../../shared/lib/offlineSave';
+import DetailSheet from '../../shared/components/DetailSheet';
+import { useFunds } from '../funds/fundService';
+import { fundPlan } from '../funds/funds';
+import { useSamities } from '../samity/samityService';
+import { samityStatus } from '../samity/samity';
+import HomePanel from './HomePanel';
+import { HomeCard, cardsOnHome, onHome, smartAlerts, toggleCard } from './homeCards';
 
 export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, onGoTo, onAskAi }: {
   onViewAll?: () => void;
@@ -53,6 +63,9 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
   const [calcUsed, setCalcUsed] = useState(false);
   useEffect(() => { if (calcOpen) setCalcUsed(true); }, [calcOpen]);
   const layout = useRearrange('home', HOME_SECTIONS);
+  // Home's side panel (homeCards.ts): which cards are on Home, kept on the account
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [detailCard, setDetailCard] = useState<HomeCard | null>(null);
   const { user, profile, isDarkMode, toggleDarkMode } = useAuth();
   // The person's money month (Profile > Month starts on): every "this month" on Home follows it
   const startDay = cleanStartDay(profile?.monthStart);
@@ -111,6 +124,59 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
   const unsorted = useUnsortedExpenses(user?.uid, startDay);
   const budget = profile?.monthlyBudget || 0;
   useReminderSync({ expenses, loans: openLoans, spentThisMonth: summary.month, budget, startDay });
+
+  // Which cards are on Home: the account's choice, shown straight away while it saves
+  const [homeCards, setHomeCards] = useState<string[] | undefined>(profile?.layout?.homeCards);
+  useEffect(() => { setHomeCards(profile?.layout?.homeCards); }, [profile?.layout?.homeCards]);
+  const cardsOn = cardsOnHome(homeCards);
+  const funds = useFunds(user?.uid || '');
+  const samities = useSamities(user?.uid || '');
+  const alertNow = new Date();
+  const alerts = smartAlerts({
+    loans: openLoans,
+    samityDates: samities.flatMap(s => { const next = samityStatus(s, alertNow).nextUnpaid; return next ? [next.date] : []; }),
+    goals: funds.map(f => ({ dueDate: f.dueDate, paused: f.paused, progress: fundPlan(f, alertNow).progress })),
+    now: alertNow,
+  });
+  const toggleHomeCard = (id: HomeCard) => {
+    if (!user) return;
+    const next = toggleCard(homeCards, id);
+    setHomeCards(next);
+    saved(updateDoc(doc(db, 'users', user.uid), { 'layout.homeCards': next }))
+      .catch(err => { console.error('Could not save the Home cards', err); setHomeCards(profile?.layout?.homeCards); });
+  };
+  // Tapping a card in the panel opens its own window, the same one its Home card opens
+  const openFromPanel = (id: HomeCard) => {
+    setPanelOpen(false);
+    const place = (pid: string) => PLACES.find(p => p.id === pid);
+    const go = (p?: Place) => { if (p) onGoTo?.(p); };
+    switch (id) {
+      case 'accounts': case 'loan': onManageAccounts?.(); return;
+      case 'spending': case 'recent': onViewAll?.(); return;
+      case 'charts': go(place('analysis')); return;
+      case 'earned': go({ id: 'earnedChart', tab: 'reports', section: 'earned' }); return;
+      case 'budget': go(place('budget')); return;
+      case 'categoryBudgets': go(place('categoryBudgets')); return;
+      case 'runway': case 'insights': setDetailCard(id); return;
+      default: {
+        // A card that is one button opening a window (goals, samity, lists...): tap it, on Home or in the hidden row
+        window.setTimeout(() => {
+          const button = document.querySelector<HTMLElement>(`[data-section="home:${id}"] > [data-card] > button, [data-home-card="${id}"] > button`);
+          button?.click();
+        }, 250);
+      }
+    }
+  };
+  // Cards switched off are still drawn out of sight, so their windows can open from the panel
+  let offHome: { id: string; node: React.ReactNode }[] = [];
+  const nodeOf: Record<string, React.ReactNode> = {};
+  const homeOnly = (all: { id: string; node: React.ReactNode }[]) => {
+    all.forEach(c => { nodeOf[c.id] = c.node; });
+    offHome = all.filter(c => !onHome(c.id, cardsOn, alerts));
+    return all.filter(c => onHome(c.id, cardsOn, alerts)).map(c => (c.node && !cardsOn.has(c.id) && alerts.has(c.id as never)
+      ? { ...c, node: <div className="space-y-1"><p className="px-3 text-[11px] font-bold text-amber-600 dark:text-amber-400">{t('homeCards.alert')}</p>{c.node}</div> }
+      : c));
+  };
   useWidgetSync(summary.today, summary.month, budget, useWidgetSettingsVersion());
   const remaining = budget - summary.month;
   const progress = budget > 0 ? Math.min((summary.month / budget) * 100, 100) : 0;
@@ -121,13 +187,23 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
   const insights = buildInsights(expenses, budget, categoryBudgets, fmt, new Date(), t, startDay);
 
   return (
-    <div className="space-y-8 pb-6">
-      <header className="flex items-center justify-between">
-        <div>
+    <div className="space-y-2 pb-6">
+      <header className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+        <button
+          onClick={() => setPanelOpen(true)}
+          aria-label={t('homeCards.open')}
+          title={t('homeCards.open')}
+          className="shrink-0 w-12 h-12 bg-card rounded-2xl shadow-soft border border-card-border flex items-center justify-center text-indigo-600 dark:text-indigo-400"
+        >
+          <PanelLeft size={20} />
+        </button>
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             {t('home.hi')} <span className="text-indigo-600 dark:text-indigo-400">{profile?.name?.split(' ')[0] || t('home.user')}</span>
           </h1>
           <p className="text-muted text-sm font-medium">{format(new Date(), 'EEEE, d MMMM', { locale: dateLocale })}</p>
+        </div>
         </div>
         <div className="flex items-center gap-2">
         <span data-tour="move-cards"><RearrangeButton layout={layout} /></span>
@@ -159,7 +235,7 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
       <SearchBar onOpen={() => setSearchOpen(true)} />
 
       {/* The cards below can be moved with the button at the top; the header stays */}
-      <RearrangeList layout={layout} className="space-y-8" sections={[
+      <RearrangeList layout={layout} className="space-y-2" sections={homeOnly([
       { id: 'budget', node: (
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
@@ -249,8 +325,11 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
               );
             })}
           </div>
+          {/* The Cash wallet's questions, only when one is due (CashCheck.tsx) */}
+          {user && <CashCheck uid={user.uid} accounts={accounts} expenses={expenses} symbol={currencySymbol} />}
         </div>
       ) : (
+        <div className="space-y-2">
         <button
           onClick={onManageAccounts}
           className="w-full flex items-center gap-3 p-4 bg-card rounded-[2rem] shadow-soft border border-dashed border-card-border text-left"
@@ -264,6 +343,9 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
           </div>
           <ChevronRight size={18} className="text-muted" />
         </button>
+        {/* No balance card yet, so the Cash wallet's first question gets a card of its own */}
+        {user && <CashCheck uid={user.uid} accounts={accounts} expenses={expenses} symbol={currencySymbol} framed />}
+        </div>
       ) },
 
       { id: 'calculator', node: (
@@ -279,7 +361,6 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
       </button>
       ) },
 
-      { id: 'cash', node: user && <CashCard uid={user.uid} accounts={accounts} expenses={expenses} symbol={currencySymbol} shown={allShown} /> },
 
       { id: 'runway', node: accounts.length > 0 && (
         <RunwayCard
@@ -352,62 +433,71 @@ export default function HomePage({ onViewAll, onManageAccounts, onSaveExpense, o
         </LazyPart>
       ) },
 
+      // Only the newest entry (chosen 2026-11-19); "Show all activity" opens Expenses with every entry
       { id: 'recent', node: (
-      <div className="space-y-5">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-lg font-bold flex items-center gap-2 dark:text-white">
-            <div className="w-8 h-8 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-              <Clock size={18} />
-            </div>
-            {t('home.recent')}
-          </h3>
-          <button onClick={onViewAll} className="text-indigo-600 dark:text-indigo-400 text-xs font-bold hover:underline">
-            {t('home.viewAll')}
-          </button>
-        </div>
+      <div className="bg-card p-5 rounded-[2rem] shadow-soft border border-card-border space-y-3">
+        <h3 className="text-base font-bold flex items-center gap-2 text-foreground">
+          <span className="w-8 h-8 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <Clock size={18} />
+          </span>
+          {t('home.recent')}
+        </h3>
 
-        <div className="space-y-4">
-          <AnimatePresence mode="popLayout">
-            {expenses.slice(0, 5).map((exp, index) => {
+        {expenses.length === 0 ? (
+          <p className="py-4 text-center text-sm font-bold text-muted">{t('home.noTransactions')}</p>
+        ) : (
+          <>
+            {expenses.slice(0, 1).map(exp => {
               const categoryConfig = DEFAULT_CATEGORIES.find(c => c.name === exp.category);
               const Icon = categoryConfig?.icon || Tag;
               return (
-                <motion.div
-                  key={exp.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="bg-card p-4 rounded-[1.5rem] shadow-soft border border-card-border flex items-center justify-between group hover:bg-background/80 transition-all"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm ${categoryConfig?.color || 'bg-slate-50 dark:bg-slate-800 text-muted'}`}>
-                      <Icon size={24} />
+                <motion.div key={exp.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center ${categoryConfig?.color || 'bg-slate-50 dark:bg-slate-800 text-muted'}`}>
+                      <Icon size={22} />
                     </div>
-                    <div>
-                      <p className="font-bold text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{exp.title}</p>
+                    <div className="min-w-0">
+                      <p className="font-bold text-foreground truncate">{exp.title}</p>
                       <p className="text-[12px] text-muted font-bold">{categoryLabel(t, exp.category)} • {format(new Date(exp.date), 'MMM d', { locale: dateLocale })}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-foreground text-lg">-{currencySymbol}{exp.amount.toLocaleString()}</p>
-                    <div className="w-full h-1 bg-indigo-600/0 group-hover:bg-indigo-600/20 rounded-full mt-1 transition-all" />
-                  </div>
+                  <p className="shrink-0 font-bold text-foreground text-lg tabular-nums">-{currencySymbol}{exp.amount.toLocaleString()}</p>
                 </motion.div>
               );
             })}
-          </AnimatePresence>
-          {expenses.length === 0 && (
-            <div className="text-center py-12 bg-card rounded-[2.5rem] border border-dashed border-card-border">
-              <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center mx-auto mb-4 text-muted">
-                <Clock size={32} />
-              </div>
-              <p className="text-foreground font-bold">{t('home.noTransactions')}</p>
-            </div>
-          )}
-        </div>
+            <button
+              onClick={onViewAll}
+              className="w-full h-11 rounded-2xl bg-background/50 text-indigo-600 dark:text-indigo-400 text-sm font-bold flex items-center justify-center gap-1 hover:bg-background/80 transition-colors"
+            >
+              {t('home.showAllActivity')} <ChevronRight size={16} />
+            </button>
+          </>
+        )}
       </div>
       ) },
-      ]} />
+      ])} />
+
+      {/* Cards that aren't on Home, out of sight, so the panel can open their windows */}
+      <div hidden>
+        {offHome.map(c => <div key={c.id} data-home-card={c.id}>{c.node}</div>)}
+      </div>
+
+      <HomePanel
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        on={cardsOn}
+        alerts={alerts}
+        onToggle={toggleHomeCard}
+        onOpenCard={openFromPanel}
+      />
+      <DetailSheet
+        open={!!detailCard}
+        onClose={() => setDetailCard(null)}
+        icon={<PanelLeft size={20} className="text-indigo-600 dark:text-indigo-400" />}
+        title={detailCard ? t(`homeCards.${detailCard}` as TKey) : ''}
+      >
+        {detailCard && nodeOf[detailCard]}
+      </DetailSheet>
 
       {calcUsed && (
       <LazyPart fallback={calcOpen ? <LoadingSpot className="fixed inset-0 z-50 bg-black/40" /> : null}>

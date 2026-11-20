@@ -3,7 +3,6 @@ import { Banknote } from 'lucide-react';
 import { Account, Expense } from '../../shared/types';
 import { cn } from '../../shared/lib/utils';
 import { useI18n } from '../../shared/i18n';
-import { HIDDEN } from '../accounts/ui';
 import { findWallet, shouldAskCashCount, unrecordedSpending } from '../accounts/cash';
 import { confirmCash, countCash, createWallet } from '../accounts/cashService';
 import { CARD_SUB, CARD_TITLE } from '../../shared/lib/cardText';
@@ -12,15 +11,18 @@ const field = 'w-full h-11 px-3 rounded-xl bg-background/60 border border-card-b
 const smallBtn = 'h-10 px-4 rounded-xl text-sm font-bold transition-colors disabled:opacity-50';
 
 /**
- * Home card for the Cash wallet. Before it exists: "How much cash do you have now?". After: the cash in
- * hand, and once a week (when cash spending has gone quiet) "Do you still have ৳X in cash?".
+ * The Cash wallet's two questions, shown inside Home's Total balance card only when needed (chosen 2026-11-19;
+ * it used to be a card of its own that mostly repeated the Cash balance). Before the wallet exists: "How much
+ * cash do you have now?". After: once a week, when cash spending has gone quiet, "Do you still have ৳X in cash?".
+ * The rest of the time it shows nothing; the cash itself is in the balance card, and is changed in My Accounts.
+ * `framed` gives it a card of its own, for when there is no balance card yet (no accounts).
  */
-export default function CashCard({ uid, accounts, expenses, symbol, shown }: {
+export default function CashCheck({ uid, accounts, expenses, symbol, framed = false }: {
   uid: string;
   accounts: Account[];
   expenses: Expense[]; // Home's recent expenses
   symbol: string;
-  shown: boolean;
+  framed?: boolean;
 }) {
   const { t } = useI18n();
   const wallet = findWallet(accounts);
@@ -60,10 +62,16 @@ export default function CashCard({ uid, accounts, expenses, symbol, shown }: {
     </div>
   );
 
+  const box = (content: React.ReactNode) => (
+    <div className={framed ? 'p-5 bg-card rounded-[2rem] shadow-soft border border-card-border space-y-3' : 'pt-3 border-t border-card-border space-y-3'}>
+      {content}
+    </div>
+  );
+
   // Not started yet: ask once how much cash there is (Skip starts at 0)
   if (!wallet) {
-    return (
-      <div className="p-5 bg-card rounded-[2rem] shadow-soft border border-card-border space-y-3">
+    return box(
+      <>
         {header(t('cash.startQuestion'))}
         <p className="text-xs text-muted font-medium leading-relaxed">{t('cash.startHint')}</p>
         <input type="number" min="0" step="0.01" inputMode="decimal" placeholder={`${symbol} 0`} aria-label={t('cash.startQuestion')} className={field} value={amount} onChange={(e) => setAmount(e.target.value)} />
@@ -72,7 +80,7 @@ export default function CashCard({ uid, accounts, expenses, symbol, shown }: {
           <button disabled={busy} onClick={() => run(() => createWallet(uid, 0))} className={cn(smallBtn, 'flex-1 bg-background/60 text-muted border border-card-border')}>{t('cash.skip')}</button>
           <button disabled={busy || !valid} onClick={() => run(() => createWallet(uid, typed))} className={cn(smallBtn, 'flex-1 bg-indigo-600 text-white')}>{t('cash.start')}</button>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -80,11 +88,13 @@ export default function CashCard({ uid, accounts, expenses, symbol, shown }: {
   const ask = shouldAskCashCount({ wallet, lastCashSpendAt });
   const missing = valid ? unrecordedSpending(wallet.balance, typed) : 0;
 
-  return (
-    <div className="p-5 bg-card rounded-[2rem] shadow-soft border border-card-border space-y-3">
-      {header(t('cash.inHandLine', { amount: shown ? money(wallet.balance) : `${symbol}${HIDDEN}` }))}
+  // Nothing to ask this week
+  if (!ask && !counting) return null;
 
-      {(ask || counting) && (
+  return box(
+    <>
+      {header(t('cash.sub'))}
+      {(
         <div className="p-3 rounded-xl bg-background/50 space-y-3">
           {!counting ? (
             <>
@@ -109,6 +119,6 @@ export default function CashCard({ uid, accounts, expenses, symbol, shown }: {
       )}
 
       {error && <p role="alert" className="text-xs font-semibold text-rose-500">{error}</p>}
-    </div>
+    </>
   );
 }

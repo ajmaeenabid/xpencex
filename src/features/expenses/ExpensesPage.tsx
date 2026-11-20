@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import SpendingSwitch from '../spending/SpendingSwitch';
+import type { SpendingSide } from '../spending/spending';
 import { db } from '../../shared/firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteField } from 'firebase/firestore';
 import { useAuth } from '../../app/App';
@@ -37,7 +39,7 @@ import { hasLabel, recentLabels } from '../labels/labels';
 // The category chip that shows only income (not a real category name)
 const INCOME_CHIP = '__income';
 
-export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) => void }) {
+export default function ExpensesPage({ onEdit, onSide }: { onEdit: (expense: Expense) => void; onSide: (side: SpendingSide) => void }) {
   const { user, profile, editIncome } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -85,6 +87,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
   // The filter sheet. A date filter reads exactly those dates instead of the recent months.
   const [filters, setFilters] = useState<TransactionFilters>(NO_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [saveFilterSignal, setSaveFilterSignal] = useState(0); // the Filters sheet's "Save this filter"
   const startDay = useStartDay();
   const bounds = filters.date ? dateBounds(filters.date, new Date(), startDay) : null;
   const since = bounds?.from ?? windowStart(months, new Date(), startDay);
@@ -173,7 +176,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
   const categories = Array.from(new Set(['All', INCOME_CHIP, ...expenses.map(e => e.category), filterCategory]));
 
   return (
-    <div className="space-y-8 pb-6">
+    <div className="space-y-2 pb-6">
       <header className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
         <button
@@ -185,7 +188,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
           <PanelLeft size={18} />
         </button>
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight truncate">{t('expenses.title')}</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight truncate">{t('spending.title')}</h1>
           <p className="text-indigo-600 dark:text-indigo-400 font-bold text-xs">{t('expenses.count', { count: filteredExpenses.length })}</p>
         </div>
         </div>
@@ -224,9 +227,10 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
         />
         </div>
       </header>
+      <SpendingSwitch side="expenses" onSide={onSide} />
 
       {/* Search & Filter */}
-      <div className="space-y-5">
+      <div className="space-y-2">
         <div className="flex items-center gap-2">
           <div className="relative group flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={20} />
@@ -250,7 +254,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
           </button>
         </div>
         <FilterChips filters={filters} setFilters={setFilters} accounts={accounts} symbol={currencySymbol} />
-        <FilterSheet open={filtersOpen} onClose={() => setFiltersOpen(false)} value={filters} onApply={setFilters} accounts={accounts} labels={filterLabels} />
+        <FilterSheet open={filtersOpen} onClose={() => setFiltersOpen(false)} value={filters} onApply={setFilters} onSave={next => { setFilters(next); setSaveFilterSignal(n => n + 1); }} accounts={accounts} labels={filterLabels} />
         {user && (
           <SavedFilterRow
             uid={user.uid}
@@ -258,6 +262,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
             category={filterCategory}
             accountIds={accounts.map(a => a.id)}
             onApply={(next, category) => { setFilters(next); setFilterCategory(category); }}
+            saveSignal={saveFilterSignal}
           />
         )}
 
@@ -279,7 +284,7 @@ export default function ExpensesPage({ onEdit }: { onEdit: (expense: Expense) =>
       </div>
 
       {/* List */}
-      <div className="space-y-4">
+      <div className="space-y-2">
         <AnimatePresence>
           {deletingId && (
             <motion.div

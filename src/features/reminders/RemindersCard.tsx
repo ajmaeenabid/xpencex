@@ -7,7 +7,7 @@ import { useI18n, TKey } from '../../shared/i18n';
 import { cn } from '../../shared/lib/utils';
 import { saved } from '../../shared/lib/offlineSave';
 import { isNative } from '../../shared/lib/nativeApp';
-import { CARD_SUB, CARD_TITLE } from '../../shared/lib/cardText';
+import { CARD_SUB, CARD_TITLE, ROW_BUTTON, RowLook } from '../../shared/lib/cardText';
 import DetailSheet from '../../shared/components/DetailSheet';
 import Select from '../../shared/components/Select';
 import { REMINDER_KINDS, ReminderKind, reminderSettings } from './reminders';
@@ -26,7 +26,7 @@ const tile = 'w-10 h-10 shrink-0 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl f
  * Profile: one short row (what's on, and when the daily one comes); tapping it opens a sheet with
  * a switch for each kind and the daily time. All on unless switched off.
  */
-export default function RemindersCard() {
+export default function RemindersCard({ look = 'card' }: { look?: RowLook }) {
   const { user, profile, refreshProfile } = useAuth();
   const { t } = useI18n();
   const settings = reminderSettings(profile?.reminders);
@@ -65,7 +65,7 @@ export default function RemindersCard() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="w-full bg-card p-6 rounded-3xl shadow-sm border border-card-border flex items-center gap-3 text-left transition-colors hover:border-indigo-500/40"
+        className={ROW_BUTTON[look]}
       >
         <div className={tile}>{allowed === false && isNative() ? <BellOff size={20} /> : <Bell size={20} />}</div>
         <div className="flex-1 min-w-0">

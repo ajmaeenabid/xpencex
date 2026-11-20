@@ -33,8 +33,9 @@ function useSavedFilters(uid: string | undefined) {
 }
 
 /** Saved filters on the Expenses screen: tap to apply, tap again to clear, press and hold to rename or delete */
-export default function SavedFilterRow({ uid, filters, category, accountIds, onApply }: {
+export default function SavedFilterRow({ uid, filters, category, accountIds, onApply, saveSignal = 0 }: {
   uid: string;
+  saveSignal?: number; // goes up when the Filters sheet's "Save this filter" is tapped: open the naming sheet
   filters: TransactionFilters;
   category: string;
   accountIds: string[];
@@ -47,6 +48,8 @@ export default function SavedFilterRow({ uid, filters, category, accountIds, onA
   const held = useRef(false);
   const showing = list.find(s => isShowing(s, filters, category));
   const canSave = isFiltering(filters, category) && !showing;
+  // From the Filters sheet: the filters are applied by now, so name them (unless exactly these are already saved)
+  useEffect(() => { if (saveSignal > 0 && canSave) setSheet({}); }, [saveSignal]); // eslint-disable-line react-hooks/exhaustive-deps
   if (list.length === 0 && !canSave) return null;
 
   const startHold = (item: SavedFilter) => {

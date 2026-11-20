@@ -7,6 +7,7 @@ import { useI18n, TKey } from '../../shared/i18n';
 import { cn } from '../../shared/lib/utils';
 import FullWindow from '../../shared/components/FullWindow';
 import { AccountNotice, latestNotices } from '../admin/admin';
+import { ROW_BUTTON, RowLook } from '../../shared/lib/cardText';
 
 /** How each kind of notice looks: a short title, an icon and its colour */
 const KINDS: Record<AccountNotice['type'], { title: TKey; icon: LucideIcon; tone: string }> = {
@@ -21,7 +22,7 @@ const KINDS: Record<AccountNotice['type'], { title: TKey; icon: LucideIcon; tone
  * Profile row for what the admin did to this account (written by the server, read-only here).
  * The row shows how many notices there are and the newest date; tapping it opens a window with all of them.
  */
-export default function AccountNotices({ uid }: { uid: string }) {
+export default function AccountNotices({ uid, look = 'card' }: { uid: string; look?: RowLook }) {
   const { t, dateLocale } = useI18n();
   const [notices, setNotices] = useState<AccountNotice[]>([]);
   const [open, setOpen] = useState(false);
@@ -45,7 +46,7 @@ export default function AccountNotices({ uid }: { uid: string }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="w-full bg-card p-6 rounded-3xl shadow-sm border border-card-border flex items-center gap-3 text-left transition-colors hover:border-indigo-500/40"
+        className={ROW_BUTTON[look]}
       >
         <div className="w-10 h-10 shrink-0 bg-amber-50 dark:bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-400">
           <ShieldAlert size={20} />
@@ -60,6 +61,7 @@ export default function AccountNotices({ uid }: { uid: string }) {
       <FullWindow
         open={open}
         atRoot
+        above={look === 'row'}
         onClose={() => setOpen(false)}
         onBack={() => setOpen(false)}
         pageKey="notices"

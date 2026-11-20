@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { logoSvg } from '../shared/brand/logoSvg';
 import { useI18n } from '../shared/i18n';
 import { appStartup } from './startup';
+import HangingBanner from './HangingBanner';
 
 // Plays once every time the app is opened fresh, over the app while it gets ready behind it (about 2 seconds,
 // no skip). It starts exactly like the phone's opening screen (the logo in the middle of a cream screen,
 // see scripts/make-icons.mjs), so the switch is seamless:
 //   0.3s  the right eye opens and winks again, then the taka sign hops (timed in logoSvg.ts)
 //   0.85s the logo moves up and the first X appears below it
-//   1.15s "pences" appears letter by letter, pushing the first X to the left, until "Xpences" stands in the middle
+//   1.15s "pences" appears letter by letter, pushing the first X to the left, until "Xpences" stands in the middle.
+//         A "খরচ" paper sign tied to the tail of the p comes in with it and swings as the word moves (HangingBanner.tsx)
 //   2.0s  fades into the app, or, if the app is still checking the sign-in (slow internet after a long break),
 //         the logo pulses gently until it is ready, so no separate loading spinner appears
 //   5s    a short "getting ready" line shows below, so a long wait doesn't look stuck
@@ -28,6 +30,7 @@ export default function OpeningAnimation() {
   const [slow, setSlow] = useState(false);
   const [gaveUp, setGaveUp] = useState(false);
   const still = useReducedMotion();
+  const pRef = useRef<HTMLSpanElement>(null); // the p, whose tail holds the banner's rope
 
   useEffect(() => {
     const timers = [
@@ -80,6 +83,7 @@ export default function OpeningAnimation() {
               {LETTERS.map((letter, i) => (
                 <motion.span
                   key={i}
+                  ref={i === 0 ? pRef : undefined}
                   initial={still ? false : { width: 0, opacity: 0 }}
                   animate={{ width: 'auto', opacity: 1 }}
                   transition={{ delay: 1.15 + i * 0.09, duration: 0.22, ease: 'easeOut' }}
@@ -90,6 +94,8 @@ export default function OpeningAnimation() {
               ))}
             </div>
           </motion.div>
+
+          <HangingBanner letterRef={pRef} still={!!still} />
 
           {/* Only during a long wait. Placed apart near the bottom, so the logo stays exactly where the phone's opening screen put it. */}
           <motion.p

@@ -13,7 +13,16 @@ import { saved } from '../../shared/lib/offlineSave';
 
 const newChatId = () => doc(collection(db, 'chats')).id;
 
-/** Saved chats: loading, saving after every change, the 20-chat limit, pins, rename, delete, and switching chats */
+// A temporary chat explains itself once, the first time; after that it starts straight away
+const TEMP_EXPLAINED_KEY = 'xpences-temporary-chat-explained';
+const tempExplained = () => { try { return localStorage.getItem(TEMP_EXPLAINED_KEY) === '1'; } catch { return false; } };
+const markTempExplained = () => { try { localStorage.setItem(TEMP_EXPLAINED_KEY, '1'); } catch { /* explains again next time */ } };
+
+/**
+ * Saved chats: loading, saving after every change, the 20-chat limit, pins, rename, delete, and switching chats.
+ * A temporary chat (chosen 2026-11-19) is never saved: it lives only on screen, and ends with Leave, a new chat,
+ * opening another chat, leaving the chat tab or closing the app. Expenses confirmed in it are still saved.
+ */
 export function useChatHistory({
   user, t, messages, setMessages, setInput, setLimitNote, setLimitNoteVars, resetChatExtras, loading, isRecording, liveState,
 }: {
@@ -39,6 +48,7 @@ export function useChatHistory({
   const [saveError, setSaveError] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [temporary, setTemporary] = useState(false);
   // Chats that already exist in Firestore, so the title is only set on the first save
   const savedIdsRef = useRef<Set<string>>(new Set());
   // Set when messages were just loaded from history, so opening a chat doesn't re-save it
@@ -75,7 +85,7 @@ export function useChatHistory({
   const activeIsSaved = savedIdsRef.current.has(activeId);
 
   const saveChat = () => {
-    if (!user || messages.length === 0) return;
+    if (!user || messages.length === 0 || temporary) return;
     // Never write an OTP / PIN to the database, not even briefly; it's removed first, then this saves again
     if (messages.some(m => containsSecret(m.content || ''))) return;
     const isNew = !savedIdsRef.current.has(activeId);
@@ -125,7 +135,7 @@ export function useChatHistory({
   // A chat that couldn't be saved gets saved as soon as there's room, or once the history has loaded
   useEffect(() => {
     if (chatsLoaded && newChatPlan.canSave && !savedIdsRef.current.has(activeId)) saveChat();
-  }, [chatsLoaded, newChatPlan.canSave]);
+  }, [chatsLoaded, newChatPlan.canSave, temporary]);
 
   const togglePin = (chat: Chat) => {
     if (!chat.pinned && !canPinMore(chats)) {
@@ -140,6 +150,7 @@ export function useChatHistory({
   const startNewChat = () => {
     if (loading || isRecording || liveState) return;
     skipSaveRef.current = messages.length > 0;
+    setTemporary(false);
     setMessages([]);
     setActiveId(newChatId());
     setInput('');
@@ -151,10 +162,38 @@ export function useChatHistory({
     if (chat.id === activeId) { setSidebarOpen(false); return; }
     if (loading || isRecording || liveState) return;
     skipSaveRef.current = true;
+    setTemporary(false);
     setActiveId(chat.id);
     setMessages(unpackMessages(chat.messages || []));
     setInput('');
     setSidebarOpen(false);
+    resetChatExtras();
+  };
+
+  /** Starts a chat that is never saved (explained the first time) */
+  const startTemporaryChat = async () => {
+    if (loading || isRecording || liveState) return;
+    if (!tempExplained()) {
+      if (!(await confirmDialog(t('chat.temp.explain'), { okLabel: t('chat.temp.ok') }))) return;
+      markTempExplained();
+    }
+    skipSaveRef.current = messages.length > 0;
+    setTemporary(true);
+    setMessages([]);
+    setActiveId(newChatId());
+    setInput('');
+    setSidebarOpen(false);
+    resetChatExtras();
+  };
+
+  /** Ends a temporary chat: what was said is gone, and a normal new chat starts */
+  const leaveTemporaryChat = () => {
+    if (!temporary) return;
+    skipSaveRef.current = messages.length > 0;
+    setTemporary(false);
+    setMessages([]);
+    setActiveId(newChatId());
+    setInput('');
     resetChatExtras();
   };
 
@@ -185,5 +224,6 @@ export function useChatHistory({
     chats, chatsLoaded, activeId, activeIsSaved, newChatPlan, saveError, pinFullNote, notSavedClosedFor, setNotSavedClosedFor,
     sidebarOpen, setSidebarOpen, renamingId, setRenamingId, renameValue, setRenameValue,
     togglePin, startNewChat, openChat, commitRename, deleteChat,
+    temporary, startTemporaryChat, leaveTemporaryChat,
   };
 }

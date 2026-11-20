@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { PanelLeft } from 'lucide-react';
+import SpendingSwitch from '../spending/SpendingSwitch';
+import type { SpendingSide } from '../spending/spending';
 import MonthCompareCard from './MonthCompareCard';
 import { EarnedChart } from '../income/IncomeCards';
 import { REPORTS_MONTHS, fetchAllExpenses, windowStart } from '../expenses/expenseQueries';
@@ -29,7 +32,7 @@ import NeedsWantsCard from './NeedsWantsCard';
 // Movable cards, in their default order
 const REPORT_SECTIONS = ['export', 'earned', 'compare', 'analysis', 'needsWants', 'labels', 'accounts', 'fees', 'regret', 'monthly', 'breakdown'];
 
-export default function ReportsPage() {
+export default function ReportsPage({ onSide, onOpenPanel }: { onSide: (side: SpendingSide) => void; onOpenPanel: () => void }) {
   const { user, profile, isDarkMode } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const accounts = useAccounts(user?.uid);
@@ -95,17 +98,29 @@ export default function ReportsPage() {
   const COLORS = ['#F97C45', '#14b8a6', '#F5B942', '#EE5578', '#9B7BD4', '#4AA3DF'];
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-2 pb-6">
+      {/* The same header as the Expenses side (they are one Spending tab), so switching sides doesn't jump */}
       <header className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-foreground">{t('reports.title')}</h1>
-          <p className="text-muted text-sm font-medium">{t('reports.subtitle')}</p>
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={onOpenPanel}
+            title={t('expenses.settings')}
+            aria-label={t('expenses.settings')}
+            className="shrink-0 w-10 h-10 bg-card rounded-xl shadow-soft border border-card-border flex items-center justify-center text-indigo-600 dark:text-indigo-400"
+          >
+            <PanelLeft size={18} />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight truncate">{t('spending.title')}</h1>
+            <p className="text-indigo-600 dark:text-indigo-400 font-bold text-xs truncate">{t('reports.subtitle')}</p>
+          </div>
         </div>
         <RearrangeButton layout={layout} />
       </header>
+      <SpendingSwitch side="reports" onSide={onSide} />
 
       {/* The cards below can be moved with the button at the top; the header stays */}
-      <RearrangeList layout={layout} className="space-y-6" sections={[
+      <RearrangeList layout={layout} className="space-y-2" sections={[
       { id: 'export', node: (
       <div className="grid grid-cols-2 gap-3">
         <button

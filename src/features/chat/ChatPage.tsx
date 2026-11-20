@@ -252,6 +252,7 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
     chats, chatsLoaded, activeId, activeIsSaved, newChatPlan, saveError, pinFullNote, notSavedClosedFor, setNotSavedClosedFor,
     sidebarOpen, setSidebarOpen, renamingId, setRenamingId, renameValue, setRenameValue,
     togglePin, startNewChat, openChat, commitRename, deleteChat,
+    temporary, startTemporaryChat, leaveTemporaryChat,
   } = useChatHistory({
     user, t, messages, setMessages, setInput, setLimitNote, setLimitNoteVars, resetChatExtras, loading, isRecording, liveState,
   });
@@ -447,6 +448,8 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
       setAttachMenuOpen(false);
       stopRecording(true);
       liveRef.current?.finish('user');
+      // A temporary chat is gone once you leave the chat
+      leaveTemporaryChat();
     }
   }, [active]);
 
@@ -565,6 +568,10 @@ export default function ChatPage({ active = true, incomingText, onIncomingHandle
         onNewChat={startNewChat}
         showNotSaved={chatsLoaded && !activeIsSaved && !newChatPlan.canSave && notSavedClosedFor !== activeId}
         onDismissNotSaved={() => setNotSavedClosedFor(activeId)}
+        temporary={temporary}
+        canStartTemporary={!busy}
+        onStartTemporary={startTemporaryChat}
+        onLeaveTemporary={leaveTemporaryChat}
       />
 
       <ChatSwitch view={view} setView={setView} waiting={waitingCount} />

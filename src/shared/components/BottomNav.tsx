@@ -1,4 +1,5 @@
-import { Home, List, Plus, PieChart, MessageSquare, User } from 'lucide-react';
+import { Home, List, Plus, MessageSquare, User } from 'lucide-react';
+import { isSpendingTab } from '../../features/spending/spending';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import { useI18n } from '../i18n';
@@ -19,8 +20,9 @@ export default function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
     { id: 'home', icon: Home, label: t('nav.home') },
     { id: 'chat', icon: MessageSquare, label: t('nav.chat') },
     { id: 'add', icon: Plus, label: t('nav.add'), isSpecial: true },
-    { id: 'expenses', icon: List, label: t('nav.expenses') },
-    { id: 'reports', icon: PieChart, label: t('nav.reports') },
+    // Spending: Expenses and Reports together, so there are two tabs on each side of the + button.
+    // It lights up on both pages; App opens it on the side used last.
+    { id: 'expenses', icon: List, label: t('nav.spending') },
     { id: 'profile', icon: User, label: t('nav.profile') },
   ];
 
@@ -36,7 +38,7 @@ export default function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
-        const isActive = activeTab === tab.id;
+        const isActive = activeTab === tab.id || (tab.id === 'expenses' && isSpendingTab(activeTab));
 
         if (tab.isSpecial) {
           return (

@@ -26,6 +26,7 @@ import LazyPart from '../shared/components/LazyPart';
 import { revealSection } from '../features/search/revealSection';
 import type { Place } from '../features/search/searchPlaces';
 import { OPEN_EXPENSE_SETTINGS } from '../features/expenses/ExpenseSettings';
+import { openSettings } from '../features/settings/settings';
 import ProfilePage from '../features/profile/ProfilePage';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAutoDriveBackup } from '../features/connect/useAutoDriveBackup';
@@ -38,6 +39,8 @@ import ReminderAsk, { markAsked, wasAsked } from '../features/reminders/Reminder
 import { onReminderTap, remindersAllowed } from '../features/reminders/reminderService';
 import { processDueIncome } from '../features/income/incomeService';
 import { setErrorScreen } from '../shared/lib/errorReports';
+import { isSpendingTab, lastSpendingSide, rememberSpendingSide } from '../features/spending/spending';
+import { useSwipe } from '../shared/lib/swipe';
 
 const lightTheme = {
   background: '#FFF8F2',
@@ -90,6 +93,10 @@ export default function App() {
   const [sessionKey, setSessionKey] = useState(0);
   const onPinUnlocked = useBackgroundLock();
   const [activeTab, setActiveTab] = useState('home');
+  // Spending (Expenses and Reports in one bottom bar tab): remember the side last shown, and swipe between them
+  useEffect(() => { if (isSpendingTab(activeTab)) rememberSpendingSide(activeTab); }, [activeTab]);
+  const spendingSwipe = useSwipe(direction => setActiveTab(direction === 'left' ? 'reports' : 'expenses'), isSpendingTab(activeTab));
+  const openExpenseSettings = () => { setActiveTab('expenses'); window.setTimeout(() => window.dispatchEvent(new Event(OPEN_EXPENSE_SETTINGS)), 120); };
   // Bumped by Home's "Manage" links so Profile opens straight into the My Accounts window.
   // Reset to 0 on any bottom-bar tab change, so a later visit to Profile shows its rows instead.
   const [openAccountsSignal, setOpenAccountsSignal] = useState(0);
@@ -392,7 +399,9 @@ export default function App() {
     setActiveTab(place.tab);
     // A card in the Expenses side panel: open the panel once the page is there, then find the card
     if (place.panel) window.setTimeout(() => window.dispatchEvent(new Event(OPEN_EXPENSE_SETTINGS)), 120);
-    if (place.section) revealSection(`${place.tab}:${place.section}`, !!place.open);
+    // A setting in the Settings window on Profile: open the window (on the right page), then find the row there
+    if (place.settings) window.setTimeout(() => openSettings(place.settings === true ? undefined : place.settings), 120);
+    if (place.section) revealSection(`${place.settings ? 'settings' : place.tab}:${place.section}`, !!place.open);
   };
 
   const renderPage = (tab: string) => {
@@ -406,7 +415,7 @@ export default function App() {
           onAskAi={text => { setChatDraft(text); setActiveTab('chat'); }}
         />
       );
-      case 'expenses': return <ExpensesPage onEdit={(exp) => { setEditingExpense(exp); setActiveTab('add'); }} />;
+      case 'expenses': return <ExpensesPage onEdit={(exp) => { setEditingExpense(exp); setActiveTab('add'); }} onSide={setActiveTab} />;
       case 'add': return (
         <AddExpensePage
           key={editingExpense?.id || editingIncome?.id || `new-${prefillAmount ?? ''}-${prefillPeople ?? ''}`}
@@ -417,7 +426,7 @@ export default function App() {
           onComplete={() => { setEditingExpense(null); setEditingIncome(null); setPrefillAmount(null); setPrefillPeople(null); setActiveTab('expenses'); }}
         />
       );
-      case 'reports': return <LazyPart><ReportsPage /></LazyPart>;
+      case 'reports': return <LazyPart><ReportsPage onSide={setActiveTab} onOpenPanel={openExpenseSettings} /></LazyPart>;
       case 'chat': return null; // rendered below, outside the page transition
       case 'profile': return <ProfilePage openAccountsSignal={openAccountsSignal} />;
       default: return <HomePage onViewAll={() => setActiveTab('expenses')} />;
@@ -450,6 +459,7 @@ export default function App() {
               animate={{ opacity: activeTab === tab ? 1 : 0 }}
               transition={PAGE_FADE}
               className={activeTab === tab ? 'max-w-md mx-auto px-4 pt-6' : 'hidden'}
+              {...(isSpendingTab(tab) ? spendingSwipe : {})}
             >
               {renderPage(tab)}
             </motion.div>
@@ -481,7 +491,9 @@ export default function App() {
             </motion.div>
           )}
         </div>
-        {!keyboardOpen && <BottomNav activeTab={activeTab} setActiveTab={(tab) => { setEditingExpense(null); setEditingIncome(null); setPrefillAmount(null); setPrefillPeople(null); setOpenAccountsSignal(0); setActiveTab(tab); }} />}
+        {!keyboardOpen && <BottomNav activeTab={activeTab} setActiveTab={(tab) => { setEditingExpense(null); setEditingIncome(null); setPrefillAmount(null); setPrefillPeople(null); setOpenAccountsSignal(0);
+          // The Spending tab opens on the side used last; tapping it again stays where it is
+          setActiveTab(tab === 'expenses' ? (isSpendingTab(activeTab) ? activeTab : lastSpendingSide()) : tab); }} />}
         <UpdateNotice />
       </div>
     </AuthContext.Provider>

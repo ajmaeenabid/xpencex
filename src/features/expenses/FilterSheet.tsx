@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { SlidersHorizontal } from 'lucide-react';
+import { BookmarkPlus, SlidersHorizontal } from 'lucide-react';
 import { useI18n, TKey } from '../../shared/i18n';
 import { cn } from '../../shared/lib/utils';
 import DetailSheet from '../../shared/components/DetailSheet';
@@ -8,7 +8,7 @@ import DateField from '../../shared/components/DateField';
 import Select from '../../shared/components/Select';
 import type { Account } from '../../shared/types';
 import { accountDisplayName } from '../accounts/accounts';
-import { DatePreset, NO_FILTERS, TransactionFilters } from './transactionFilters';
+import { DatePreset, NO_FILTERS, TransactionFilters, activeCount } from './transactionFilters';
 
 const chip = (on: boolean) => cn('px-3 py-2 rounded-xl text-xs font-bold border transition-colors',
   on ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-background/50 text-muted border-card-border');
@@ -23,11 +23,12 @@ const PRESETS: { id: DatePreset; label: TKey }[] = [
 ];
 
 /** The Transactions filter sheet: changes apply only on Apply; Clear turns every filter off */
-export default function FilterSheet({ open, onClose, value, onApply, accounts, labels }: {
+export default function FilterSheet({ open, onClose, value, onApply, onSave, accounts, labels }: {
   open: boolean;
   onClose: () => void;
   value: TransactionFilters;
   onApply: (filters: TransactionFilters) => void;
+  onSave: (filters: TransactionFilters) => void; // apply, then name and keep it as a saved filter
   accounts: Account[];
   labels: string[]; // the labels on the entries being shown
 }) {
@@ -46,12 +47,14 @@ export default function FilterSheet({ open, onClose, value, onApply, accounts, l
   const today = format(new Date(), 'yyyy-MM-dd');
   const amount = (s: string) => { const n = parseFloat(s); return Number.isFinite(n) && n >= 0 ? n : null; };
 
-  const apply = () => {
+  const chosen = (): TransactionFilters => {
     let date = draft.date;
     if (date?.preset === 'custom' && (!date.from || !date.to)) date = null; // an unfinished custom range is ignored
-    onApply({ ...draft, date, minAmount: amount(min), maxAmount: amount(max) });
-    onClose();
+    return { ...draft, date, minAmount: amount(min), maxAmount: amount(max) };
   };
+  const apply = () => { onApply(chosen()); onClose(); };
+  const save = () => { onSave(chosen()); onClose(); };
+  const nothingChosen = activeCount(chosen()) === 0;
 
   return (
     <DetailSheet
@@ -61,6 +64,13 @@ export default function FilterSheet({ open, onClose, value, onApply, accounts, l
       title={t('filters.title')}
       footer={(
         <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={save}
+            disabled={nothingChosen}
+            className="col-span-2 h-11 rounded-xl text-sm font-bold border border-dashed border-indigo-300 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center gap-1.5 disabled:opacity-40"
+          >
+            <BookmarkPlus size={16} /> {t('filters.saveThis')}
+          </button>
           <button onClick={() => { onApply(NO_FILTERS); onClose(); }} className="h-11 rounded-xl text-sm font-bold bg-card text-muted border border-card-border">{t('filters.clear')}</button>
           <button onClick={apply} className="h-11 rounded-xl text-sm font-bold bg-indigo-600 text-white">{t('filters.apply')}</button>
         </div>

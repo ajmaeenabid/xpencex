@@ -4,6 +4,8 @@
 // Each place has a title and search words in both languages (search.<id> and search.<id>.kw in i18n);
 // the English words are always searched too, so "bkash" or "pdf" work in Bangla as well.
 
+import type { SettingsPage } from '../settings/settings';
+
 export type PlaceTab = 'home' | 'expenses' | 'add' | 'reports' | 'profile' | 'chat';
 
 export interface Place {
@@ -12,6 +14,9 @@ export interface Place {
   section?: string; // the card's id on that page (RearrangeList)
   open?: boolean;
   panel?: boolean; // the card is in the Expenses side panel (ExpenseSettings.tsx), which opens first
+  // the setting is in the Settings window on Profile (features/settings), which opens first: on one of its
+  // pages, or (true) on its list; `section` is then the row or page there ("settings:<section>")
+  settings?: SettingsPage | true;
   action?: 'darkMode';
 }
 
@@ -22,7 +27,7 @@ export const PLACES: Place[] = [
 
   { id: 'homeBudget', tab: 'home', section: 'budget' },
   { id: 'homeAccounts', tab: 'home', section: 'accounts' },
-  { id: 'cash', tab: 'home', section: 'cash' },
+  { id: 'cash', tab: 'home', section: 'accounts' }, // the Cash wallet's questions are in the balance card
   { id: 'calculator', tab: 'home', section: 'calculator', open: true },
   { id: 'debts', tab: 'home', section: 'debts', open: true },
   { id: 'funds', tab: 'home', section: 'funds', open: true },
@@ -44,23 +49,24 @@ export const PLACES: Place[] = [
   { id: 'breakdown', tab: 'reports', section: 'breakdown' },
 
   { id: 'accounts', tab: 'profile', section: 'accounts', open: true },
-  { id: 'pin', tab: 'profile', section: 'pin' },
-  { id: 'language', tab: 'profile', section: 'language' },
-  { id: 'currency', tab: 'profile', section: 'currency' },
-  { id: 'monthStart', tab: 'profile', section: 'monthStart' },
+  { id: 'settings', tab: 'profile', section: 'settings', open: true },
+  { id: 'pin', tab: 'profile', section: 'pinPage', settings: 'pin' },
+  { id: 'language', tab: 'profile', section: 'language', settings: true },
+  { id: 'currency', tab: 'profile', section: 'currencyPage', settings: 'currency' },
+  { id: 'monthStart', tab: 'profile', section: 'monthStartPage', settings: 'monthStart' },
   { id: 'budget', tab: 'expenses', section: 'budget', panel: true },
   { id: 'categoryBudgets', tab: 'expenses', section: 'categoryBudgets', panel: true },
   { id: 'recurring', tab: 'expenses', section: 'recurring', panel: true },
   { id: 'warranties', tab: 'expenses', section: 'warranties', panel: true },
-  { id: 'reminders', tab: 'profile', section: 'reminders', open: true },
-  { id: 'widget', tab: 'profile', section: 'widget' },
-  { id: 'google', tab: 'profile', section: 'connectedApps', open: true },
-  { id: 'backup', tab: 'profile', section: 'backup' },
-  { id: 'importFile', tab: 'profile', section: 'backup' },
+  { id: 'reminders', tab: 'profile', section: 'reminders', open: true, settings: true },
+  { id: 'widget', tab: 'profile', section: 'widgetPage', settings: 'widget' },
+  { id: 'google', tab: 'profile', section: 'connectedApps', open: true, settings: true },
+  { id: 'backup', tab: 'profile', section: 'backupPage', settings: 'backup' },
+  { id: 'importFile', tab: 'profile', section: 'backupPage', settings: 'backup' },
   { id: 'feedback', tab: 'profile', section: 'feedback', open: true },
   { id: 'categories', tab: 'expenses', section: 'categories', panel: true },
   { id: 'categoryRules', tab: 'expenses', section: 'categoryRules', panel: true },
-  { id: 'activity', tab: 'profile', section: 'notices' },
+  { id: 'activity', tab: 'profile', section: 'notices', settings: true },
 
   { id: 'darkMode', tab: 'home', action: 'darkMode' },
 ];

@@ -11,7 +11,7 @@ export interface UserProfile {
   monthStart?: number;
   categoryBudgets?: Record<string, number>;
   spendingTypes?: Record<string, 'need' | 'want'>; // which categories count as needs or wants (features/reports/needsWants.ts)
-  layout?: Partial<Record<'home' | 'reports' | 'profile', string[]>>; // order of the movable cards per page
+  layout?: Partial<Record<'home' | 'reports' | 'profile' | 'homeCards', string[]>>; // order of the movable cards per page, and homeCards: the cards switched on for Home (features/home/homeCards.ts)
   driveBackup?: DriveBackupSettings; // Google Drive backups (src/features/connect)
   // Brand-new accounts only: 'slides' (welcome slides next), then 'tour' (button tour on Home), then 'done'.
   // Accounts made before this existed have no value and never see them.

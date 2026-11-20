@@ -8,7 +8,7 @@ import { useAuth } from '../../app/App';
 import { useI18n, categoryLabel, TKey } from '../../shared/i18n';
 import { cn } from '../../shared/lib/utils';
 import { isOnline, saved } from '../../shared/lib/offlineSave';
-import { CARD_SUB, CARD_TITLE } from '../../shared/lib/cardText';
+import { CARD_SUB, CARD_TITLE, ROW_BUTTON, RowLook } from '../../shared/lib/cardText';
 import DetailSheet from '../../shared/components/DetailSheet';
 import { alertDialog, confirmDialog, confirmWithTick } from '../../shared/components/Dialog';
 import { GoogleAppsCancelled, WrongGoogleAccountError, preloadGoogleApps } from '../auth/googleSignIn';
@@ -31,7 +31,7 @@ const APPS: Record<GoogleApp, { Logo: typeof DriveLogo; name: TKey; about: TKey 
 };
 
 /** Profile row: link or unlink Google Drive and Google Sheets, with Drive backups and "Export everything" */
-export default function ConnectedAppsCard({ uid }: { uid: string }) {
+export default function ConnectedAppsCard({ uid, look = 'card' }: { uid: string; look?: RowLook }) {
   const { t, dateLocale } = useI18n();
   const { profile, refreshProfile } = useAuth();
   const { status, error: statusError, retry } = useGoogleApps();
@@ -79,7 +79,7 @@ export default function ConnectedAppsCard({ uid }: { uid: string }) {
     <>
       <button
         onClick={() => { setMessage(''); setOpen(true); }}
-        className="w-full bg-card p-6 rounded-3xl shadow-sm border border-card-border flex items-center gap-3 text-left transition-colors hover:border-indigo-500/40"
+        className={ROW_BUTTON[look]}
       >
         <LogoTile><GoogleG size={20} /></LogoTile>
         <div className="flex-1 min-w-0">

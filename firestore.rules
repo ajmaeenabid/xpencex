@@ -173,7 +173,9 @@ service cloud.firestore {
 
     // Order of the movable cards: only these pages, each a short list of card names
     function isValidLayout(layout) {
-      return layout is map && layout.keys().hasOnly(['home', 'reports', 'profile']) &&
+      // homeCards: the cards switched on for Home (src/features/home/homeCards.ts)
+      return layout is map && layout.keys().hasOnly(['home', 'reports', 'profile', 'homeCards']) &&
+             (!('homeCards' in layout) || (layout.homeCards is list && layout.homeCards.size() <= 30)) &&
              (!('home' in layout) || (layout.home is list && layout.home.size() <= 30)) &&
              (!('reports' in layout) || (layout.reports is list && layout.reports.size() <= 30)) &&
              (!('profile' in layout) || (layout.profile is list && layout.profile.size() <= 30));
